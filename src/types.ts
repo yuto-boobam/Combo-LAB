@@ -1,0 +1,118 @@
+// src/types.ts
+// Combo-LAB のデータモデル。
+//
+// 木構造について: 1キャラクターは複数の独立したコンボ木（森）を持つ。
+// 「小P始動」「中K始動」のように始動技ごとに別の木があり、ComboTree がその1本を表す。
+// MoveNode は src/lib/tree の TreeNodeLike（{id, children}）を満たす。
+
+/** 5段階評価 */
+export type Rating5 = 1 | 2 | 3 | 4 | 5;
+
+// ── 技マスタ ─────────────────────────────────────────────────────────────
+
+/**
+ * 技のカテゴリ。
+ * normal(通常技) / air(空中技) / system(共通システム) は全キャラ共通の固定リストで、
+ * Character.moveList には保存しない（src/data/commonMoves.ts を参照）。
+ * unique(特殊技) / special(必殺技) / superArt(SA) はキャラ固有のため、
+ * ユーザーが手入力で登録したものを Character.moveList に保存し、以後ボタンとして再利用する。
+ */
+export type MoveCategory = 'normal' | 'air' | 'unique' | 'special' | 'superArt' | 'system';
+
+/** キャラごとの技候補（サイドドロワーの「技」選択欄に並ぶ）。unique/special/superArtのみで使用 */
+export type MoveDefinition = {
+  id: string;
+  name: string; // 技名（例: "波動拳"、SAの場合はキャラ固有のSA名）
+  category: MoveCategory;
+};
+
+// ── ノードの属性 ──────────────────────────────────────────────────────────
+
+export type NodeAttributeType =
+  | 'hit'              // ヒット
+  | 'guard'            // ガード
+  | 'whiff'            // 空振り
+  | 'characterLimited' // キャラ限定
+  | 'positionLimited'  // 位置限定
+  | 'counter'          // カウンター(CH)
+  | 'punishCounter'    // パニッシュカウンター(PC)
+  | 'rush'             // ラッシュ
+  | 'airHit'           // 空中ヒット
+  | 'comboEnder'       // コンボ締め
+  | 'delay'            // ディレイ
+  | 'okizeme'          // 起き攻め
+  | 'other';           // その他
+
+/**
+ * characterLimited / positionLimited / other は自由記述メモを伴う。
+ * それ以外は type だけで意味が完結する。
+ */
+export type NodeAttribute =
+  | { type: 'characterLimited'; note: string }
+  | { type: 'positionLimited'; note: string }
+  | { type: 'other'; note: string }
+  | { type: Exclude<NodeAttributeType, 'characterLimited' | 'positionLimited' | 'other'> };
+
+// ── 枝（コンボ）の統計情報 ──────────────────────────────────────────────────
+
+/**
+ * root→leaf の1パス（=1つの枝）に紐づく統計。
+ *
+ * 入力欄は「コンボ締め」「ガード」「空振り」のいずれかの属性を持つノードにのみ表示する
+ * （表示条件は src/components/combo/SideDrawerPanel.tsx の showStatsEditor を参照）。
+ * 葉ノードがこれらの属性を持たず自分の branchStats を持たない場合、直近の祖先にある
+ * 「コンボ締め」ノードの branchStats を初期値として引き継ぐ
+ * （継承の解決は utils/branchStats.ts の resolveEffectiveBranchStats を使う）。
+ */
+export type ComboBranchStats = {
+  damage: number | null;
+  dGaugeChange: number | null; // 回収+ / 消費-
+  saGaugeGain: number | null;
+
+  damageRating: Rating5 | null;
+  dGaugeRating: Rating5 | null;
+  saGaugeRating: Rating5 | null;
+  overallRating: Rating5 | null;
+
+  plusFrame: number | null; // 具体的なフレーム数（例: +3）
+  isThrowRange: boolean;
+  canOkizeme: boolean;
+};
+
+// ── ノード（技） ──────────────────────────────────────────────────────────
+
+export type MoveNode = {
+  id: string;
+  moveName: string; // 技名（技マスタから選んだ時点のスナップショット）
+  attributes: NodeAttribute[];
+  specialNote: string; // 「ディレイ~F」のような特殊記入。基本は空文字
+
+  // コンボ締め/ガード/空振り属性を持つノードにのみ意味を持つ（上記コメント参照）
+  branchStats: ComboBranchStats | null;
+
+  createdBy: string;
+  createdAt: string;
+
+  children: MoveNode[];
+};
+
+// ── コンボ木・キャラクター ──────────────────────────────────────────────────
+
+/** 1本のコンボ木（森の中の1本） */
+export type ComboTree = {
+  id: string;
+  label: string; // 「小P始動」のような木の名前
+  root: MoveNode;
+};
+
+export type Character = {
+  id: string;
+  name: string;
+  // 未設定の間はキャラ選択画面で name をそのままアイコン代わりに表示する
+  imageUrl: string | null;
+  moveList: MoveDefinition[];
+  comboTrees: ComboTree[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
