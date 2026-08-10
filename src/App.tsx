@@ -1,21 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from './store';
 import { AuthPage } from './pages/AuthPage';
-import Header from './components/Header';
+import { CharacterSelectPage } from './pages/CharacterSelectPage';
+import { CharacterHomePage } from './pages/CharacterHomePage';
+import { ComboTreePage } from './pages/ComboTreePage';
 import { supabase } from './utils/supabaseClient';
 
 /**
  * App.tsx — アプリのエントリポイント。
- * ログイン状態（user）に応じて、未ログインならAuthPage、ログイン済ならホーム画面を切り替える。
- *
- * フェーズ0時点ではキャラ選択・コンボの木はまだ実装しておらず、
- * ログイン後はプレースホルダー画面を表示する（フェーズ1以降で本実装）。
+ * ログイン状態（user）に応じて、未ログインならAuthPage、ログイン済なら
+ * キャラ選択→（選択後）キャラのホーム画面を切り替える（企画書5ページの画面遷移）。
+ * ゲーム選択は企画書の指示により実装しない。
  */
 function App() {
   const user = useAppStore((s) => s.user);
   const setUser = useAppStore((s) => s.setUser);
   const isGuest = useAppStore((s) => s.isGuest);
   const theme = useAppStore((s) => s.theme);
+  const selectedCharacterId = useAppStore((s) => s.selectedCharacterId);
+  const selectedComboTreeId = useAppStore((s) => s.selectedComboTreeId);
 
   // 配色テーマをHTMLルート要素に反映（CSS変数の切り替えに使う）
   useEffect(() => {
@@ -63,22 +66,13 @@ function App() {
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden' }}>
-      <div
-        className="flex flex-col h-full overflow-hidden"
-        style={{ background: 'var(--bg-base)' }}
-      >
-        <Header />
-
-        <main
-          className="flex-1 flex items-center justify-center"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 38, marginBottom: 12 }}>🥊</div>
-            <p>Combo-LABへようこそ。キャラ選択・コンボの木はこれから実装します。</p>
-          </div>
-        </main>
-      </div>
+      {!selectedCharacterId ? (
+        <CharacterSelectPage />
+      ) : !selectedComboTreeId ? (
+        <CharacterHomePage />
+      ) : (
+        <ComboTreePage />
+      )}
     </div>
   );
 }

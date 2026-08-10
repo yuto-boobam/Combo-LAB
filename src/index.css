@@ -47,6 +47,13 @@
   --accent-green-bg:     rgba(22, 163, 74, 0.16);
   --accent-green-text:   #bbf7d0;
 
+  /* コンボノードの本体色・枠線色（企画書13ページの色ルール）。
+     ノードの背景色はデフォルトで --bg-surface、枠線はデフォルトで --border を使う。 */
+  --node-counter-bg:        rgba(234, 179, 8, 0.24);   /* カウンター(CH): 黄 */
+  --node-punish-counter-bg: rgba(194, 65, 12, 0.32);   /* パニッシュカウンター(PC): 濃いオレンジ */
+  --node-combo-ender-bg:    rgba(124, 58, 237, 0.28);  /* コンボ締め: 紫 */
+  --node-guard-border:      #38bdf8;                   /* ガード: 水色〜青 */
+
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
@@ -86,6 +93,11 @@
   --accent-green-border: rgba(21, 128, 61, 0.35);
   --accent-green-bg:     rgba(34, 197, 94, 0.12);
   --accent-green-text:   #15803d;
+
+  --node-counter-bg:        rgba(217, 119, 6, 0.18);
+  --node-punish-counter-bg: rgba(194, 65, 12, 0.22);
+  --node-combo-ender-bg:    rgba(124, 58, 237, 0.16);
+  --node-guard-border:      #0284c7;
 }
 
 /* ── リセット & ベース ──────────────────────────────────────── */
@@ -127,6 +139,9 @@ body {
 .drawer-scroll {
   scrollbar-width: auto;
   scrollbar-color: var(--text-muted) var(--bg-base);
+  /* スクロールバーの出現/消失で中身の幅（ボタンの折り返し）が変わらないよう、
+     スクロール不要なときも常にスクロールバー分の余白を確保しておく */
+  scrollbar-gutter: stable;
 }
 .drawer-scroll::-webkit-scrollbar { width: 10px; }
 .drawer-scroll::-webkit-scrollbar-track {
@@ -200,6 +215,16 @@ body {
   background: var(--accent-hover);
   box-shadow: 0 0 16px var(--accent-glow);
 }
+.btn-primary:disabled {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.btn-primary:disabled:hover {
+  background: var(--bg-elevated);
+  box-shadow: none;
+}
 
 /* ボタン：ゴースト */
 .btn-ghost {
@@ -220,6 +245,15 @@ body {
   background: var(--bg-elevated);
   color: var(--text-primary);
   border-color: var(--border-hover);
+}
+.btn-ghost:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.btn-ghost:disabled:hover {
+  background: transparent;
+  border-color: var(--border);
 }
 
 /* ボタン：アイコン（正方形） */

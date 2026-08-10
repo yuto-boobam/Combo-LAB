@@ -1,13 +1,61 @@
 // src/components/Header.tsx
-// フェーズ0時点の最小限のヘッダー。
-// ブランドロゴ・ニックネーム表示・ゲストバッジ・パッチノートを持つ。
-// インポート/エクスポート（バックアップ）機能とサイドパネルの開閉は、
-// コンボデータのモデルが決まるフェーズ1以降で追加する。
+// ブランドロゴ・ニックネーム表示・ゲストバッジ・パッチノート・バックアップを持つ共通ヘッダー。
+// バックアップはRootedのHeader.tsxのエクスポート/インポート/上書き保存の仕組みを踏襲し、
+// 対象データをProjectからCombo-LABのcharacters全体（31キャラ分）に差し替えたもの。
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { ChangeEvent, CSSProperties, ReactNode } from 'react';
+import { useRef, useState } from 'react';
 import { useAppStore } from '../store';
+import type { Character } from '../types';
+import { getStoredFileHandle, setStoredFileHandle } from '../utils/fileHandleStore';
 import PatchNotesModal from './patchNotes/PatchNotesModal';
 import { NicknameDisplay } from './NicknameDisplay';
+
+const BACKUP_FILE_HANDLE_KEY = 'combo-lab-backup';
+
+const isFileSystemAccessSupported =
+  typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
+
+function todayDateKey(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function backupFileName(): string {
+  return `combo-lab-backup-${todayDateKey()}.json`;
+}
+
+function buildBackupPayload(characters: Character[]) {
+  return {
+    formatVersion: 1,
+    exportedAt: new Date().toISOString(),
+    characters,
+  };
+}
+
+function extractCharactersFromImportedJson(parsed: unknown): Partial<Character>[] | null {
+  const candidate =
+    parsed && typeof parsed === 'object' && 'characters' in parsed
+      ? (parsed as { characters: unknown }).characters
+      : parsed;
+
+  return Array.isArray(candidate) ? (candidate as Partial<Character>[]) : null;
+}
+
+function downloadJson(fileName: string, data: unknown): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export type HeaderBreadcrumbItem =
   | string
@@ -41,6 +89,107 @@ export default function Header({
   const selectedPatchNoteDate = useAppStore((state) => state.selectedPatchNoteDate);
   const openPatchNotesModal = useAppStore((state) => state.openPatchNotesModal);
   const closePatchNotesModal = useAppStore((state) => state.closePatchNotesModal);
+
+  const characters = useAppStore((state) => state.characters);
+  const restoreCharacters = useAppStore((state) => state.restoreCharacters);
+
+  const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
+  const [backupMenuPosition, setBackupMenuPosition] = useState({ top: 0, right: 0 });
+  const backupButtonRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveFileHandleRef = useRef<FileSystemFileHandle | null>(null);
+
+  const handleBackupButtonClick = () => {
+    const rect = backupButtonRef.current?.getBoundingClientRect();
+    if (rect) {
+      setBackupMenuPosition({
+        top: rect.bottom + 6,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setIsBackupMenuOpen((open) => !open);
+  };
+
+  const handleExport = () => {
+    downloadJson(backupFileName(), buildBackupPayload(characters));
+    setIsBackupMenuOpen(false);
+  };
+
+  const handleImportButtonClick = () => {
+    setIsBackupMenuOpen(false);
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    let importedCharacters: Partial<Character>[] | null = null;
+    try {
+      importedCharacters = extractCharactersFromImportedJson(JSON.parse(await file.text()));
+    } catch {
+      importedCharacters = null;
+    }
+
+    if (!importedCharacters) {
+      window.alert(
+        'インポートに失敗しました。Combo-LABからエクスポートしたバックアップのjsonファイルを選択してください。',
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'バックアップを読み込みます。現在のキャラクターデータは上書きされます。よろしいですか？',
+    );
+    if (!confirmed) return;
+
+    restoreCharacters(importedCharacters);
+  };
+
+  const handleSaveOverwrite = async () => {
+    setIsBackupMenuOpen(false);
+
+    if (!isFileSystemAccessSupported || !window.showSaveFilePicker) {
+      handleExport();
+      return;
+    }
+
+    try {
+      let handle =
+        saveFileHandleRef.current ??
+        (await getStoredFileHandle(BACKUP_FILE_HANDLE_KEY)) ??
+        undefined;
+
+      if (!handle) {
+        handle = await window.showSaveFilePicker({
+          suggestedName: backupFileName(),
+          types: [
+            { description: 'JSON', accept: { 'application/json': ['.json'] } },
+          ],
+        });
+        await setStoredFileHandle(BACKUP_FILE_HANDLE_KEY, handle);
+      }
+
+      saveFileHandleRef.current = handle;
+
+      const permission = await handle.queryPermission({ mode: 'readwrite' });
+      if (permission !== 'granted') {
+        const requested = await handle.requestPermission({ mode: 'readwrite' });
+        if (requested !== 'granted') {
+          window.alert('ファイルへの書き込み権限が許可されませんでした。');
+          return;
+        }
+      }
+
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(buildBackupPayload(characters), null, 2));
+      await writable.close();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      window.alert('上書き保存に失敗しました。');
+    }
+  };
 
   const breadcrumbItems =
     breadcrumbs && breadcrumbs.length > 0 ? breadcrumbs : title ? [title] : [];
@@ -89,6 +238,84 @@ export default function Header({
               <span>📜</span>
               <span style={styles.compactButtonText}>パッチノート</span>
             </button>
+
+            <div style={styles.backupMenuWrapper}>
+              <button
+                ref={backupButtonRef}
+                type="button"
+                style={styles.backupButton}
+                onClick={handleBackupButtonClick}
+                title="バックアップ（エクスポート／インポート）"
+                aria-haspopup="menu"
+                aria-expanded={isBackupMenuOpen}
+              >
+                <span>💾</span>
+                <span style={styles.compactButtonText}>バックアップ</span>
+              </button>
+
+              {isBackupMenuOpen && (
+                <>
+                  <div
+                    style={styles.backupMenuOverlay}
+                    onClick={() => setIsBackupMenuOpen(false)}
+                  />
+
+                  <div
+                    style={{
+                      ...styles.backupMenu,
+                      top: backupMenuPosition.top,
+                      right: backupMenuPosition.right,
+                    }}
+                    role="menu"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      style={styles.backupMenuItem}
+                      onClick={handleExport}
+                    >
+                      <span>⬇️</span>
+                      <span>エクスポート</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      style={styles.backupMenuItem}
+                      onClick={handleImportButtonClick}
+                    >
+                      <span>⬆️</span>
+                      <span>インポート</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      style={styles.backupMenuItem}
+                      onClick={handleSaveOverwrite}
+                      title={
+                        isFileSystemAccessSupported
+                          ? undefined
+                          : 'このブラウザは上書き保存に非対応のため、新規ダウンロードになります'
+                      }
+                    >
+                      <span>💽</span>
+                      <span>
+                        上書き保存{isFileSystemAccessSupported ? '' : '（新規DL）'}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                style={styles.hiddenFileInput}
+                onChange={handleImportFileChange}
+              />
+            </div>
           </div>
         </div>
 
@@ -229,6 +456,62 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 900,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
+  },
+  backupMenuWrapper: {
+    position: 'relative',
+    flexShrink: 0,
+  },
+  backupButton: {
+    height: 32,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 11,
+    border: '1px solid var(--accent-teal-border)',
+    background: 'var(--accent-teal-bg)',
+    color: 'var(--accent-teal-text)',
+    padding: '0 9px',
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  backupMenuOverlay: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 59,
+  },
+  backupMenu: {
+    position: 'fixed',
+    zIndex: 60,
+    minWidth: 176,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    padding: 4,
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.35)',
+  },
+  backupMenuItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    padding: '7px 9px',
+    borderRadius: 8,
+    border: 0,
+    background: 'transparent',
+    color: 'var(--text-primary)',
+    fontSize: 12,
+    fontWeight: 700,
+    textAlign: 'left',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  hiddenFileInput: {
+    display: 'none',
   },
   compactButtonText: {
     lineHeight: 1,

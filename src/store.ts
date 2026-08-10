@@ -1,12 +1,174 @@
 // src/store.ts
-// フェーズ0時点の最小限のストア。
-// AuthPage / Header が動作するのに必要な状態のみを持つ。
-// キャラクター・コンボ木まわりの状態はフェーズ1以降で追加する。
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '@supabase/supabase-js';
+import type {
+  Character,
+  ComboBranchStats,
+  ComboTree,
+  MoveCategory,
+  MoveDefinition,
+  MoveNode,
+  NodeAttribute,
+} from './types';
 import { supabase } from './utils/supabaseClient';
+import { createInitialCharacterRoster } from './data/characterRoster';
+import { findNode } from './lib/tree';
+
+// ── ヘルパー関数 ────────────────────────────────────────────────────────────
+
+const VALID_MOVE_CATEGORIES: MoveCategory[] = [
+  'normal',
+  'air',
+  'unique',
+  'special',
+  'superArt',
+  'system',
+];
+
+/** インポートしたJSONの1ノード分を、現行スキーマに合わせて正規化する（壊れたファイルでも落ちないようにする） */
+function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
+  return {
+    id: typeof node.id === 'string' && node.id ? node.id : makeId(),
+    moveName: typeof node.moveName === 'string' ? node.moveName : '（技名未設定）',
+    attributes: Array.isArray(node.attributes) ? (node.attributes as NodeAttribute[]) : [],
+    specialNote: typeof node.specialNote === 'string' ? node.specialNote : '',
+    branchStats: node.branchStats ?? null,
+    createdBy: typeof node.createdBy === 'string' ? node.createdBy : '',
+    createdAt: typeof node.createdAt === 'string' ? node.createdAt : new Date().toISOString(),
+    children: Array.isArray(node.children)
+      ? node.children.map((child) => normalizeMoveNode(child as Partial<MoveNode>))
+      : [],
+  };
+}
+
+function normalizeComboTree(tree: Partial<ComboTree>): ComboTree | null {
+  if (!tree.root) return null;
+
+  return {
+    id: typeof tree.id === 'string' && tree.id ? tree.id : makeId(),
+    label: typeof tree.label === 'string' ? tree.label : '無題の木',
+    root: normalizeMoveNode(tree.root as Partial<MoveNode>),
+  };
+}
+
+function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition | null {
+  if (typeof move.name !== 'string' || !move.name) return null;
+
+  const category = VALID_MOVE_CATEGORIES.includes(move.category as MoveCategory)
+    ? (move.category as MoveCategory)
+    : 'unique';
+
+  return {
+    id: typeof move.id === 'string' && move.id ? move.id : makeId(),
+    name: move.name,
+    category,
+  };
+}
+
+/** インポートしたキャラ1人分を正規化する。壊れている項目は現在の値（fallback）を維持する */
+function normalizeImportedCharacter(imported: Partial<Character>, fallback: Character): Character {
+  return {
+    id: fallback.id,
+    name: typeof imported.name === 'string' && imported.name ? imported.name : fallback.name,
+    imageUrl: typeof imported.imageUrl === 'string' ? imported.imageUrl : fallback.imageUrl,
+    moveList: Array.isArray(imported.moveList)
+      ? imported.moveList
+          .map((move) => normalizeMoveDefinition(move as Partial<MoveDefinition>))
+          .filter((move): move is MoveDefinition => move !== null)
+      : fallback.moveList,
+    comboTrees: Array.isArray(imported.comboTrees)
+      ? imported.comboTrees
+          .map((tree) => normalizeComboTree(tree as Partial<ComboTree>))
+          .filter((tree): tree is ComboTree => tree !== null)
+      : fallback.comboTrees,
+    createdBy: typeof imported.createdBy === 'string' ? imported.createdBy : fallback.createdBy,
+    createdAt: typeof imported.createdAt === 'string' ? imported.createdAt : fallback.createdAt,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+const makeId = (): string =>
+  Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+function makeMoveNode(
+  moveName: string,
+  attributes: NodeAttribute[],
+  createdBy: string,
+): MoveNode {
+  return {
+    id: makeId(),
+    moveName: moveName.trim() || '（技名未設定）',
+    attributes,
+    specialNote: '',
+    branchStats: null,
+    createdBy,
+    createdAt: new Date().toISOString(),
+    children: [],
+  };
+}
+
+// ── 木構造操作ヘルパー（MoveNode版。Rootedのstore.tsと同じ考え方） ────────────
+
+function mapMoveNode(
+  node: MoveNode,
+  targetId: string,
+  fn: (n: MoveNode) => MoveNode,
+): MoveNode {
+  if (node.id === targetId) return fn(node);
+
+  return {
+    ...node,
+    children: node.children.map((child) => mapMoveNode(child, targetId, fn)),
+  };
+}
+
+function findMoveNodeParent(
+  node: MoveNode,
+  targetId: string,
+): { parent: MoveNode; index: number } | null {
+  const index = node.children.findIndex((child) => child.id === targetId);
+  if (index !== -1) return { parent: node, index };
+
+  for (const child of node.children) {
+    const result = findMoveNodeParent(child, targetId);
+    if (result) return result;
+  }
+
+  return null;
+}
+
+function removeMoveNode(root: MoveNode, targetId: string): MoveNode {
+  return {
+    ...root,
+    children: root.children
+      .filter((child) => child.id !== targetId)
+      .map((child) => removeMoveNode(child, targetId)),
+  };
+}
+
+/** characterId・treeId を辿って、その木の root だけを updater で差し替える */
+function updateComboTreeRoot(
+  characters: Character[],
+  characterId: string,
+  treeId: string,
+  updater: (root: MoveNode) => MoveNode,
+): Character[] {
+  return characters.map((character) => {
+    if (character.id !== characterId) return character;
+
+    return {
+      ...character,
+      updatedAt: new Date().toISOString(),
+      comboTrees: character.comboTrees.map((tree) =>
+        tree.id === treeId ? { ...tree, root: updater(tree.root) } : tree,
+      ),
+    };
+  });
+}
+
+// ── Zustand ストア型 ───────────────────────────────────────────────────────
 
 export type AppState = {
   user: User | null;
@@ -30,7 +192,87 @@ export type AppState = {
   openPatchNotesModal: (date?: string) => void;
   closePatchNotesModal: () => void;
   setSelectedPatchNoteDate: (date: string | null) => void;
+
+  // キャラクター選択（31枠の固定ロースター。comboTrees等は永続化されユーザーが育てていく）
+  characters: Character[];
+  selectedCharacterId: string | null;
+  selectCharacter: (characterId: string) => void;
+  goToCharacterSelect: () => void;
+
+  /** バックアップJSONからのインポート。id一致するキャラのみ上書きし、固定31枠の構造は保つ */
+  restoreCharacters: (imported: Partial<Character>[]) => void;
+
+  // 技マスタ（特殊技・必殺技・SAはキャラ固有。ユーザーが登録したものを再利用できる）
+  addMoveDefinition: (
+    characterId: string,
+    category: MoveCategory,
+    name: string,
+  ) => string;
+  deleteMoveDefinition: (characterId: string, moveId: string) => void;
+  renameMoveDefinition: (characterId: string, moveId: string, name: string) => void;
+
+  // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
+  selectedComboTreeId: string | null;
+  selectComboTree: (treeId: string) => void;
+  goToCharacterHome: () => void;
+  createComboTree: (characterId: string, label: string) => string;
+  deleteComboTree: (characterId: string, treeId: string) => void;
+
+  // ノード（技）操作
+  selectedNodeId: string | null;
+  selectNode: (nodeId: string | null) => void;
+
+  collapsedNodeIds: string[];
+  toggleNodeExpanded: (nodeId: string) => void;
+
+  addChildNode: (
+    characterId: string,
+    treeId: string,
+    parentId: string,
+    moveName: string,
+    attributes?: NodeAttribute[],
+  ) => string;
+
+  deleteNode: (characterId: string, treeId: string, nodeId: string) => void;
+
+  moveNode: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    targetParentId: string,
+    toIndex?: number,
+  ) => void;
+
+  updateNodeMoveName: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    moveName: string,
+  ) => void;
+
+  updateNodeSpecialNote: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    specialNote: string,
+  ) => void;
+
+  setNodeAttributes: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    attributes: NodeAttribute[],
+  ) => void;
+
+  setNodeBranchStats: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    branchStats: ComboBranchStats | null,
+  ) => void;
 };
+
+// ── ストア本体 ─────────────────────────────────────────────────────────────
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -101,6 +343,258 @@ export const useAppStore = create<AppState>()(
       setSelectedPatchNoteDate: (date) => {
         set({ selectedPatchNoteDate: date });
       },
+
+      // ──── キャラクター選択 ────────────────────────────────────────────
+
+      characters: createInitialCharacterRoster(),
+      selectedCharacterId: null,
+
+      selectCharacter: (characterId) => {
+        set({ selectedCharacterId: characterId });
+      },
+
+      goToCharacterSelect: () => {
+        set({ selectedCharacterId: null, selectedComboTreeId: null, selectedNodeId: null });
+      },
+
+      restoreCharacters: (imported) => {
+        set((state) => ({
+          characters: state.characters.map((current) => {
+            const match = imported.find((item) => item.id === current.id);
+            return match ? normalizeImportedCharacter(match, current) : current;
+          }),
+        }));
+      },
+
+      // ──── 技マスタ ───────────────────────────────────────────────────
+
+      addMoveDefinition: (characterId, category, name) => {
+        const newMove: MoveDefinition = {
+          id: makeId(),
+          name: name.trim() || '（技名未設定）',
+          category,
+        };
+
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: [...character.moveList, newMove],
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+
+        return newMove.id;
+      },
+
+      deleteMoveDefinition: (characterId, moveId) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.filter((move) => move.id !== moveId),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      renameMoveDefinition: (characterId, moveId, name) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId ? { ...move, name } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      // ──── コンボ木 ───────────────────────────────────────────────────
+
+      selectedComboTreeId: null,
+
+      selectComboTree: (treeId) => {
+        set({ selectedComboTreeId: treeId, selectedNodeId: null });
+      },
+
+      goToCharacterHome: () => {
+        set({ selectedComboTreeId: null, selectedNodeId: null });
+      },
+
+      createComboTree: (characterId, label) => {
+        const { nickname } = get();
+        const trimmedLabel = label.trim() || '無題の木';
+
+        const newTree: ComboTree = {
+          id: makeId(),
+          label: trimmedLabel,
+          root: makeMoveNode(trimmedLabel, [], nickname),
+        };
+
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  comboTrees: [...character.comboTrees, newTree],
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+
+        return newTree.id;
+      },
+
+      deleteComboTree: (characterId, treeId) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  comboTrees: character.comboTrees.filter((tree) => tree.id !== treeId),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+          selectedComboTreeId:
+            state.selectedComboTreeId === treeId ? null : state.selectedComboTreeId,
+          selectedNodeId: state.selectedComboTreeId === treeId ? null : state.selectedNodeId,
+        }));
+      },
+
+      // ──── ノード（技）操作 ────────────────────────────────────────────
+
+      selectedNodeId: null,
+
+      selectNode: (nodeId) => {
+        set({ selectedNodeId: nodeId });
+      },
+
+      collapsedNodeIds: [],
+
+      toggleNodeExpanded: (nodeId) => {
+        set((state) => ({
+          collapsedNodeIds: state.collapsedNodeIds.includes(nodeId)
+            ? state.collapsedNodeIds.filter((id) => id !== nodeId)
+            : [...state.collapsedNodeIds, nodeId],
+        }));
+      },
+
+      addChildNode: (characterId, treeId, parentId, moveName, attributes = []) => {
+        const { nickname } = get();
+        const newNode = makeMoveNode(moveName, attributes, nickname);
+
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, parentId, (node) => ({
+              ...node,
+              children: [...node.children, newNode],
+            })),
+          ),
+        }));
+
+        return newNode.id;
+      },
+
+      deleteNode: (characterId, treeId, nodeId) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            root.id === nodeId ? root : removeMoveNode(root, nodeId),
+          ),
+          selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+        }));
+      },
+
+      moveNode: (characterId, treeId, nodeId, targetParentId, toIndex) => {
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const tree = character?.comboTrees.find((item) => item.id === treeId);
+          if (!tree) return state;
+          if (tree.root.id === nodeId) return state; // rootは動かせない
+
+          const draggedNode = findNode(tree.root, nodeId);
+          if (!draggedNode) return state;
+
+          const isCyclic = (node: MoveNode): boolean => {
+            if (node.id === targetParentId) return true;
+            return node.children.some(isCyclic);
+          };
+          if (isCyclic(draggedNode)) return state;
+
+          const targetParent = findNode(tree.root, targetParentId);
+          if (!targetParent) return state;
+
+          const draggedParentInfo = findMoveNodeParent(tree.root, nodeId);
+          const isSameParent = draggedParentInfo?.parent.id === targetParentId;
+          const oldIndex = draggedParentInfo?.index ?? -1;
+
+          let nextRoot = removeMoveNode(tree.root, nodeId);
+
+          nextRoot = mapMoveNode(nextRoot, targetParentId, (node) => {
+            const children = [...node.children];
+
+            if (toIndex !== undefined) {
+              let insertIndex = toIndex;
+              if (isSameParent && oldIndex !== -1 && oldIndex < insertIndex) {
+                insertIndex -= 1;
+              }
+              children.splice(insertIndex, 0, draggedNode);
+            } else {
+              children.push(draggedNode);
+            }
+
+            return { ...node, children };
+          });
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, () => nextRoot),
+          };
+        });
+      },
+
+      updateNodeMoveName: (characterId, treeId, nodeId, moveName) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({ ...node, moveName })),
+          ),
+        }));
+      },
+
+      updateNodeSpecialNote: (characterId, treeId, nodeId, specialNote) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({ ...node, specialNote })),
+          ),
+        }));
+      },
+
+      setNodeAttributes: (characterId, treeId, nodeId, attributes) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({ ...node, attributes })),
+          ),
+        }));
+      },
+
+      setNodeBranchStats: (characterId, treeId, nodeId, branchStats) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({ ...node, branchStats })),
+          ),
+        }));
+      },
     }),
     {
       name: 'combo-lab-storage',
@@ -108,6 +602,10 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         theme: state.theme,
         isGuest: state.isGuest,
+        characters: state.characters,
+        selectedCharacterId: state.selectedCharacterId,
+        selectedComboTreeId: state.selectedComboTreeId,
+        collapsedNodeIds: state.collapsedNodeIds,
       }),
 
       merge: (persistedState, currentState) => {
@@ -116,10 +614,16 @@ export const useAppStore = create<AppState>()(
         return {
           ...currentState,
           ...persisted,
+          // 保存済みデータが壊れている/空の場合は初期ロースターにフォールバックする
+          characters:
+            Array.isArray(persisted?.characters) && persisted.characters.length > 0
+              ? persisted.characters
+              : currentState.characters,
           user: currentState.user,
           nickname: persisted?.isGuest ? 'ゲスト' : currentState.nickname,
           isPatchNotesModalOpen: false,
           selectedPatchNoteDate: null,
+          selectedNodeId: null,
         };
       },
     },

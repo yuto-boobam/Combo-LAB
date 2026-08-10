@@ -2,8 +2,8 @@
 // 「上書き保存」で選んだFileSystemFileHandleをIndexedDBに保存し、
 // ページのリロードを跨いでも同じファイルへの書き込みを続けられるようにする。
 
-const DB_NAME = 'rooted-file-handles';
-const STORE_NAME = 'projectFileHandles';
+const DB_NAME = 'combo-lab-file-handles';
+const STORE_NAME = 'backupFileHandles';
 const DB_VERSION = 1;
 
 function openDb(): Promise<IDBDatabase> {
@@ -18,7 +18,7 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 export async function getStoredFileHandle(
-  projectId: string,
+  key: string,
 ): Promise<FileSystemFileHandle | null> {
   const db = await openDb();
 
@@ -26,7 +26,7 @@ export async function getStoredFileHandle(
     const request = db
       .transaction(STORE_NAME, 'readonly')
       .objectStore(STORE_NAME)
-      .get(projectId);
+      .get(key);
 
     request.onsuccess = () =>
       resolve((request.result as FileSystemFileHandle | undefined) ?? null);
@@ -35,14 +35,14 @@ export async function getStoredFileHandle(
 }
 
 export async function setStoredFileHandle(
-  projectId: string,
+  key: string,
   handle: FileSystemFileHandle,
 ): Promise<void> {
   const db = await openDb();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(handle, projectId);
+    tx.objectStore(STORE_NAME).put(handle, key);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

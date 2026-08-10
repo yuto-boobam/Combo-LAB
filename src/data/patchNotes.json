@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "id": "2026-08-10-2fec1be1",
+    "date": "2026-08-10",
+    "buildNumber": 1,
+    "type": "other",
+    "title": "サイドドロワー基本機能実装",
+    "description": "三つのセッションで選択したノードを生成、それで木を作成していく",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260810-build1-after.png?v=1786380409808"
+  }
+]
