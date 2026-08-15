@@ -84,6 +84,7 @@ export default function Header({
   rightSlot,
 }: HeaderProps) {
   const isGuest = useAppStore((state) => state.isGuest);
+  const logout = useAppStore((state) => state.logout);
 
   const isPatchNotesModalOpen = useAppStore((state) => state.isPatchNotesModalOpen);
   const selectedPatchNoteDate = useAppStore((state) => state.selectedPatchNoteDate);
@@ -318,6 +319,18 @@ export default function Header({
                 />
               </div>
             )}
+
+            <button
+              type="button"
+              style={styles.logoutButton}
+              onClick={() => {
+                void logout();
+              }}
+              title="ログアウト"
+            >
+              <span>🚪</span>
+              <span style={styles.compactButtonText}>ログアウト</span>
+            </button>
           </div>
         </div>
 
@@ -472,6 +485,22 @@ const styles: Record<string, CSSProperties> = {
     border: '1px solid var(--accent-teal-border)',
     background: 'var(--accent-teal-bg)',
     color: 'var(--accent-teal-text)',
+    padding: '0 9px',
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  logoutButton: {
+    height: 32,
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 11,
+    border: '1px solid var(--accent-rose-border)',
+    background: 'var(--accent-rose-bg)',
+    color: 'var(--accent-rose-text)',
     padding: '0 9px',
     fontSize: 12,
     fontWeight: 900,
