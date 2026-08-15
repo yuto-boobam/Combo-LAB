@@ -20,6 +20,7 @@ type Props = {
   parentId: string | null;
   dragIndex: number;
   onDrop: (draggedData: DraggedNodeData) => void;
+  readOnly?: boolean;
 };
 
 export function MoveNodeCircle({
@@ -32,6 +33,7 @@ export function MoveNodeCircle({
   parentId,
   dragIndex,
   onDrop,
+  readOnly = false,
 }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isLeaf = node.children.length === 0;
@@ -44,8 +46,9 @@ export function MoveNodeCircle({
   return (
     <div
       id={`node-${node.id}`}
-      draggable={!isRoot}
+      draggable={!isRoot && !readOnly}
       onDragStart={(event) => {
+        if (readOnly) return;
         event.dataTransfer.setData(
           'application/json',
           JSON.stringify({ id: node.id, parentId, index: dragIndex }),
@@ -53,12 +56,14 @@ export function MoveNodeCircle({
         event.dataTransfer.effectAllowed = 'move';
       }}
       onDragOver={(event) => {
+        if (readOnly) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         setIsDragOver(true);
       }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={(event) => {
+        if (readOnly) return;
         event.preventDefault();
         setIsDragOver(false);
         try {
