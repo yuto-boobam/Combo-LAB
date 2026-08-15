@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-08-15-b4e3c3c5",
+    "date": "2026-08-15",
+    "buildNumber": 3,
+    "type": "other",
+    "title": "ログアウトボタンを実装",
+    "description": "ヘッダーに配置",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260815-build3-after.png?v=1786768643799"
+  },
+  {
     "id": "2026-08-15-082353c4",
     "date": "2026-08-15",
     "buildNumber": 2,
