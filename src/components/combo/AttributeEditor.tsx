@@ -42,9 +42,10 @@ const NOTE_ATTRS: { type: NoteAttributeType; label: string; placeholder: string 
 type Props = {
   value: NodeAttribute[];
   onChange: (next: NodeAttribute[]) => void;
+  readOnly?: boolean;
 };
 
-export function AttributeEditor({ value, onChange }: Props) {
+export function AttributeEditor({ value, onChange, readOnly = false }: Props) {
   const has = (type: NodeAttributeType) => value.some((attribute) => attribute.type === type);
 
   const setExclusiveGroup = (
@@ -82,6 +83,7 @@ export function AttributeEditor({ value, onChange }: Props) {
             label="通常"
             active={currentBodyColor === null}
             onClick={() => setExclusiveGroup(BODY_COLOR_ATTRS, null)}
+            disabled={readOnly}
           />
           {BODY_COLOR_ATTRS.map((attribute) => (
             <AttributePill
@@ -89,6 +91,7 @@ export function AttributeEditor({ value, onChange }: Props) {
               label={attribute.label}
               active={currentBodyColor === attribute.type}
               onClick={() => setExclusiveGroup(BODY_COLOR_ATTRS, attribute.type)}
+              disabled={readOnly}
             />
           ))}
         </div>
@@ -101,6 +104,7 @@ export function AttributeEditor({ value, onChange }: Props) {
             label="通常"
             active={currentBorderColor === null}
             onClick={() => setExclusiveGroup(BORDER_COLOR_ATTRS, null)}
+            disabled={readOnly}
           />
           {BORDER_COLOR_ATTRS.map((attribute) => (
             <AttributePill
@@ -108,6 +112,7 @@ export function AttributeEditor({ value, onChange }: Props) {
               label={attribute.label}
               active={currentBorderColor === attribute.type}
               onClick={() => setExclusiveGroup(BORDER_COLOR_ATTRS, attribute.type)}
+              disabled={readOnly}
             />
           ))}
         </div>
@@ -122,6 +127,7 @@ export function AttributeEditor({ value, onChange }: Props) {
               label={attribute.label}
               active={has(attribute.type)}
               onClick={() => toggleSimple(attribute.type)}
+              disabled={readOnly}
             />
           ))}
         </div>
@@ -141,6 +147,7 @@ export function AttributeEditor({ value, onChange }: Props) {
                   <input
                     type="checkbox"
                     checked={Boolean(current)}
+                    disabled={readOnly}
                     onChange={(event) =>
                       setNoteAttribute(attribute.type, event.target.checked ? '' : null)
                     }
@@ -155,6 +162,7 @@ export function AttributeEditor({ value, onChange }: Props) {
                     style={styles.noteInput}
                     placeholder={attribute.placeholder}
                     value={current.note}
+                    readOnly={readOnly}
                     onChange={(event) => setNoteAttribute(attribute.type, event.target.value)}
                   />
                 )}
@@ -171,20 +179,24 @@ function AttributePill({
   label,
   active,
   onClick,
+  disabled = false,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       style={{
         ...styles.pill,
         borderColor: active ? 'var(--accent)' : 'var(--border)',
         background: active ? 'var(--accent)' : 'var(--bg-elevated)',
         color: active ? '#fff' : 'var(--text-secondary)',
+        cursor: disabled ? 'default' : 'pointer',
       }}
     >
       {label}

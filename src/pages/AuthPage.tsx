@@ -184,7 +184,7 @@ export function AuthPage() {
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
-        {/* ゲストモードボタン */}
+        {/* ゲストモード（閲覧専用）ボタン */}
         <button
           type="button"
           className="w-full btn-ghost justify-center py-3 text-sm font-semibold"
@@ -193,10 +193,10 @@ export function AuthPage() {
             enterGuestMode();
           }}
         >
-          ゲストモードとしてログイン
+          閲覧専用で見る（ゲストモード）
         </button>
         <div className="mt-2 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-          ※ 登録不要でサンプルデータを使ってお試しいただけます。
+          ※ 登録不要で、作成済みのコンボの木を閲覧専用で見られます（編集はできません）。
         </div>
 
         <div className="mt-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>

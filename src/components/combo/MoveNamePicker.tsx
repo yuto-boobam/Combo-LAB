@@ -108,7 +108,6 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
       >
         <CharacterMoveGroupBody
           title="特殊技"
-          category="unique"
           characterId={characterId}
           moves={uniqueMoves}
           value={value}
@@ -123,9 +122,7 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
         isOpen={openSections.special}
         onToggle={() => toggleSection('special')}
       >
-        <CharacterMoveGroupBody
-          title="必殺技"
-          category="special"
+        <SpecialMoveGroupBody
           characterId={characterId}
           moves={specialMoves}
           value={value}
@@ -163,14 +160,12 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
 
 function CharacterMoveGroupBody({
   title,
-  category,
   characterId,
   moves,
   value,
   onChange,
 }: {
   title: string;
-  category: 'unique' | 'special';
   characterId: string;
   moves: MoveDefinition[];
   value: string;
@@ -184,7 +179,7 @@ function CharacterMoveGroupBody({
     const trimmed = draftName.trim();
     if (!trimmed) return;
 
-    addMoveDefinition(characterId, category, trimmed);
+    addMoveDefinition(characterId, 'unique', trimmed);
     onChange(trimmed);
     setDraftName('');
   };
@@ -235,6 +230,118 @@ function CharacterMoveGroupBody({
           登録
         </button>
       </div>
+    </div>
+  );
+}
+
+const SPECIAL_MOVE_STRENGTHS = ['弱', '中', '強', 'OD'] as const;
+
+function SpecialMoveGroupBody({
+  characterId,
+  moves,
+  value,
+  onChange,
+}: {
+  characterId: string;
+  moves: MoveDefinition[];
+  value: string;
+  onChange: (name: string) => void;
+}) {
+  const addMoveDefinition = useAppStore((state) => state.addMoveDefinition);
+  const deleteMoveDefinition = useAppStore((state) => state.deleteMoveDefinition);
+  const [draftName, setDraftName] = useState('');
+
+  // 現在の値が「強度+登録済み技名」の形なら、その技の強度選択を開いた状態にしておく
+  const selectedMove = moves.find((move) =>
+    SPECIAL_MOVE_STRENGTHS.some((strength) => value === `${strength}${move.name}`),
+  );
+  const [pickingMoveId, setPickingMoveId] = useState<string | null>(selectedMove?.id ?? null);
+  const pickingMove = moves.find((move) => move.id === pickingMoveId) ?? null;
+
+  const handleAdd = () => {
+    const trimmed = draftName.trim();
+    if (!trimmed) return;
+
+    const newId = addMoveDefinition(characterId, 'special', trimmed);
+    setDraftName('');
+    setPickingMoveId(newId);
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      <fieldset style={styles.fieldset}>
+        <legend style={styles.legend}>必殺技を選択</legend>
+        {moves.length > 0 ? (
+          <div style={styles.buttonRow}>
+            {moves.map((move) => (
+              <div key={move.id} style={styles.managedPillWrapper}>
+                <MovePill
+                  label={move.name}
+                  active={pickingMoveId === move.id}
+                  onClick={() =>
+                    setPickingMoveId((current) => (current === move.id ? null : move.id))
+                  }
+                />
+                <button
+                  type="button"
+                  title="この技を削除"
+                  style={styles.removeButton}
+                  onClick={() => {
+                    deleteMoveDefinition(characterId, move.id);
+                    if (pickingMoveId === move.id) setPickingMoveId(null);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={styles.emptyHint}>まだ必殺技が登録されていません。下から登録してください。</p>
+        )}
+      </fieldset>
+
+      {pickingMove && (
+        <fieldset style={styles.fieldset}>
+          <legend style={styles.legend}>強度選択</legend>
+          <div style={styles.buttonRow}>
+            {SPECIAL_MOVE_STRENGTHS.map((strength) => (
+              <MovePill
+                key={strength}
+                label={strength}
+                active={value === `${strength}${pickingMove.name}`}
+                onClick={() => onChange(`${strength}${pickingMove.name}`)}
+              />
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      <fieldset style={styles.fieldset}>
+        <legend style={styles.legend}>追加登録</legend>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            type="text"
+            className="input-field"
+            style={styles.addInput}
+            placeholder="新しい必殺技を登録...（強度は付けない技名）"
+            value={draftName}
+            onChange={(event) => setDraftName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') handleAdd();
+            }}
+          />
+          <button
+            type="button"
+            className="btn-ghost"
+            style={styles.addButton}
+            onClick={handleAdd}
+            disabled={!draftName.trim()}
+          >
+            登録
+          </button>
+        </div>
+      </fieldset>
     </div>
   );
 }
@@ -383,6 +490,21 @@ const styles: Record<string, CSSProperties> = {
     flex: '0 0 auto',
     padding: '6px 12px',
     fontSize: 12,
+  },
+  fieldset: {
+    border: '1px solid var(--border)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  legend: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    padding: '0 4px',
+  },
+  emptyHint: {
+    fontSize: 12,
+    color: 'var(--text-muted)',
   },
   walkBox: {
     marginTop: 10,
