@@ -8,6 +8,7 @@ import type { ComboBranchStats, Rating5 } from '../../types';
 type Props = {
   value: ComboBranchStats | null;
   onChange: (next: ComboBranchStats | null) => void;
+  readOnly?: boolean;
 };
 
 const DEFAULT_STATS: ComboBranchStats = {
@@ -23,7 +24,7 @@ const DEFAULT_STATS: ComboBranchStats = {
   canOkizeme: false,
 };
 
-export function BranchStatsEditor({ value, onChange }: Props) {
+export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) {
   const stats = value ?? DEFAULT_STATS;
 
   const update = (patch: Partial<ComboBranchStats>) => {
@@ -32,48 +33,61 @@ export function BranchStatsEditor({ value, onChange }: Props) {
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <NumberField label="ダメージ" value={stats.damage} onChange={(next) => update({ damage: next })} />
+      <NumberField
+        label="ダメージ"
+        value={stats.damage}
+        onChange={(next) => update({ damage: next })}
+        readOnly={readOnly}
+      />
       <NumberField
         label="Dゲージ増減（回収+ / 消費-）"
         value={stats.dGaugeChange}
         onChange={(next) => update({ dGaugeChange: next })}
+        readOnly={readOnly}
       />
       <NumberField
         label="SAゲージ増加"
         value={stats.saGaugeGain}
         onChange={(next) => update({ saGaugeGain: next })}
+        readOnly={readOnly}
       />
       <NumberField
         label="プラスフレーム"
         value={stats.plusFrame}
         onChange={(next) => update({ plusFrame: next })}
+        readOnly={readOnly}
       />
 
       <RatingField
         label="ダメージ評価"
         value={stats.damageRating}
         onChange={(next) => update({ damageRating: next })}
+        disabled={readOnly}
       />
       <RatingField
         label="Dゲージ評価"
         value={stats.dGaugeRating}
         onChange={(next) => update({ dGaugeRating: next })}
+        disabled={readOnly}
       />
       <RatingField
         label="SAゲージ評価"
         value={stats.saGaugeRating}
         onChange={(next) => update({ saGaugeRating: next })}
+        disabled={readOnly}
       />
       <RatingField
         label="総合評価"
         value={stats.overallRating}
         onChange={(next) => update({ overallRating: next })}
+        disabled={readOnly}
       />
 
       <label style={styles.checkboxRow}>
         <input
           type="checkbox"
           checked={stats.isThrowRange}
+          disabled={readOnly}
           onChange={(event) => update({ isThrowRange: event.target.checked })}
         />
         投げ間合い
@@ -83,6 +97,7 @@ export function BranchStatsEditor({ value, onChange }: Props) {
         <input
           type="checkbox"
           checked={stats.canOkizeme}
+          disabled={readOnly}
           onChange={(event) => update({ canOkizeme: event.target.checked })}
         />
         起き攻め可能
@@ -95,10 +110,12 @@ function NumberField({
   label,
   value,
   onChange,
+  readOnly = false,
 }: {
   label: string;
   value: number | null;
   onChange: (next: number | null) => void;
+  readOnly?: boolean;
 }) {
   return (
     <label style={styles.fieldLabel}>
@@ -108,6 +125,7 @@ function NumberField({
         className="input-field"
         style={styles.numberInput}
         value={value ?? ''}
+        readOnly={readOnly}
         onChange={(event) =>
           onChange(event.target.value === '' ? null : Number(event.target.value))
         }
@@ -120,10 +138,12 @@ function RatingField({
   label,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: Rating5 | null;
   onChange: (next: Rating5 | null) => void;
+  disabled?: boolean;
 }) {
   return (
     <label style={styles.fieldLabel}>
@@ -134,11 +154,13 @@ function RatingField({
             key={n}
             type="button"
             onClick={() => onChange(value === n ? null : n)}
+            disabled={disabled}
             style={{
               ...styles.ratingButton,
               borderColor: value === n ? 'var(--accent)' : 'var(--border)',
               background: value === n ? 'var(--accent)' : 'var(--bg-elevated)',
               color: value === n ? '#fff' : 'var(--text-secondary)',
+              cursor: disabled ? 'default' : 'pointer',
             }}
           >
             {n}

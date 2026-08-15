@@ -21,13 +21,16 @@ type Props = {
 
 export function SideDrawerPanel({ characterId, treeId, root }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
+  const isGuest = useAppStore((state) => state.isGuest);
 
   const selectedNode = selectedNodeId ? findNode(root, selectedNodeId) : null;
 
   return (
     <aside style={styles.drawer}>
       <div className="drawer-scroll" style={styles.body}>
-        {selectedNode ? (
+        {isGuest ? (
+          <ReadOnlyNodeView selectedNode={selectedNode} />
+        ) : selectedNode ? (
           // selectedNode.id をkeyにすることで、ノードを切り替えるたびに
           // NodeEditor をマウントし直し、新規追加フォームの入力状態を自然にリセットする
           <NodeEditor
@@ -43,9 +46,54 @@ export function SideDrawerPanel({ characterId, treeId, root }: Props) {
           </p>
         )}
 
-        <NewTreeSection characterId={characterId} />
+        {!isGuest && <NewTreeSection characterId={characterId} />}
       </div>
     </aside>
+  );
+}
+
+function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  if (!selectedNode) {
+    return (
+      <p style={styles.hint}>
+        閲覧専用モードです。ツリー上のノードをクリックすると詳細が見られます。
+      </p>
+    );
+  }
+
+  const showStats = selectedNode.attributes.some(
+    (attribute) =>
+      attribute.type === 'comboEnder' || attribute.type === 'guard' || attribute.type === 'whiff',
+  );
+
+  return (
+    <AccordionSection
+      title={`選択中のノード：${selectedNode.moveName}`}
+      icon="👁️"
+      count={selectedNode.attributes.length}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        {selectedNode.specialNote && (
+          <div style={styles.fieldLabel}>
+            特殊記入
+            <div style={styles.readOnlyText}>{selectedNode.specialNote}</div>
+          </div>
+        )}
+
+        <AttributeEditor value={selectedNode.attributes} onChange={() => {}} readOnly />
+
+        {showStats && (
+          <div style={{ marginTop: 4 }}>
+            <div style={styles.sectionTitle}>この枝の統計</div>
+            <BranchStatsEditor value={selectedNode.branchStats} onChange={() => {}} readOnly />
+          </div>
+        )}
+      </div>
+    </AccordionSection>
   );
 }
 
@@ -258,6 +306,14 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.7,
     color: 'var(--text-muted)',
+  },
+  readOnlyText: {
+    fontSize: 12,
+    padding: '8px 10px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    color: 'var(--text-primary)',
   },
   sectionTitle: {
     fontSize: 12,

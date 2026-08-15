@@ -14,6 +14,7 @@ import type {
 } from './types';
 import { supabase } from './utils/supabaseClient';
 import { createInitialCharacterRoster } from './data/characterRoster';
+import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode } from './lib/tree';
 
 // ── ヘルパー関数 ────────────────────────────────────────────────────────────
@@ -629,3 +630,13 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
+
+// ゲストモード（＝ポートフォリオの閲覧専用モード）では、ローカルの本物のデータではなく
+// 固定のショーケースデータを表示する。selectCharacter等のツリー編集画面は共通で使うため、
+// characters を読む箇所はこのフックに統一する（store.characters を直接ゲスト用に
+// 上書きしてしまうと、その後ログインし直した際に本物のローカルデータを消してしまう）。
+export function useVisibleCharacters(): Character[] {
+  const isGuest = useAppStore((state) => state.isGuest);
+  const characters = useAppStore((state) => state.characters);
+  return isGuest ? SHOWCASE_CHARACTERS : characters;
+}

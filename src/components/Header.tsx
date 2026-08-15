@@ -84,6 +84,7 @@ export default function Header({
   rightSlot,
 }: HeaderProps) {
   const isGuest = useAppStore((state) => state.isGuest);
+  const logout = useAppStore((state) => state.logout);
 
   const isPatchNotesModalOpen = useAppStore((state) => state.isPatchNotesModalOpen);
   const selectedPatchNoteDate = useAppStore((state) => state.selectedPatchNoteDate);
@@ -223,7 +224,7 @@ export default function Header({
 
             <NicknameDisplay showDivider={false} />
 
-            {isGuest && <span style={styles.guestBadge}>ゲストモード</span>}
+            {isGuest && <span style={styles.guestBadge}>閲覧専用</span>}
           </div>
 
           <div style={styles.actions}>
@@ -239,83 +240,97 @@ export default function Header({
               <span style={styles.compactButtonText}>パッチノート</span>
             </button>
 
-            <div style={styles.backupMenuWrapper}>
-              <button
-                ref={backupButtonRef}
-                type="button"
-                style={styles.backupButton}
-                onClick={handleBackupButtonClick}
-                title="バックアップ（エクスポート／インポート）"
-                aria-haspopup="menu"
-                aria-expanded={isBackupMenuOpen}
-              >
-                <span>💾</span>
-                <span style={styles.compactButtonText}>バックアップ</span>
-              </button>
+            {!isGuest && (
+              <div style={styles.backupMenuWrapper}>
+                <button
+                  ref={backupButtonRef}
+                  type="button"
+                  style={styles.backupButton}
+                  onClick={handleBackupButtonClick}
+                  title="バックアップ（エクスポート／インポート）"
+                  aria-haspopup="menu"
+                  aria-expanded={isBackupMenuOpen}
+                >
+                  <span>💾</span>
+                  <span style={styles.compactButtonText}>バックアップ</span>
+                </button>
 
-              {isBackupMenuOpen && (
-                <>
-                  <div
-                    style={styles.backupMenuOverlay}
-                    onClick={() => setIsBackupMenuOpen(false)}
-                  />
+                {isBackupMenuOpen && (
+                  <>
+                    <div
+                      style={styles.backupMenuOverlay}
+                      onClick={() => setIsBackupMenuOpen(false)}
+                    />
 
-                  <div
-                    style={{
-                      ...styles.backupMenu,
-                      top: backupMenuPosition.top,
-                      right: backupMenuPosition.right,
-                    }}
-                    role="menu"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      style={styles.backupMenuItem}
-                      onClick={handleExport}
+                    <div
+                      style={{
+                        ...styles.backupMenu,
+                        top: backupMenuPosition.top,
+                        right: backupMenuPosition.right,
+                      }}
+                      role="menu"
                     >
-                      <span>⬇️</span>
-                      <span>エクスポート</span>
-                    </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        style={styles.backupMenuItem}
+                        onClick={handleExport}
+                      >
+                        <span>⬇️</span>
+                        <span>エクスポート</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      role="menuitem"
-                      style={styles.backupMenuItem}
-                      onClick={handleImportButtonClick}
-                    >
-                      <span>⬆️</span>
-                      <span>インポート</span>
-                    </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        style={styles.backupMenuItem}
+                        onClick={handleImportButtonClick}
+                      >
+                        <span>⬆️</span>
+                        <span>インポート</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      role="menuitem"
-                      style={styles.backupMenuItem}
-                      onClick={handleSaveOverwrite}
-                      title={
-                        isFileSystemAccessSupported
-                          ? undefined
-                          : 'このブラウザは上書き保存に非対応のため、新規ダウンロードになります'
-                      }
-                    >
-                      <span>💽</span>
-                      <span>
-                        上書き保存{isFileSystemAccessSupported ? '' : '（新規DL）'}
-                      </span>
-                    </button>
-                  </div>
-                </>
-              )}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        style={styles.backupMenuItem}
+                        onClick={handleSaveOverwrite}
+                        title={
+                          isFileSystemAccessSupported
+                            ? undefined
+                            : 'このブラウザは上書き保存に非対応のため、新規ダウンロードになります'
+                        }
+                      >
+                        <span>💽</span>
+                        <span>
+                          上書き保存{isFileSystemAccessSupported ? '' : '（新規DL）'}
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                )}
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/json"
-                style={styles.hiddenFileInput}
-                onChange={handleImportFileChange}
-              />
-            </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/json"
+                  style={styles.hiddenFileInput}
+                  onChange={handleImportFileChange}
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              style={styles.logoutButton}
+              onClick={() => {
+                void logout();
+              }}
+              title="ログアウト"
+            >
+              <span>🚪</span>
+              <span style={styles.compactButtonText}>ログアウト</span>
+            </button>
           </div>
         </div>
 
@@ -470,6 +485,22 @@ const styles: Record<string, CSSProperties> = {
     border: '1px solid var(--accent-teal-border)',
     background: 'var(--accent-teal-bg)',
     color: 'var(--accent-teal-text)',
+    padding: '0 9px',
+    fontSize: 12,
+    fontWeight: 900,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  logoutButton: {
+    height: 32,
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 11,
+    border: '1px solid var(--accent-rose-border)',
+    background: 'var(--accent-rose-bg)',
+    color: 'var(--accent-rose-text)',
     padding: '0 9px',
     fontSize: 12,
     fontWeight: 900,

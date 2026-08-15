@@ -1,0 +1,374 @@
+{
+  "formatVersion": 1,
+  "exportedAt": "2026-08-15T04:16:27.881Z",
+  "characters": [
+    {
+      "id": "luke",
+      "name": "ルーク",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "jamie",
+      "name": "ジェイミー",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "manon",
+      "name": "マノン",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "kimberly",
+      "name": "キンバリー",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "marisa",
+      "name": "マリーザ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "lily",
+      "name": "リリー",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "jp",
+      "name": "JP",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "juri",
+      "name": "ジュリ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "dee-jay",
+      "name": "DJ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "cammy",
+      "name": "キャミィ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "ryu",
+      "name": "リュウ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "honda",
+      "name": "本田",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "blanka",
+      "name": "ブランカ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "guile",
+      "name": "ガイル",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "ken",
+      "name": "ケン",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "chun-li",
+      "name": "春麗",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "zangief",
+      "name": "ザンギエフ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "dhalsim",
+      "name": "ダルシム",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "rashid",
+      "name": "ラシード",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "aki",
+      "name": "A.K.I",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "ed",
+      "name": "エド",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "akuma",
+      "name": "豪鬼",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "bison",
+      "name": "ベガ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "terry",
+      "name": "テリー",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "mai",
+      "name": "舞",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "elena",
+      "name": "エレナ",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "sagat",
+      "name": "サガット",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "viper",
+      "name": "ヴァイパー",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "alex",
+      "name": "アレックス",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "ingrid",
+      "name": "イングリッド",
+      "imageUrl": null,
+      "moveList": [
+        {
+          "id": "mstu7fvc13lch9wkfe6d",
+          "name": "サンシュート",
+          "category": "special"
+        },
+        {
+          "id": "mstu7id4oamk42z2y7i",
+          "name": "サンライズ",
+          "category": "special"
+        }
+      ],
+      "comboTrees": [
+        {
+          "id": "msmx4wthp1p5tdj1rws",
+          "label": "小P",
+          "root": {
+            "id": "msmx4wthxxtikchfp2f",
+            "moveName": "小P",
+            "attributes": [],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "ローカル",
+            "createdAt": "2026-08-10T07:37:07.877Z",
+            "children": [
+              {
+                "id": "msmxlbju9bxefoajr69",
+                "moveName": "弱K",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-10T07:49:53.466Z",
+                "children": [
+                  {
+                    "id": "mstu7ltl8ggipi8mwc",
+                    "moveName": "中サンライズ",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-15T03:49:37.977Z",
+                    "children": []
+                  },
+                  {
+                    "id": "mstuag2lf93s7n82z2",
+                    "moveName": "ODサンライズ",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-15T03:51:50.493Z",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    },
+    {
+      "id": "yasmin",
+      "name": "ヤスミン",
+      "imageUrl": null,
+      "moveList": [],
+      "comboTrees": [],
+      "createdBy": "",
+      "createdAt": "2026-08-10T04:58:33.711Z",
+      "updatedAt": "2026-08-15T04:16:24.517Z"
+    }
+  ]
+}
