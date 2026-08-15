@@ -7,14 +7,14 @@
 // 可視性のためにグレーアウト（画像はグレースケール、名前表示は控えめな色）にする。
 
 import type { CSSProperties } from 'react';
-import { useAppStore } from '../store';
+import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import type { Character } from '../types';
 
 const GRID_COLUMNS = 8;
 
 export function CharacterSelectPage() {
-  const characters = useAppStore((state) => state.characters);
+  const characters = useVisibleCharacters();
   const selectCharacter = useAppStore((state) => state.selectCharacter);
 
   return (

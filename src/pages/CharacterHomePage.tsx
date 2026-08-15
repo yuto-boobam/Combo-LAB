@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
-import { useAppStore } from '../store';
+import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import type { ComboTree, MoveNode } from '../types';
 
@@ -13,7 +13,8 @@ function countNodes(node: MoveNode): number {
 }
 
 export function CharacterHomePage() {
-  const characters = useAppStore((state) => state.characters);
+  const characters = useVisibleCharacters();
+  const isGuest = useAppStore((state) => state.isGuest);
   const selectedCharacterId = useAppStore((state) => state.selectedCharacterId);
   const goToCharacterSelect = useAppStore((state) => state.goToCharacterSelect);
   const selectComboTree = useAppStore((state) => state.selectComboTree);
@@ -49,27 +50,29 @@ export function CharacterHomePage() {
           {character.name} のコンボ木 — {character.comboTrees.length} 本
         </h1>
 
-        <div style={styles.createRow}>
-          <input
-            type="text"
-            className="input-field"
-            placeholder="木の名前（例: 小P始動）"
-            value={newTreeLabel}
-            onChange={(event) => setNewTreeLabel(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') handleCreateTree();
-            }}
-            style={styles.createInput}
-          />
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={!newTreeLabel.trim()}
-            onClick={handleCreateTree}
-          >
-            + 新しい木を作成
-          </button>
-        </div>
+        {!isGuest && (
+          <div style={styles.createRow}>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="木の名前（例: 小P始動）"
+              value={newTreeLabel}
+              onChange={(event) => setNewTreeLabel(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') handleCreateTree();
+              }}
+              style={styles.createInput}
+            />
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!newTreeLabel.trim()}
+              onClick={handleCreateTree}
+            >
+              + 新しい木を作成
+            </button>
+          </div>
+        )}
 
         {character.comboTrees.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4" style={{ padding: '60px 0' }}>
@@ -88,10 +91,14 @@ export function CharacterHomePage() {
                 key={tree.id}
                 tree={tree}
                 onOpen={() => selectComboTree(tree.id)}
-                onDelete={() => {
-                  const ok = window.confirm(`「${tree.label}」を削除しますか？`);
-                  if (ok) deleteComboTree(character.id, tree.id);
-                }}
+                onDelete={
+                  isGuest
+                    ? undefined
+                    : () => {
+                        const ok = window.confirm(`「${tree.label}」を削除しますか？`);
+                        if (ok) deleteComboTree(character.id, tree.id);
+                      }
+                }
               />
             ))}
           </div>
@@ -108,7 +115,7 @@ function ComboTreeCard({
 }: {
   tree: ComboTree;
   onOpen: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <div className="card" style={styles.treeCard}>
@@ -117,12 +124,14 @@ function ComboTreeCard({
         <div style={styles.treeCardMeta}>{countNodes(tree.root) - 1} 手のコンボ</div>
       </button>
 
-      <button type="button" className="btn-icon" onClick={onDelete} title="この木を削除">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
-      </button>
+      {onDelete && (
+        <button type="button" className="btn-icon" onClick={onDelete} title="この木を削除">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

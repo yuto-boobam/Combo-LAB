@@ -4,7 +4,7 @@
 // ノードは円形（MoveNodeCircle）で、追加はTab/Enterではなく常時表示のサイドドロワー経由。
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useAppStore } from '../store';
+import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
@@ -36,7 +36,8 @@ const {
 } = TREE_LAYOUT_CONFIG;
 
 export function ComboTreePage() {
-  const characters = useAppStore((state) => state.characters);
+  const characters = useVisibleCharacters();
+  const isGuest = useAppStore((state) => state.isGuest);
   const selectedCharacterId = useAppStore((state) => state.selectedCharacterId);
   const selectedComboTreeId = useAppStore((state) => state.selectedComboTreeId);
   const goToCharacterHome = useAppStore((state) => state.goToCharacterHome);
@@ -224,6 +225,7 @@ export function ComboTreePage() {
                   }
                   parentId={null}
                   dragIndex={0}
+                  readOnly={isGuest}
                   onDrop={(draggedData: DraggedNodeData) => {
                     if (draggedData.id === root.id) return;
                     moveNode(character.id, tree.id, draggedData.id, root.id);
@@ -261,6 +263,7 @@ export function ComboTreePage() {
                         }
                         parentId={column.parentId}
                         dragIndex={nodeIndex}
+                        readOnly={isGuest}
                         onDrop={(draggedData: DraggedNodeData) => {
                           if (draggedData.id === node.id) return;
                           moveNode(character.id, tree.id, draggedData.id, node.id);
@@ -308,8 +311,8 @@ export function ComboTreePage() {
                   );
                 })}
 
-              {/* 兄弟間ドロップゾーン */}
-              {layout?.dropZones.map((dropZone) => (
+              {/* 兄弟間ドロップゾーン（閲覧専用モードでは並び替え不可のため出さない） */}
+              {!isGuest && layout?.dropZones.map((dropZone) => (
                 <div
                   key={dropZone.key}
                   style={{
