@@ -101,7 +101,7 @@ export function MoveNodeCircle({
         style={{
           fontSize: 12,
           fontWeight: 700,
-          color: 'var(--text-primary)',
+          color: 'var(--text-secondary)',
           lineHeight: 1.25,
           wordBreak: 'break-word',
           overflow: 'hidden',

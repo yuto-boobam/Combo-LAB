@@ -43,7 +43,7 @@ export function CharacterHomePage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
-      <Header onLogoClick={goToCharacterSelect} title={character.name} />
+      <Header onLogoClick={goToCharacterSelect} title={character.name} character={character} />
 
       <main className="flex-1 overflow-y-auto px-10 py-8">
         <h1 className="text-sm font-medium mb-5" style={{ color: 'var(--text-muted)' }}>

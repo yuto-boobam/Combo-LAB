@@ -47,12 +47,15 @@
   --accent-green-bg:     rgba(22, 163, 74, 0.16);
   --accent-green-text:   #bbf7d0;
 
-  /* コンボノードの本体色・枠線色（企画書13ページの色ルール）。
-     ノードの背景色はデフォルトで --bg-surface、枠線はデフォルトで --border を使う。 */
-  --node-counter-bg:        rgba(234, 179, 8, 0.24);   /* カウンター(CH): 黄 */
-  --node-punish-counter-bg: rgba(194, 65, 12, 0.32);   /* パニッシュカウンター(PC): 濃いオレンジ */
-  --node-combo-ender-bg:    rgba(124, 58, 237, 0.28);  /* コンボ締め: 紫 */
-  --node-guard-border:      #38bdf8;                   /* ガード: 水色〜青 */
+  /* コンボノードの本体色・枠線色（企画書13ページの色ルール + ユーザー指示による変更）。
+     ノードの背景色はデフォルトで --bg-surface、枠線はデフォルトで --border を使う。
+     本体色＝自分の技の結果（ガード/空振り/コンボ締め）、枠線・接続線色＝親の技が
+     カウンター/パニッシュカウンターだったか、を表す。 */
+  --node-counter-border:        #fbbf24;                  /* カウンター(CH): 明るい黄色の枠線・接続線 */
+  --node-punish-counter-border: #fb923c;                  /* パニッシュカウンター(PC): 明るいオレンジの枠線・接続線 */
+  --node-combo-ender-bg:        rgba(124, 58, 237, 0.28); /* コンボ締め: 紫 */
+  --node-guard-bg:              rgba(56, 189, 248, 0.22); /* ガード: 水色〜青 */
+  --node-whiff-bg:              rgba(255, 255, 255, 0.22); /* 空振り: ダークモードでは少し白く */
 
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -94,10 +97,11 @@
   --accent-green-bg:     rgba(34, 197, 94, 0.12);
   --accent-green-text:   #15803d;
 
-  --node-counter-bg:        rgba(217, 119, 6, 0.18);
-  --node-punish-counter-bg: rgba(194, 65, 12, 0.22);
-  --node-combo-ender-bg:    rgba(124, 58, 237, 0.16);
-  --node-guard-border:      #0284c7;
+  --node-counter-border:        #d97706;
+  --node-punish-counter-border: #ea580c;
+  --node-combo-ender-bg:        rgba(124, 58, 237, 0.16);
+  --node-guard-bg:              rgba(2, 132, 199, 0.14);
+  --node-whiff-bg:              rgba(0, 0, 0, 0.16); /* 空振り: ライトモードでは少し暗く */
 }
 
 /* ── リセット & ベース ──────────────────────────────────────── */

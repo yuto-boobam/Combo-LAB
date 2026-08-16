@@ -1,5 +1,35 @@
 [
   {
+    "id": "2026-08-16-9de7a9a7",
+    "date": "2026-08-16",
+    "buildNumber": 6,
+    "type": "other",
+    "title": "通常時のノード同士を結ぶ線の色を濃くした",
+    "description": "繋がりを見やすくしたかったことと、カウンターに主張で負けすぎていたため。",
+    "beforeImageUrl": "/images/patch-notes/2026/08/20260816-build6-before.png?v=1786857925139",
+    "afterImageUrl": "/images/patch-notes/2026/08/20260816-build6-after.png?v=1786857929565"
+  },
+  {
+    "id": "2026-08-16-5a08070b",
+    "date": "2026-08-16",
+    "buildNumber": 5,
+    "type": "other",
+    "title": "枠線だけ変えるものと中身の色を変えるものを逆にした",
+    "description": "カウンターでも通常ヒットでも同じ親から始められるようになった。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260816-build5-after.png?v=1786857612680"
+  },
+  {
+    "id": "2026-08-16-532d3ce6",
+    "date": "2026-08-16",
+    "buildNumber": 4,
+    "type": "other",
+    "title": "複数のコンボの木を同じ画面で管理",
+    "description": "こうしなくては管理が面倒なため",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260816-build4-after.png?v=1786856130250"
+  },
+  {
     "id": "2026-08-15-b4e3c3c5",
     "date": "2026-08-15",
     "buildNumber": 3,
