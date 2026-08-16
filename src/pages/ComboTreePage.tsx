@@ -12,7 +12,7 @@ import Header from '../components/Header';
 import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import type { ComboTree, MoveNode } from '../types';
-import { resolveBorderColorKind, NODE_BORDER_COLOR_VAR } from '../utils/nodeVisualStyle';
+import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import {
   computeTreeLayout,
   useNodeHeights,
@@ -43,7 +43,7 @@ type TaggedDropZone = DropZoneSpec & { treeId: string };
 
 /** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター属性）に合わせる */
 function getBranchLineColor(_column: TreeColumn<MoveNode>, childNode: MoveNode): string {
-  return NODE_BORDER_COLOR_VAR[resolveBorderColorKind(childNode.attributes)];
+  return NODE_LINE_COLOR_VAR[resolveBorderColorKind(childNode.attributes)];
 }
 
 type TreeBlock = {

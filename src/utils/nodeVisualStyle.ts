@@ -64,9 +64,16 @@ export const NODE_BODY_COLOR_VAR: Record<NodeBodyColorKind, string> = {
   comboEnder: 'var(--node-combo-ender-bg)',
 };
 
-/** ノード枠線・接続線に使うCSS変数（index.cssに定義） */
+/** ノード枠線に使うCSS変数（index.cssに定義） */
 export const NODE_BORDER_COLOR_VAR: Record<NodeBorderColorKind, string> = {
   default: 'var(--border)',
   counter: 'var(--node-counter-border)',
   punishCounter: 'var(--node-punish-counter-border)',
+};
+
+/** 接続線に使うCSS変数。カウンター/パニッシュカウンターの色は枠線と共通だが、
+ * 通常時は --border だと線としては薄すぎるため、少し主張の強い色にする */
+export const NODE_LINE_COLOR_VAR: Record<NodeBorderColorKind, string> = {
+  ...NODE_BORDER_COLOR_VAR,
+  default: 'var(--text-primary)',
 };
