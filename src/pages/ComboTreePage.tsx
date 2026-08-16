@@ -2,13 +2,17 @@
 // コンボの木を表示・編集する画面（企画書7〜9ページ）。
 // キャンバスの構造（レイアウト計算・パン・ズーム・接続線）はRootedのTreePage.tsxを踏襲するが、
 // ノードは円形（MoveNodeCircle）で、追加はTab/Enterではなく常時表示のサイドドロワー経由。
+//
+// 1キャラは始動技ごとに複数の木（森）を持つ。すべての木は1本ずつのカード画面に分けず、
+// この1つのキャンバス内に縦に並べて同時表示する（木ごとにラベルを付けて見分ける）。
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
-import type { MoveNode } from '../types';
+import type { ComboTree, MoveNode } from '../types';
+import { resolveBorderColorKind, NODE_BORDER_COLOR_VAR } from '../utils/nodeVisualStyle';
 import {
   computeTreeLayout,
   useNodeHeights,
@@ -16,11 +20,15 @@ import {
   findNode,
   buildParentMap,
   ConnectionsOverlay,
+  type DropZoneSpec,
+  type NodePosition,
   type TreeColumn,
+  type TreeLayout,
 } from '../lib/tree';
 import {
   TREE_LAYOUT_CONFIG,
   CANVAS_PADDING,
+  TREE_BLOCK_GAP,
   EXIT_TRANSITION_MS,
   MIN_ZOOM,
   MAX_ZOOM,
@@ -29,35 +37,66 @@ import {
 
 type DraggedNodeData = { id: string; parentId: string | null; index: number };
 
+// 木をまたいでも接続線・ドロップ先を判別できるよう、どの木に属するかをタグ付けする
+type TaggedColumn = TreeColumn<MoveNode> & { treeId: string };
+type TaggedDropZone = DropZoneSpec & { treeId: string };
+
+/** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター属性）に合わせる */
+function getBranchLineColor(_column: TreeColumn<MoveNode>, childNode: MoveNode): string {
+  return NODE_BORDER_COLOR_VAR[resolveBorderColorKind(childNode.attributes)];
+}
+
+type TreeBlock = {
+  tree: ComboTree;
+  offsetY: number;
+  columns: TaggedColumn[];
+};
+
 const {
   cardWidth: NODE_WIDTH,
   rootWidth: ROOT_WIDTH,
   dropZoneHeight: DROP_ZONE_HEIGHT,
 } = TREE_LAYOUT_CONFIG;
 
+function countNodes(node: MoveNode): number {
+  return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
+}
+
+function findNodeInTrees(trees: ComboTree[], id: string): MoveNode | null {
+  for (const tree of trees) {
+    const found = findNode(tree.root, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function shiftPositions(
+  positions: Map<string, NodePosition>,
+  offsetY: number,
+): Map<string, NodePosition> {
+  const shifted = new Map<string, NodePosition>();
+  positions.forEach((pos, id) => shifted.set(id, { ...pos, y: pos.y + offsetY }));
+  return shifted;
+}
+
 export function ComboTreePage() {
   const characters = useVisibleCharacters();
   const isGuest = useAppStore((state) => state.isGuest);
   const selectedCharacterId = useAppStore((state) => state.selectedCharacterId);
-  const selectedComboTreeId = useAppStore((state) => state.selectedComboTreeId);
   const goToCharacterHome = useAppStore((state) => state.goToCharacterHome);
   const collapsedNodeIds = useAppStore((state) => state.collapsedNodeIds);
   const toggleNodeExpanded = useAppStore((state) => state.toggleNodeExpanded);
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const selectNode = useAppStore((state) => state.selectNode);
   const moveNode = useAppStore((state) => state.moveNode);
+  const deleteComboTree = useAppStore((state) => state.deleteComboTree);
 
   const character = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId) ?? null,
     [characters, selectedCharacterId],
   );
 
-  const tree = useMemo(
-    () => character?.comboTrees.find((item) => item.id === selectedComboTreeId) ?? null,
-    [character, selectedComboTreeId],
-  );
-
-  const root = tree?.root ?? null;
+  const trees = useMemo(() => character?.comboTrees ?? [], [character]);
 
   // ── 画面比率（ズーム）
   const [zoom, setZoom] = useState(1);
@@ -114,48 +153,60 @@ export function ComboTreePage() {
     [],
   );
 
-  // ── ノードごとの開閉状態
+  // ── ノードごとの開閉状態（木をまたいでもノードIDは一意なので共通のSetでよい）
   const collapsedSet = useMemo(() => new Set(collapsedNodeIds), [collapsedNodeIds]);
-
-  // ── 列（カラム）の構築
-  const columns = useMemo<TreeColumn<MoveNode>[]>(() => {
-    if (!root) return [];
-
-    const nextColumns: TreeColumn<MoveNode>[] = [];
-
-    const visit = (node: MoveNode, depth: number) => {
-      if (node.children.length === 0) return;
-      if (depth > 0 && collapsedSet.has(node.id)) return;
-
-      nextColumns.push({ parentId: node.id, nodes: node.children, depth });
-      for (const child of node.children) {
-        visit(child, depth + 1);
-      }
-    };
-
-    visit(root, 0);
-    return nextColumns;
-  }, [root, collapsedSet]);
-
-  const parentOf = useMemo(
-    () => (root ? buildParentMap(root) : new Map<string, string>()),
-    [root],
-  );
 
   const nodeHeights = useNodeHeights(zoom);
 
-  const layout = useMemo(() => {
-    if (!root) return null;
-    return computeTreeLayout(root, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG);
-  }, [root, collapsedSet, nodeHeights]);
+  // ── すべての木を縦に積み上げて1つのキャンバスにする
+  const forest = useMemo(() => {
+    let cursorY = 0;
+    let maxWidth = 0;
+    const blocks: TreeBlock[] = [];
+    const positions = new Map<string, NodePosition>();
+    const dropZones: TaggedDropZone[] = [];
+    const parentOf = new Map<string, string>();
+
+    trees.forEach((tree) => {
+      const layout = computeTreeLayout(tree.root, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG);
+
+      const columns: TaggedColumn[] = [];
+      const visit = (node: MoveNode, depth: number) => {
+        if (node.children.length === 0) return;
+        if (depth > 0 && collapsedSet.has(node.id)) return;
+
+        columns.push({ parentId: node.id, nodes: node.children, depth, treeId: tree.id });
+        for (const child of node.children) {
+          visit(child, depth + 1);
+        }
+      };
+      visit(tree.root, 0);
+
+      const offsetY = cursorY;
+      shiftPositions(layout.positions, offsetY).forEach((pos, id) => positions.set(id, pos));
+      layout.dropZones.forEach((dropZone) =>
+        dropZones.push({ ...dropZone, y: dropZone.y + offsetY, treeId: tree.id }),
+      );
+      buildParentMap(tree.root).forEach((parentId, id) => parentOf.set(id, parentId));
+
+      blocks.push({ tree, offsetY, columns });
+      maxWidth = Math.max(maxWidth, layout.width);
+      cursorY += layout.height + TREE_BLOCK_GAP;
+    });
+
+    const totalHeight = blocks.length > 0 ? cursorY - TREE_BLOCK_GAP : 0;
+    const layout: TreeLayout = { positions, dropZones, width: maxWidth, height: totalHeight };
+
+    return { blocks, layout, parentOf, columns: blocks.flatMap((block) => block.columns) };
+  }, [trees, collapsedSet, nodeHeights]);
 
   const { exitingNodes, enteringNodes } = useTreeExpandAnimation(
-    layout,
-    parentOf,
+    forest.layout,
+    forest.parentOf,
     EXIT_TRANSITION_MS,
   );
 
-  if (!character || !tree || !root) {
+  if (!character) {
     return (
       <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
         <Header onLogoClick={goToCharacterHome} />
@@ -163,7 +214,7 @@ export function ComboTreePage() {
           className="flex-1 flex items-center justify-center"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p>コンボの木が見つかりませんでした。</p>
+          <p>キャラクターが見つかりませんでした。</p>
         </main>
       </div>
     );
@@ -173,7 +224,7 @@ export function ComboTreePage() {
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       <Header
         onLogoClick={goToCharacterHome}
-        title={`${character.name} / ${tree.label}`}
+        title={`${character.name} のコンボ — ${trees.length}本`}
         character={character}
         rightSlot={<ZoomBar zoom={zoom} onChange={setZoom} />}
       />
@@ -181,170 +232,271 @@ export function ComboTreePage() {
       <div className="flex-1 flex overflow-hidden">
         {/* ── ツリービュー本体 */}
         <div ref={scrollRef} className="flex-1 overflow-auto" style={{ position: 'relative' }}>
-          <div
-            style={{
-              position: 'relative',
-              width: ((layout?.width ?? 0) + CANVAS_PADDING * 2) * zoom,
-              height: ((layout?.height ?? 0) + CANVAS_PADDING * 2) * zoom,
-            }}
-          >
+          {trees.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-4 h-full">
+              <div className="text-6xl">🌳</div>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                まだコンボの木がありません。右のパネルから始動技を入力して作成しましょう。
+              </p>
+            </div>
+          ) : (
             <div
-              onMouseDown={handleCanvasMouseDown}
               style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: (layout?.width ?? 0) + CANVAS_PADDING * 2,
-                height: (layout?.height ?? 0) + CANVAS_PADDING * 2,
-                transform: `scale(${zoom})`,
-                transformOrigin: 'top left',
-                cursor: isPanning ? 'grabbing' : 'grab',
-                userSelect: isPanning ? 'none' : undefined,
+                position: 'relative',
+                width: (forest.layout.width + CANVAS_PADDING * 2) * zoom,
+                height: (forest.layout.height + CANVAS_PADDING * 2) * zoom,
               }}
             >
-              <ConnectionsOverlay columns={columns} zoom={zoom} layout={layout} />
-
-              {/* ルートノード */}
               <div
+                onMouseDown={handleCanvasMouseDown}
                 style={{
                   position: 'absolute',
-                  left: CANVAS_PADDING,
-                  top: CANVAS_PADDING,
-                  width: ROOT_WIDTH,
-                  transform: `translate(${layout?.positions.get(root.id)?.x ?? 0}px, ${layout?.positions.get(root.id)?.y ?? 0}px)`,
-                  transition: 'transform 220ms ease',
+                  top: 0,
+                  left: 0,
+                  width: forest.layout.width + CANVAS_PADDING * 2,
+                  height: forest.layout.height + CANVAS_PADDING * 2,
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'top left',
+                  cursor: isPanning ? 'grabbing' : 'grab',
+                  userSelect: isPanning ? 'none' : undefined,
                 }}
               >
-                <MoveNodeCircle
-                  node={root}
-                  isRoot
-                  isSelected={selectedNodeId === root.id}
-                  onClick={() => selectNode(root.id)}
-                  isExpanded={!collapsedSet.has(root.id)}
-                  onToggleExpand={
-                    root.children.length > 0 ? () => toggleNodeExpanded(root.id) : undefined
-                  }
-                  parentId={null}
-                  dragIndex={0}
-                  readOnly={isGuest}
-                  onDrop={(draggedData: DraggedNodeData) => {
-                    if (draggedData.id === root.id) return;
-                    moveNode(character.id, tree.id, draggedData.id, root.id);
-                  }}
+                <ConnectionsOverlay
+                  columns={forest.columns}
+                  zoom={zoom}
+                  layout={forest.layout}
+                  getLinkColor={getBranchLineColor}
                 />
-              </div>
 
-              {/* 各ノード */}
-              {columns.flatMap((column) =>
-                column.nodes.map((node, nodeIndex) => {
-                  const pos = layout?.positions.get(node.id);
-                  if (!pos) return null;
+                {/* 木ごとのラベル・ルートノード */}
+                {forest.blocks.map((block) => {
+                  const rootPos = forest.layout.positions.get(block.tree.root.id);
+                  if (!rootPos) return null;
 
-                  const renderPos = enteringNodes.get(node.id) ?? pos;
+                  return (
+                    <TreeBlockHeader
+                      key={block.tree.id}
+                      tree={block.tree}
+                      x={rootPos.x}
+                      offsetY={block.offsetY}
+                      onDelete={
+                        isGuest
+                          ? undefined
+                          : () => {
+                              const ok = window.confirm(`「${block.tree.label}」を削除しますか？`);
+                              if (ok) deleteComboTree(character.id, block.tree.id);
+                            }
+                      }
+                    />
+                  );
+                })}
+
+                {forest.blocks.map((block) => {
+                  const rootPos = forest.layout.positions.get(block.tree.root.id);
+                  if (!rootPos) return null;
 
                   return (
                     <div
-                      key={node.id}
+                      key={block.tree.id}
                       style={{
                         position: 'absolute',
                         left: CANVAS_PADDING,
                         top: CANVAS_PADDING,
-                        width: NODE_WIDTH,
-                        transform: `translate(${renderPos.x}px, ${renderPos.y}px)`,
+                        width: ROOT_WIDTH,
+                        transform: `translate(${rootPos.x}px, ${rootPos.y}px)`,
                         transition: 'transform 220ms ease',
                       }}
                     >
                       <MoveNodeCircle
-                        node={node}
-                        isSelected={selectedNodeId === node.id}
-                        onClick={() => selectNode(node.id)}
-                        isExpanded={!collapsedSet.has(node.id)}
+                        node={block.tree.root}
+                        isRoot
+                        isSelected={selectedNodeId === block.tree.root.id}
+                        onClick={() => selectNode(block.tree.root.id)}
+                        isExpanded={!collapsedSet.has(block.tree.root.id)}
                         onToggleExpand={
-                          node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
+                          block.tree.root.children.length > 0
+                            ? () => toggleNodeExpanded(block.tree.root.id)
+                            : undefined
                         }
-                        parentId={column.parentId}
-                        dragIndex={nodeIndex}
-                        readOnly={isGuest}
-                        onDrop={(draggedData: DraggedNodeData) => {
-                          if (draggedData.id === node.id) return;
-                          moveNode(character.id, tree.id, draggedData.id, node.id);
-                        }}
-                      />
-                    </div>
-                  );
-                }),
-              )}
-
-              {/* 閉じて消えていくノード */}
-              {Array.from(exitingNodes.entries())
-                .filter(([id]) => !layout?.positions.has(id))
-                .map(([id, pos]) => {
-                  const node = findNode(root, id);
-                  if (!node) return null;
-
-                  return (
-                    <div
-                      key={id}
-                      style={{
-                        position: 'absolute',
-                        left: CANVAS_PADDING,
-                        top: CANVAS_PADDING,
-                        width: NODE_WIDTH,
-                        transform: `translate(${pos.x}px, ${pos.y}px)`,
-                        transition: `transform ${EXIT_TRANSITION_MS}ms ease, opacity ${EXIT_TRANSITION_MS}ms ease`,
-                        opacity: 0,
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      <MoveNodeCircle
-                        node={node}
-                        isSelected={false}
-                        onClick={() => {
-                          // フェードアウト中は操作不可
-                        }}
                         parentId={null}
                         dragIndex={0}
-                        onDrop={() => {
-                          // フェードアウト中は操作不可
+                        readOnly={isGuest}
+                        onDrop={(draggedData: DraggedNodeData) => {
+                          if (draggedData.id === block.tree.root.id) return;
+                          moveNode(character.id, block.tree.id, draggedData.id, block.tree.root.id);
                         }}
                       />
                     </div>
                   );
                 })}
 
-              {/* 兄弟間ドロップゾーン（閲覧専用モードでは並び替え不可のため出さない） */}
-              {!isGuest && layout?.dropZones.map((dropZone) => (
-                <div
-                  key={dropZone.key}
-                  style={{
-                    position: 'absolute',
-                    left: CANVAS_PADDING + dropZone.x,
-                    top: CANVAS_PADDING + dropZone.y,
-                    width: NODE_WIDTH,
-                    height: DROP_ZONE_HEIGHT,
-                  }}
-                >
-                  <DropZone
-                    onDrop={(data) => {
-                      if (data.id === dropZone.parentId) return;
-                      moveNode(
-                        character.id,
-                        tree.id,
-                        data.id,
-                        dropZone.parentId,
-                        dropZone.insertIndex,
-                      );
-                    }}
-                  />
-                </div>
-              ))}
+                {/* 各ノード */}
+                {forest.columns.flatMap((column) =>
+                  column.nodes.map((node, nodeIndex) => {
+                    const pos = forest.layout.positions.get(node.id);
+                    if (!pos) return null;
+
+                    const renderPos = enteringNodes.get(node.id) ?? pos;
+
+                    return (
+                      <div
+                        key={node.id}
+                        style={{
+                          position: 'absolute',
+                          left: CANVAS_PADDING,
+                          top: CANVAS_PADDING,
+                          width: NODE_WIDTH,
+                          transform: `translate(${renderPos.x}px, ${renderPos.y}px)`,
+                          transition: 'transform 220ms ease',
+                        }}
+                      >
+                        <MoveNodeCircle
+                          node={node}
+                          isSelected={selectedNodeId === node.id}
+                          onClick={() => selectNode(node.id)}
+                          isExpanded={!collapsedSet.has(node.id)}
+                          onToggleExpand={
+                            node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
+                          }
+                          parentId={column.parentId}
+                          dragIndex={nodeIndex}
+                          readOnly={isGuest}
+                          onDrop={(draggedData: DraggedNodeData) => {
+                            if (draggedData.id === node.id) return;
+                            moveNode(character.id, column.treeId, draggedData.id, node.id);
+                          }}
+                        />
+                      </div>
+                    );
+                  }),
+                )}
+
+                {/* 閉じて消えていくノード */}
+                {Array.from(exitingNodes.entries())
+                  .filter(([id]) => !forest.layout.positions.has(id))
+                  .map(([id, pos]) => {
+                    const node = findNodeInTrees(trees, id);
+                    if (!node) return null;
+
+                    return (
+                      <div
+                        key={id}
+                        style={{
+                          position: 'absolute',
+                          left: CANVAS_PADDING,
+                          top: CANVAS_PADDING,
+                          width: NODE_WIDTH,
+                          transform: `translate(${pos.x}px, ${pos.y}px)`,
+                          transition: `transform ${EXIT_TRANSITION_MS}ms ease, opacity ${EXIT_TRANSITION_MS}ms ease`,
+                          opacity: 0,
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <MoveNodeCircle
+                          node={node}
+                          isSelected={false}
+                          onClick={() => {
+                            // フェードアウト中は操作不可
+                          }}
+                          parentId={null}
+                          dragIndex={0}
+                          onDrop={() => {
+                            // フェードアウト中は操作不可
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+
+                {/* 兄弟間ドロップゾーン（閲覧専用モードでは並び替え不可のため出さない） */}
+                {!isGuest &&
+                  forest.layout.dropZones.map((dropZone) => {
+                    const tagged = dropZone as TaggedDropZone;
+                    return (
+                      <div
+                        key={tagged.key}
+                        style={{
+                          position: 'absolute',
+                          left: CANVAS_PADDING + tagged.x,
+                          top: CANVAS_PADDING + tagged.y,
+                          width: NODE_WIDTH,
+                          height: DROP_ZONE_HEIGHT,
+                        }}
+                      >
+                        <DropZone
+                          onDrop={(data) => {
+                            if (data.id === tagged.parentId) return;
+                            moveNode(
+                              character.id,
+                              tagged.treeId,
+                              data.id,
+                              tagged.parentId,
+                              tagged.insertIndex,
+                            );
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── サイドドロワー（常時表示） */}
-        <SideDrawerPanel characterId={character.id} treeId={tree.id} root={root} />
+        <SideDrawerPanel characterId={character.id} comboTrees={trees} />
       </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// 木ごとのラベル（始動技名・手数・削除ボタン）
+// ────────────────────────────────────────────────────────────
+
+function TreeBlockHeader({
+  tree,
+  x,
+  offsetY,
+  onDelete,
+}: {
+  tree: ComboTree;
+  x: number;
+  offsetY: number;
+  onDelete?: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: CANVAS_PADDING + x,
+        top: CANVAS_PADDING + offsetY - 34,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+        {tree.label}
+      </span>
+      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+        {countNodes(tree.root) - 1} 手のコンボ
+      </span>
+      {onDelete && (
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={onDelete}
+          title="この木を削除"
+          style={{ width: 18, height: 18 }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

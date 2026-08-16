@@ -7,7 +7,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import { findNode } from '../../lib/tree';
-import type { MoveNode, NodeAttribute } from '../../types';
+import type { ComboTree, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { MoveNamePicker } from './MoveNamePicker';
@@ -15,30 +15,45 @@ import AccordionSection from '../AccordionSection';
 
 type Props = {
   characterId: string;
-  treeId: string;
-  root: MoveNode;
+  // キャラが持つすべての木（森）。選択中ノードがどの木に属するかはここから探す
+  // （画面には全ての木が同時に表示されるため、木を1本に決め打ちできない）
+  comboTrees: ComboTree[];
 };
 
-export function SideDrawerPanel({ characterId, treeId, root }: Props) {
+/** 選択中ノードIDから、それがどの木に属するかを探す（木をまたいでも一意なノードIDを利用） */
+function findSelectedInTrees(
+  comboTrees: ComboTree[],
+  selectedNodeId: string | null,
+): { tree: ComboTree; node: MoveNode } | null {
+  if (!selectedNodeId) return null;
+
+  for (const tree of comboTrees) {
+    const node = findNode(tree.root, selectedNodeId);
+    if (node) return { tree, node };
+  }
+  return null;
+}
+
+export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
 
-  const selectedNode = selectedNodeId ? findNode(root, selectedNodeId) : null;
+  const selectedInfo = findSelectedInTrees(comboTrees, selectedNodeId);
 
   return (
     <aside style={styles.drawer}>
       <div className="drawer-scroll" style={styles.body}>
         {isGuest ? (
-          <ReadOnlyNodeView selectedNode={selectedNode} />
-        ) : selectedNode ? (
+          <ReadOnlyNodeView selectedNode={selectedInfo?.node ?? null} />
+        ) : selectedInfo ? (
           // selectedNode.id をkeyにすることで、ノードを切り替えるたびに
           // NodeEditor をマウントし直し、新規追加フォームの入力状態を自然にリセットする
           <NodeEditor
-            key={selectedNode.id}
+            key={selectedInfo.node.id}
             characterId={characterId}
-            treeId={treeId}
-            root={root}
-            selectedNode={selectedNode}
+            treeId={selectedInfo.tree.id}
+            root={selectedInfo.tree.root}
+            selectedNode={selectedInfo.node}
           />
         ) : (
           <p style={styles.hint}>
