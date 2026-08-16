@@ -1,8 +1,11 @@
 // src/components/combo/AttributeEditor.tsx
 // ノードの属性を編集するUI。
 //
-// 本体色グループ（通常/CH/PC/コンボ締め）と枠線色グループ（通常/ガード/空振り）は
-// それぞれ排他（ラジオボタン相当）。そのほかの属性は複数選択可のトグル。
+// 本体色グループ（通常/ガード/空振り/コンボ締め）と枠線・接続線色グループ
+// （通常/CH/PC）はそれぞれ排他（ラジオボタン相当）。そのほかの属性は複数選択可のトグル。
+// 枠線・接続線色は「このノード自身の技がカウンター/パニッシュカウンターだった」場合に、
+// このノードの枠線と、直前（親）のノードから続く接続線に反映される
+// （例: 2中P→2中Kがカウンターで繋がる場合は、2中K側にカウンターを付ける）。
 // キャラ限定・位置限定・その他は自由記述メモを伴う（詳細は src/utils/nodeVisualStyle.ts 参照）。
 
 import type { CSSProperties } from 'react';
@@ -15,14 +18,14 @@ type SimpleAttributeType = Exclude<
 type NoteAttributeType = 'characterLimited' | 'positionLimited' | 'other';
 
 const BODY_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
-  { type: 'counter', label: 'カウンター(CH)' },
-  { type: 'punishCounter', label: 'パニッシュカウンター(PC)' },
+  { type: 'guard', label: 'ガード' },
+  { type: 'whiff', label: '空振り' },
   { type: 'comboEnder', label: 'コンボ締め' },
 ];
 
 const BORDER_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
-  { type: 'guard', label: 'ガード' },
-  { type: 'whiff', label: '空振り' },
+  { type: 'counter', label: 'カウンター(CH)' },
+  { type: 'punishCounter', label: 'パニッシュカウンター(PC)' },
 ];
 
 const TOGGLE_ATTRS: { type: SimpleAttributeType; label: string }[] = [
@@ -98,7 +101,7 @@ export function AttributeEditor({ value, onChange, readOnly = false }: Props) {
       </fieldset>
 
       <fieldset style={styles.fieldset}>
-        <legend style={styles.legend}>枠線（1つ選択）</legend>
+        <legend style={styles.legend}>枠線・接続線（直前の線にも反映／1つ選択）</legend>
         <div style={styles.buttonRow}>
           <AttributePill
             label="通常"

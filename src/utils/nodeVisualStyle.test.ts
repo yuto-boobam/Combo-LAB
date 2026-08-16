@@ -17,33 +17,46 @@ describe('resolveNodeVisualStyle', () => {
     });
   });
 
-  it('カウンター単体は本体色がカウンターになる', () => {
-    const style = resolveNodeVisualStyle([attr('counter')]);
-    expect(style.bodyColorKind).toBe('counter');
-  });
-
-  it('カウンター かつ コンボ締めの場合はカウンターを優先する', () => {
-    const style = resolveNodeVisualStyle([attr('comboEnder'), attr('counter')]);
-    expect(style.bodyColorKind).toBe('counter');
-  });
-
-  it('パニッシュカウンター かつ カウンターの場合はパニッシュカウンターを優先する', () => {
-    const style = resolveNodeVisualStyle([attr('counter'), attr('punishCounter')]);
-    expect(style.bodyColorKind).toBe('punishCounter');
-  });
-
-  it('ガードは枠線を太くし、色付きにする', () => {
+  it('ガード単体は本体色がガードになる（枠線は自分の属性では変わらない）', () => {
     const style = resolveNodeVisualStyle([attr('guard')]);
-    expect(style.borderColorKind).toBe('guard');
-    expect(style.borderWidth).toBe('thick');
+    expect(style.bodyColorKind).toBe('guard');
+    expect(style.borderColorKind).toBe('default');
+    expect(style.borderWidth).toBe('normal');
     expect(style.borderStyle).toBe('solid');
   });
 
-  it('空振りは点線枠になるが色は変えない', () => {
+  it('ガード かつ コンボ締めの場合はガードを優先する', () => {
+    const style = resolveNodeVisualStyle([attr('comboEnder'), attr('guard')]);
+    expect(style.bodyColorKind).toBe('guard');
+  });
+
+  it('空振り かつ コンボ締めの場合は空振りを優先する', () => {
+    const style = resolveNodeVisualStyle([attr('comboEnder'), attr('whiff')]);
+    expect(style.bodyColorKind).toBe('whiff');
+  });
+
+  it('空振りは点線枠になり、枠線を太くする（色は自分の属性では変わらない）', () => {
     const style = resolveNodeVisualStyle([attr('whiff')]);
-    expect(style.borderColorKind).toBe('whiff');
+    expect(style.bodyColorKind).toBe('whiff');
+    expect(style.borderColorKind).toBe('default');
     expect(style.borderWidth).toBe('thick');
     expect(style.borderStyle).toBe('dashed');
+  });
+
+  it('コンボ締め単体は本体色がコンボ締めになる', () => {
+    const style = resolveNodeVisualStyle([attr('comboEnder')]);
+    expect(style.bodyColorKind).toBe('comboEnder');
+  });
+
+  it('カウンター単体は自分の枠線がカウンター色になる', () => {
+    const style = resolveNodeVisualStyle([attr('counter')]);
+    expect(style.borderColorKind).toBe('counter');
+    expect(style.borderWidth).toBe('thick');
+  });
+
+  it('カウンター かつ パニッシュカウンターの場合はパニッシュカウンターを優先する', () => {
+    const style = resolveNodeVisualStyle([attr('counter'), attr('punishCounter')]);
+    expect(style.borderColorKind).toBe('punishCounter');
   });
 
   it('キャラ限定属性は状況限定マークを立てるが、色には影響しない', () => {

@@ -14,6 +14,7 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
   idPrefix = 'node-',
   idleFrames = 8,
   strokeColor = 'var(--text-primary)',
+  getLinkColor,
 }: {
   columns: TreeColumn<T>[];
   zoom: number;
@@ -24,9 +25,13 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
    *  静止したことが分かったら止まる＝アイドル時にCPUを使い続けない） */
   idleFrames?: number;
   strokeColor?: string;
+  /** リンク（親→子）ごとに線の色を変えたい場合に指定する。子ノード自身の見た目に
+   * 合わせて線を色付けしたいケースを想定し、対象の子ノードも渡す。
+   * 未指定の場合はすべての線を strokeColor で描画する */
+  getLinkColor?: (column: TreeColumn<T>, childNode: T) => string;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [paths, setPaths] = useState<{ id: string; d: string }[]>([]);
+  const [paths, setPaths] = useState<{ id: string; d: string; color: string }[]>([]);
 
   useEffect(() => {
     let animationFrameId = 0;
@@ -42,16 +47,17 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
       }
 
       const svgRect = svg.getBoundingClientRect();
-      const newPaths: { id: string; d: string }[] = [];
+      const newPaths: { id: string; d: string; color: string }[] = [];
       let changed = false;
 
       // 描画すべきすべての「親 → 子」のペアをリスト化
       // （開いている列はすべて自分のparentIdを持つため、列ごとに一律で処理できる）
-      const links: { parentId: string; childId: string }[] = columns.flatMap(
+      const links: { parentId: string; childId: string; color: string }[] = columns.flatMap(
         (column) =>
           column.nodes.map((node) => ({
             parentId: column.parentId,
             childId: node.id,
+            color: getLinkColor ? getLinkColor(column, node) : strokeColor,
           })),
       );
 
@@ -92,11 +98,12 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
         const d = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
         const id = `${link.parentId}-${link.childId}`;
 
-        newPaths.push({ id, d });
+        newPaths.push({ id, d, color: link.color });
 
-        if (lastPositions.get(id) !== d) {
+        const cacheKey = `${d}|${link.color}`;
+        if (lastPositions.get(id) !== cacheKey) {
           changed = true;
-          lastPositions.set(id, d);
+          lastPositions.set(id, cacheKey);
         }
       });
 
@@ -138,7 +145,7 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [columns, zoom, layout, idPrefix, idleFrames]);
+  }, [columns, zoom, layout, idPrefix, idleFrames, strokeColor, getLinkColor]);
 
   return (
     <svg
@@ -159,7 +166,7 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
           key={path.id}
           d={path.d}
           fill="none"
-          stroke={strokeColor}
+          stroke={path.color}
           strokeWidth="2"
           strokeOpacity="0.5"
         />

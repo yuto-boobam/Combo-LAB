@@ -17,6 +17,9 @@ export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
 /** キャンバス端の余白(px) */
 export const CANVAS_PADDING = 48;
 
+/** 1キャラが複数の木（森）を持つ場合、木と木の縦の間隔(px)。ラベル表示分の余白も含む */
+export const TREE_BLOCK_GAP = 88;
+
 /** ノードが閉じて消えるフェードアウトの所要時間(ms) */
 export const EXIT_TRANSITION_MS = 200;
 
