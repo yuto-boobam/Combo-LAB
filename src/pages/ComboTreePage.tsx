@@ -174,6 +174,7 @@ export function ComboTreePage() {
       <Header
         onLogoClick={goToCharacterHome}
         title={`${character.name} / ${tree.label}`}
+        character={character}
         rightSlot={<ZoomBar zoom={zoom} onChange={setZoom} />}
       />
 
