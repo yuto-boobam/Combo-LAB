@@ -1,60 +1,34 @@
 // src/components/Header.tsx
 // ブランドロゴ・ニックネーム表示・ゲストバッジ・パッチノート・バックアップを持つ共通ヘッダー。
-// バックアップはRootedのHeader.tsxのエクスポート/インポート/上書き保存の仕組みを踏襲し、
-// 対象データをProjectからCombo-LABのcharacters全体（31キャラ分）に差し替えたもの。
+// バックアップの「エクスポート／上書き保存」は、呼び出し元から渡された character
+// 1人分のみを対象にする（1キャラ1JSONファイルで管理する運用のため）。
+// 「インポート」は character 単体・{characters: [...]}・配列のいずれの形式のJSONも読める。
 
 import type { ChangeEvent, CSSProperties, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { useAppStore } from '../store';
 import type { Character } from '../types';
 import { getStoredFileHandle, setStoredFileHandle } from '../utils/fileHandleStore';
+import { downloadJson } from '../utils/downloadJson';
 import PatchNotesModal from './patchNotes/PatchNotesModal';
 import { NicknameDisplay } from './NicknameDisplay';
-
-const BACKUP_FILE_HANDLE_KEY = 'combo-lab-backup';
 
 const isFileSystemAccessSupported =
   typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
 
-function todayDateKey(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function backupFileName(): string {
-  return `combo-lab-backup-${todayDateKey()}.json`;
-}
-
-function buildBackupPayload(characters: Character[]) {
-  return {
-    formatVersion: 1,
-    exportedAt: new Date().toISOString(),
-    characters,
-  };
+function isCharacter(value: unknown): value is Character {
+  return Boolean(value) && typeof value === 'object' && 'id' in (value as object);
 }
 
 function extractCharactersFromImportedJson(parsed: unknown): Partial<Character>[] | null {
+  if (isCharacter(parsed)) return [parsed];
+
   const candidate =
     parsed && typeof parsed === 'object' && 'characters' in parsed
       ? (parsed as { characters: unknown }).characters
       : parsed;
 
   return Array.isArray(candidate) ? (candidate as Partial<Character>[]) : null;
-}
-
-function downloadJson(fileName: string, data: unknown): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: 'application/json',
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 export type HeaderBreadcrumbItem =
@@ -72,6 +46,9 @@ interface HeaderProps {
   subtitle?: string;
   breadcrumbs?: HeaderBreadcrumbItem[];
   rightSlot?: ReactNode;
+  // 指定すると「エクスポート」「上書き保存」がこのキャラ1人分だけを対象にする。
+  // 未指定（例: キャラ選択画面）の場合はその2項目自体を出さない。
+  character?: Character;
 }
 
 export default function Header({
@@ -82,6 +59,7 @@ export default function Header({
   subtitle,
   breadcrumbs,
   rightSlot,
+  character,
 }: HeaderProps) {
   const isGuest = useAppStore((state) => state.isGuest);
   const logout = useAppStore((state) => state.logout);
@@ -91,14 +69,15 @@ export default function Header({
   const openPatchNotesModal = useAppStore((state) => state.openPatchNotesModal);
   const closePatchNotesModal = useAppStore((state) => state.closePatchNotesModal);
 
-  const characters = useAppStore((state) => state.characters);
   const restoreCharacters = useAppStore((state) => state.restoreCharacters);
 
   const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
   const [backupMenuPosition, setBackupMenuPosition] = useState({ top: 0, right: 0 });
   const backupButtonRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const saveFileHandleRef = useRef<FileSystemFileHandle | null>(null);
+  // キャラごとにファイルハンドルをキャッシュする（単一のrefだと、Headerを
+  // 再マウントせずにキャラを切り替えた時に前のキャラのハンドルを使い回してしまう）
+  const saveFileHandleCacheRef = useRef<Map<string, FileSystemFileHandle>>(new Map());
 
   const handleBackupButtonClick = () => {
     const rect = backupButtonRef.current?.getBoundingClientRect();
@@ -112,7 +91,8 @@ export default function Header({
   };
 
   const handleExport = () => {
-    downloadJson(backupFileName(), buildBackupPayload(characters));
+    if (!character) return;
+    downloadJson(`${character.id}.json`, character);
     setIsBackupMenuOpen(false);
   };
 
@@ -150,29 +130,34 @@ export default function Header({
 
   const handleSaveOverwrite = async () => {
     setIsBackupMenuOpen(false);
+    if (!character) return;
 
     if (!isFileSystemAccessSupported || !window.showSaveFilePicker) {
       handleExport();
       return;
     }
 
+    // キャラごとに別ファイルを覚えておく（固定キーのままだと、別キャラの画面で
+    // 上書き保存した時に前のキャラのファイルを誤って上書きしてしまうため）
+    const fileHandleKey = `combo-lab-backup-${character.id}`;
+
     try {
       let handle =
-        saveFileHandleRef.current ??
-        (await getStoredFileHandle(BACKUP_FILE_HANDLE_KEY)) ??
+        saveFileHandleCacheRef.current.get(character.id) ??
+        (await getStoredFileHandle(fileHandleKey)) ??
         undefined;
 
       if (!handle) {
         handle = await window.showSaveFilePicker({
-          suggestedName: backupFileName(),
+          suggestedName: `${character.id}.json`,
           types: [
             { description: 'JSON', accept: { 'application/json': ['.json'] } },
           ],
         });
-        await setStoredFileHandle(BACKUP_FILE_HANDLE_KEY, handle);
+        await setStoredFileHandle(fileHandleKey, handle);
       }
 
-      saveFileHandleRef.current = handle;
+      saveFileHandleCacheRef.current.set(character.id, handle);
 
       const permission = await handle.queryPermission({ mode: 'readwrite' });
       if (permission !== 'granted') {
@@ -184,7 +169,7 @@ export default function Header({
       }
 
       const writable = await handle.createWritable();
-      await writable.write(JSON.stringify(buildBackupPayload(characters), null, 2));
+      await writable.write(JSON.stringify(character, null, 2));
       await writable.close();
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -270,15 +255,17 @@ export default function Header({
                       }}
                       role="menu"
                     >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        style={styles.backupMenuItem}
-                        onClick={handleExport}
-                      >
-                        <span>⬇️</span>
-                        <span>エクスポート</span>
-                      </button>
+                      {character && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          style={styles.backupMenuItem}
+                          onClick={handleExport}
+                        >
+                          <span>⬇️</span>
+                          <span>エクスポート（{character.name}）</span>
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -290,22 +277,24 @@ export default function Header({
                         <span>インポート</span>
                       </button>
 
-                      <button
-                        type="button"
-                        role="menuitem"
-                        style={styles.backupMenuItem}
-                        onClick={handleSaveOverwrite}
-                        title={
-                          isFileSystemAccessSupported
-                            ? undefined
-                            : 'このブラウザは上書き保存に非対応のため、新規ダウンロードになります'
-                        }
-                      >
-                        <span>💽</span>
-                        <span>
-                          上書き保存{isFileSystemAccessSupported ? '' : '（新規DL）'}
-                        </span>
-                      </button>
+                      {character && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          style={styles.backupMenuItem}
+                          onClick={handleSaveOverwrite}
+                          title={
+                            isFileSystemAccessSupported
+                              ? undefined
+                              : 'このブラウザは上書き保存に非対応のため、新規ダウンロードになります'
+                          }
+                        >
+                          <span>💽</span>
+                          <span>
+                            上書き保存（{character.name}）{isFileSystemAccessSupported ? '' : '（新規DL）'}
+                          </span>
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
