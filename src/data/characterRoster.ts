@@ -13,12 +13,18 @@ function nextSeedId(prefix: string): string {
   return `${prefix}-${seedIdCounter}`;
 }
 
-function createDefaultMoveList(): MoveDefinition[] {
+/** SA1〜SA3の初期枠（名前はキャラごとに後から編集する）。
+ * 新規キャラの初期化と、既存キャラでSA枠が欠けている場合の補完の両方で使う */
+export function createDefaultSuperArtMoves(): MoveDefinition[] {
   return [
     { id: nextSeedId('sa'), name: 'SA1', category: 'superArt' },
     { id: nextSeedId('sa'), name: 'SA2', category: 'superArt' },
     { id: nextSeedId('sa'), name: 'SA3', category: 'superArt' },
   ];
+}
+
+function createDefaultMoveList(): MoveDefinition[] {
+  return createDefaultSuperArtMoves();
 }
 
 const ROSTER_NAMES: { id: string; name: string }[] = [

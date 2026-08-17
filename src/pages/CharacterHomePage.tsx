@@ -6,11 +6,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
-import type { ComboTree, MoveNode } from '../types';
-
-function countNodes(node: MoveNode): number {
-  return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
-}
+import type { ComboTree } from '../types';
 
 export function CharacterHomePage() {
   const characters = useVisibleCharacters();
@@ -121,7 +117,6 @@ function ComboTreeCard({
     <div className="card" style={styles.treeCard}>
       <button type="button" onClick={onOpen} style={styles.treeCardMain}>
         <div style={styles.treeCardTitle}>{tree.label}</div>
-        <div style={styles.treeCardMeta}>{countNodes(tree.root) - 1} 手のコンボ</div>
       </button>
 
       {onDelete && (
@@ -161,10 +156,5 @@ const styles: Record<string, CSSProperties> = {
   treeCardTitle: {
     fontWeight: 800,
     color: 'var(--text-primary)',
-    marginBottom: 4,
-  },
-  treeCardMeta: {
-    fontSize: 12,
-    color: 'var(--text-muted)',
   },
 };

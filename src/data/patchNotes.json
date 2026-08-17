@@ -1,5 +1,45 @@
 [
   {
+    "id": "2026-08-17-845abde2",
+    "date": "2026-08-17",
+    "buildNumber": 10,
+    "type": "other",
+    "title": "必殺技の名称が、木の中では呼称で見えるように変更",
+    "description": "サイドドロワー内では正式名称だが、木に追加すると呼称となり見やすくなる。",
+    "beforeImageUrl": "/images/patch-notes/2026/08/20260817-build10-before.png?v=1786957124314",
+    "afterImageUrl": "/images/patch-notes/2026/08/20260817-build10-after.png?v=1786957115811"
+  },
+  {
+    "id": "2026-08-17-6944b2bb",
+    "date": "2026-08-17",
+    "buildNumber": 9,
+    "type": "other",
+    "title": "表記を変更して改行を削除",
+    "description": "通常という項目を削除し、「何も選んでない状態」が通常となるようにした。",
+    "beforeImageUrl": "/images/patch-notes/2026/08/20260817-build9-before.png?v=1786954007483",
+    "afterImageUrl": "/images/patch-notes/2026/08/20260817-build9-after.png?v=1786954003765"
+  },
+  {
+    "id": "2026-08-17-374ccabe",
+    "date": "2026-08-17",
+    "buildNumber": 8,
+    "type": "other",
+    "title": "全体的にサイズの小型化・コンパクト化",
+    "description": "・ノードのサイズを縮小\n・～手のコンボという表記削除\n・空中技と地上技をひとまとめに\n・SA1~3をしっかり表示",
+    "beforeImageUrl": "/images/patch-notes/2026/08/20260817-build8-before.png?v=1786953208507",
+    "afterImageUrl": "/images/patch-notes/2026/08/20260817-build8-after.png?v=1786953204070"
+  },
+  {
+    "id": "2026-08-17-f9752b2c",
+    "date": "2026-08-17",
+    "buildNumber": 7,
+    "type": "other",
+    "title": "ノードのコピー機能を実装",
+    "description": "サイドドロワーでコピーし、それをドラッグ＆ドロップすることでペーストができる。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260817-build7-after.png?v=1786944618982"
+  },
+  {
     "id": "2026-08-16-9de7a9a7",
     "date": "2026-08-16",
     "buildNumber": 6,

@@ -24,6 +24,8 @@ export type MoveDefinition = {
   id: string;
   name: string; // 技名（例: "波動拳"、SAの場合はキャラ固有のSA名）
   category: MoveCategory;
+  // 必殺技(special)のみで使う、木のノード上に表示する短い呼び名。未設定なら name をそのまま使う
+  shortName?: string;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
@@ -83,7 +85,9 @@ export type ComboBranchStats = {
 
 export type MoveNode = {
   id: string;
-  moveName: string; // 技名（技マスタから選んだ時点のスナップショット）
+  moveName: string; // 技名（技マスタから選んだ時点のスナップショット）。ドロワー・見出し・エクスポート等で使う正式名称
+  // 木のノード上の表示用（必殺技の呼び名選択時のスナップショット）。未設定なら moveName を使う
+  displayName?: string;
   attributes: NodeAttribute[];
   specialNote: string; // 「ディレイ~F」のような特殊記入。基本は空文字
 

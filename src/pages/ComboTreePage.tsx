@@ -13,11 +13,11 @@ import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
+import { findNodeInComboTrees } from '../utils/comboTreeSearch';
 import {
   computeTreeLayout,
   useNodeHeights,
   useTreeExpandAnimation,
-  findNode,
   buildParentMap,
   ConnectionsOverlay,
   type DropZoneSpec,
@@ -41,7 +41,7 @@ type DraggedNodeData = { id: string; parentId: string | null; index: number };
 type TaggedColumn = TreeColumn<MoveNode> & { treeId: string };
 type TaggedDropZone = DropZoneSpec & { treeId: string };
 
-/** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター属性）に合わせる */
+/** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター/ラッシュ属性）に合わせる */
 function getBranchLineColor(_column: TreeColumn<MoveNode>, childNode: MoveNode): string {
   return NODE_LINE_COLOR_VAR[resolveBorderColorKind(childNode.attributes)];
 }
@@ -57,18 +57,6 @@ const {
   rootWidth: ROOT_WIDTH,
   dropZoneHeight: DROP_ZONE_HEIGHT,
 } = TREE_LAYOUT_CONFIG;
-
-function countNodes(node: MoveNode): number {
-  return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
-}
-
-function findNodeInTrees(trees: ComboTree[], id: string): MoveNode | null {
-  for (const tree of trees) {
-    const found = findNode(tree.root, id);
-    if (found) return found;
-  }
-  return null;
-}
 
 function shiftPositions(
   positions: Map<string, NodePosition>,
@@ -90,6 +78,11 @@ export function ComboTreePage() {
   const selectNode = useAppStore((state) => state.selectNode);
   const moveNode = useAppStore((state) => state.moveNode);
   const deleteComboTree = useAppStore((state) => state.deleteComboTree);
+  const moveComboTree = useAppStore((state) => state.moveComboTree);
+  const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
+  const copySelectedIds = useAppStore((state) => state.copySelectedIds);
+  const toggleCopySelection = useAppStore((state) => state.toggleCopySelection);
+  const pasteClipboard = useAppStore((state) => state.pasteClipboard);
 
   const character = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId) ?? null,
@@ -97,6 +90,35 @@ export function ComboTreePage() {
   );
 
   const trees = useMemo(() => character?.comboTrees ?? [], [character]);
+
+  // ── コピーモード: 起点ノード＋その子孫だけが選択候補になる
+  const copyCandidateIds = useMemo(() => {
+    if (!copyModeAnchorId) return null;
+
+    const anchorNode = findNodeInComboTrees(trees, copyModeAnchorId)?.node ?? null;
+    if (!anchorNode) return null;
+
+    const ids = new Set<string>();
+    const collect = (node: MoveNode) => {
+      ids.add(node.id);
+      node.children.forEach(collect);
+    };
+    collect(anchorNode);
+    return ids;
+  }, [trees, copyModeAnchorId]);
+
+  const copySelectedSet = useMemo(() => new Set(copySelectedIds), [copySelectedIds]);
+
+  const handleNodeClick = useCallback(
+    (nodeId: string) => {
+      if (copyModeAnchorId) {
+        if (copyCandidateIds?.has(nodeId)) toggleCopySelection(nodeId);
+        return;
+      }
+      selectNode(nodeId);
+    },
+    [copyModeAnchorId, copyCandidateIds, toggleCopySelection, selectNode],
+  );
 
   // ── 画面比率（ズーム）
   const [zoom, setZoom] = useState(1);
@@ -269,7 +291,7 @@ export function ComboTreePage() {
                 />
 
                 {/* 木ごとのラベル・ルートノード */}
-                {forest.blocks.map((block) => {
+                {forest.blocks.map((block, blockIndex) => {
                   const rootPos = forest.layout.positions.get(block.tree.root.id);
                   if (!rootPos) return null;
 
@@ -286,6 +308,16 @@ export function ComboTreePage() {
                               const ok = window.confirm(`「${block.tree.label}」を削除しますか？`);
                               if (ok) deleteComboTree(character.id, block.tree.id);
                             }
+                      }
+                      onMoveUp={
+                        isGuest || blockIndex === 0
+                          ? undefined
+                          : () => moveComboTree(character.id, block.tree.id, 'up')
+                      }
+                      onMoveDown={
+                        isGuest || blockIndex === forest.blocks.length - 1
+                          ? undefined
+                          : () => moveComboTree(character.id, block.tree.id, 'down')
                       }
                     />
                   );
@@ -311,7 +343,7 @@ export function ComboTreePage() {
                         node={block.tree.root}
                         isRoot
                         isSelected={selectedNodeId === block.tree.root.id}
-                        onClick={() => selectNode(block.tree.root.id)}
+                        onClick={() => handleNodeClick(block.tree.root.id)}
                         isExpanded={!collapsedSet.has(block.tree.root.id)}
                         onToggleExpand={
                           block.tree.root.children.length > 0
@@ -325,6 +357,11 @@ export function ComboTreePage() {
                           if (draggedData.id === block.tree.root.id) return;
                           moveNode(character.id, block.tree.id, draggedData.id, block.tree.root.id);
                         }}
+                        isCopyModeActive={copyModeAnchorId !== null}
+                        isCopyAnchor={copyModeAnchorId === block.tree.root.id}
+                        isCopyCandidate={copyCandidateIds?.has(block.tree.root.id) ?? false}
+                        isCopySelected={copySelectedSet.has(block.tree.root.id)}
+                        onPasteDrop={() => pasteClipboard(character.id, block.tree.id, block.tree.root.id)}
                       />
                     </div>
                   );
@@ -353,7 +390,7 @@ export function ComboTreePage() {
                         <MoveNodeCircle
                           node={node}
                           isSelected={selectedNodeId === node.id}
-                          onClick={() => selectNode(node.id)}
+                          onClick={() => handleNodeClick(node.id)}
                           isExpanded={!collapsedSet.has(node.id)}
                           onToggleExpand={
                             node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
@@ -365,6 +402,11 @@ export function ComboTreePage() {
                             if (draggedData.id === node.id) return;
                             moveNode(character.id, column.treeId, draggedData.id, node.id);
                           }}
+                          isCopyModeActive={copyModeAnchorId !== null}
+                          isCopyAnchor={copyModeAnchorId === node.id}
+                          isCopyCandidate={copyCandidateIds?.has(node.id) ?? false}
+                          isCopySelected={copySelectedSet.has(node.id)}
+                          onPasteDrop={() => pasteClipboard(character.id, column.treeId, node.id)}
                         />
                       </div>
                     );
@@ -375,7 +417,7 @@ export function ComboTreePage() {
                 {Array.from(exitingNodes.entries())
                   .filter(([id]) => !forest.layout.positions.has(id))
                   .map(([id, pos]) => {
-                    const node = findNodeInTrees(trees, id);
+                    const node = findNodeInComboTrees(trees, id)?.node ?? null;
                     if (!node) return null;
 
                     return (
@@ -459,11 +501,15 @@ function TreeBlockHeader({
   x,
   offsetY,
   onDelete,
+  onMoveUp,
+  onMoveDown,
 }: {
   tree: ComboTree;
   x: number;
   offsetY: number;
   onDelete?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   return (
     <div
@@ -480,9 +526,14 @@ function TreeBlockHeader({
       <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
         {tree.label}
       </span>
-      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-        {countNodes(tree.root) - 1} 手のコンボ
-      </span>
+
+      {(onMoveUp || onMoveDown) && (
+        <div style={{ display: 'flex', gap: 2 }}>
+          <ReorderButton direction="up" onClick={onMoveUp} title="この木を1つ上に移動" />
+          <ReorderButton direction="down" onClick={onMoveDown} title="この木を1つ下に移動" />
+        </div>
+      )}
+
       {onDelete && (
         <button
           type="button"
@@ -498,6 +549,31 @@ function TreeBlockHeader({
         </button>
       )}
     </div>
+  );
+}
+
+function ReorderButton({
+  direction,
+  onClick,
+  title,
+}: {
+  direction: 'up' | 'down';
+  onClick?: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="btn-icon"
+      onClick={onClick}
+      disabled={!onClick}
+      title={title}
+      style={{ width: 18, height: 18, opacity: onClick ? 1 : 0.3 }}
+    >
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        {direction === 'up' ? <polyline points="18,15 12,9 6,15" /> : <polyline points="6,9 12,15 18,9" />}
+      </svg>
+    </button>
   );
 }
 
