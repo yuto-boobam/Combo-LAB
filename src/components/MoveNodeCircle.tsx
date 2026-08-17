@@ -156,6 +156,8 @@ export function MoveNodeCircle({
           color: 'var(--text-secondary)',
           lineHeight: 1.2,
           wordBreak: 'break-word',
+          // 呼び名に含まれる改行（ストック段階などを2行目に分けたい場合）をそのまま活かす
+          whiteSpace: 'pre-line',
           overflow: 'hidden',
           display: '-webkit-box',
           WebkitLineClamp: 2,

@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-08-17-3c68b320",
+    "date": "2026-08-17",
+    "buildNumber": 11,
+    "type": "other",
+    "title": "特殊性能の記入を可能に変更",
+    "description": "四つの強度のみで性能を表現しきれない技があるので、別途入力を可能にした。",
+    "beforeImageUrl": "/images/patch-notes/2026/08/20260817-build11-before.png?v=1786965920106",
+    "afterImageUrl": "/images/patch-notes/2026/08/20260817-build11-after.png?v=1786965906551"
+  },
+  {
     "id": "2026-08-17-845abde2",
     "date": "2026-08-17",
     "buildNumber": 10,

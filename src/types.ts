@@ -19,6 +19,9 @@ export type Rating5 = 1 | 2 | 3 | 4 | 5;
  */
 export type MoveCategory = 'normal' | 'air' | 'unique' | 'special' | 'superArt' | 'system';
 
+/** 必殺技の強度4種 */
+export type MoveStrength = '弱' | '中' | '強' | 'OD';
+
 /** キャラごとの技候補（サイドドロワーの「技」選択欄に並ぶ）。unique/special/superArtのみで使用 */
 export type MoveDefinition = {
   id: string;
@@ -26,6 +29,17 @@ export type MoveDefinition = {
   category: MoveCategory;
   // 必殺技(special)のみで使う、木のノード上に表示する短い呼び名。未設定なら name をそのまま使う
   shortName?: string;
+  /**
+   * 必殺技(special)のみで使う。ストック・同時押しなど、強度だけでは技の状態を表現しきれない
+   * 技かどうか。falsyな技は強度選択だけで従来通り確定する（デフォルトの見た目・手数は変わらない）
+   */
+  hasSpecialVariant?: boolean;
+  /**
+   * hasSpecialVariantがtrueの技のみで使う。強度を選んだ後にさらに選ばせる特殊性能の選択肢一覧
+   * （例: イングリッドの「ビーム」で["ビームレベル2","ビームレベル3","ビームレベル4"]、
+   * 同時押し系の技で["AB同時押し","BC同時押し","AC同時押し"]）
+   */
+  specialVariantOptions?: string[];
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
