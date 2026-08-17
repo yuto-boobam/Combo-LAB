@@ -158,7 +158,7 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
 
 function NewTreeSection({ characterId }: { characterId: string }) {
   const createComboTree = useAppStore((state) => state.createComboTree);
-  const selectComboTree = useAppStore((state) => state.selectComboTree);
+  const selectNode = useAppStore((state) => state.selectNode);
 
   const [newRootMoveName, setNewRootMoveName] = useState('');
   const [newRootDisplayName, setNewRootDisplayName] = useState<string | undefined>(undefined);
@@ -167,11 +167,11 @@ function NewTreeSection({ characterId }: { characterId: string }) {
   const handleCreate = () => {
     if (!newRootMoveName.trim()) return;
 
-    const newTreeId = createComboTree(characterId, newRootMoveName, newRootDisplayName);
+    createComboTree(characterId, newRootMoveName, newRootDisplayName);
     setNewRootMoveName('');
     setNewRootDisplayName(undefined);
     setIsOpen(false);
-    selectComboTree(newTreeId);
+    selectNode(null);
   };
 
   return (

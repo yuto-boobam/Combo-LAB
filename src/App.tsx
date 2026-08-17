@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react';
 import { useAppStore } from './store';
 import { AuthPage } from './pages/AuthPage';
 import { CharacterSelectPage } from './pages/CharacterSelectPage';
-import { CharacterHomePage } from './pages/CharacterHomePage';
 import { ComboTreePage } from './pages/ComboTreePage';
 import { supabase } from './utils/supabaseClient';
 
 /**
  * App.tsx — アプリのエントリポイント。
  * ログイン状態（user）に応じて、未ログインならAuthPage、ログイン済なら
- * キャラ選択→（選択後）キャラのホーム画面を切り替える（企画書5ページの画面遷移）。
+ * キャラ選択→（選択後）コンボ登録画面を切り替える（企画書5ページの画面遷移）。
  * ゲーム選択は企画書の指示により実装しない。
  */
 function App() {
@@ -18,7 +17,6 @@ function App() {
   const isGuest = useAppStore((s) => s.isGuest);
   const theme = useAppStore((s) => s.theme);
   const selectedCharacterId = useAppStore((s) => s.selectedCharacterId);
-  const selectedComboTreeId = useAppStore((s) => s.selectedComboTreeId);
 
   // 配色テーマをHTMLルート要素に反映（CSS変数の切り替えに使う）
   useEffect(() => {
@@ -66,13 +64,7 @@ function App() {
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden' }}>
-      {!selectedCharacterId ? (
-        <CharacterSelectPage />
-      ) : !selectedComboTreeId ? (
-        <CharacterHomePage />
-      ) : (
-        <ComboTreePage />
-      )}
+      {!selectedCharacterId ? <CharacterSelectPage /> : <ComboTreePage />}
     </div>
   );
 }

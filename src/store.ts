@@ -233,9 +233,6 @@ export type AppState = {
   setMoveDefinitionShortName: (characterId: string, moveId: string, shortName: string) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
-  selectedComboTreeId: string | null;
-  selectComboTree: (treeId: string) => void;
-  goToCharacterHome: () => void;
   createComboTree: (characterId: string, label: string, displayName?: string) => string;
   deleteComboTree: (characterId: string, treeId: string) => void;
   /** 木の並び順を1つ前/後ろに入れ替える（現在は追加順のみのため、手動で並び替えられるようにする） */
@@ -397,7 +394,7 @@ export const useAppStore = create<AppState>()(
       },
 
       goToCharacterSelect: () => {
-        set({ selectedCharacterId: null, selectedComboTreeId: null, selectedNodeId: null });
+        set({ selectedCharacterId: null, selectedNodeId: null });
       },
 
       restoreCharacters: (imported) => {
@@ -484,16 +481,6 @@ export const useAppStore = create<AppState>()(
 
       // ──── コンボ木 ───────────────────────────────────────────────────
 
-      selectedComboTreeId: null,
-
-      selectComboTree: (treeId) => {
-        set({ selectedComboTreeId: treeId, selectedNodeId: null });
-      },
-
-      goToCharacterHome: () => {
-        set({ selectedComboTreeId: null, selectedNodeId: null });
-      },
-
       createComboTree: (characterId, label, displayName) => {
         const { nickname } = get();
         const trimmedLabel = label.trim() || '無題の木';
@@ -520,20 +507,26 @@ export const useAppStore = create<AppState>()(
       },
 
       deleteComboTree: (characterId, treeId) => {
-        set((state) => ({
-          characters: state.characters.map((character) =>
-            character.id === characterId
-              ? {
-                  ...character,
-                  comboTrees: character.comboTrees.filter((tree) => tree.id !== treeId),
-                  updatedAt: new Date().toISOString(),
-                }
-              : character,
-          ),
-          selectedComboTreeId:
-            state.selectedComboTreeId === treeId ? null : state.selectedComboTreeId,
-          selectedNodeId: state.selectedComboTreeId === treeId ? null : state.selectedNodeId,
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const deletedTree = character?.comboTrees.find((tree) => tree.id === treeId) ?? null;
+          const selectedNodeBelongsToDeletedTree =
+            deletedTree !== null &&
+            findNodeInComboTrees([deletedTree], state.selectedNodeId) !== null;
+
+          return {
+            characters: state.characters.map((character) =>
+              character.id === characterId
+                ? {
+                    ...character,
+                    comboTrees: character.comboTrees.filter((tree) => tree.id !== treeId),
+                    updatedAt: new Date().toISOString(),
+                  }
+                : character,
+            ),
+            selectedNodeId: selectedNodeBelongsToDeletedTree ? null : state.selectedNodeId,
+          };
+        });
       },
 
       moveComboTree: (characterId, treeId, direction) => {
@@ -778,7 +771,6 @@ export const useAppStore = create<AppState>()(
         isGuest: state.isGuest,
         characters: state.characters,
         selectedCharacterId: state.selectedCharacterId,
-        selectedComboTreeId: state.selectedComboTreeId,
         collapsedNodeIds: state.collapsedNodeIds,
       }),
 
