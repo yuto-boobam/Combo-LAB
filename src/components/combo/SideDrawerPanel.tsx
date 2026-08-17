@@ -161,13 +161,15 @@ function NewTreeSection({ characterId }: { characterId: string }) {
   const selectComboTree = useAppStore((state) => state.selectComboTree);
 
   const [newRootMoveName, setNewRootMoveName] = useState('');
+  const [newRootDisplayName, setNewRootDisplayName] = useState<string | undefined>(undefined);
   const [isOpen, setIsOpen] = useState(false);
 
   const handleCreate = () => {
     if (!newRootMoveName.trim()) return;
 
-    const newTreeId = createComboTree(characterId, newRootMoveName);
+    const newTreeId = createComboTree(characterId, newRootMoveName, newRootDisplayName);
     setNewRootMoveName('');
+    setNewRootDisplayName(undefined);
     setIsOpen(false);
     selectComboTree(newTreeId);
   };
@@ -181,7 +183,14 @@ function NewTreeSection({ characterId }: { characterId: string }) {
       onToggle={() => setIsOpen((open) => !open)}
     >
       <div style={{ display: 'grid', gap: 10 }}>
-        <MoveNamePicker characterId={characterId} value={newRootMoveName} onChange={setNewRootMoveName} />
+        <MoveNamePicker
+          characterId={characterId}
+          value={newRootMoveName}
+          onChange={(name, displayName) => {
+            setNewRootMoveName(name);
+            setNewRootDisplayName(displayName);
+          }}
+        />
         <button
           type="button"
           className="btn-primary justify-center"
@@ -217,12 +226,14 @@ function NodeEditor({
   const startCopyMode = useAppStore((state) => state.startCopyMode);
 
   const [newMoveName, setNewMoveName] = useState('');
+  const [newDisplayName, setNewDisplayName] = useState<string | undefined>(undefined);
   const [newAttributes, setNewAttributes] = useState<NodeAttribute[]>([]);
 
   // 技名ピッカーはクリックした瞬間に選ばれてしまうため、選択中ノードの改名は
   // 「追加」フォームと同じくステージ（一時保存）してから明示的なボタンで確定する。
   // こうしないと、閲覧のつもりでボタンを押しただけでノードが改名されてしまう。
   const [editedMoveName, setEditedMoveName] = useState(selectedNode.moveName);
+  const [editedDisplayName, setEditedDisplayName] = useState(selectedNode.displayName);
 
   // 「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
   // ノードを切り替えるたびに（keyでの再マウントにより）両方とも開いた状態に戻る
@@ -237,8 +248,16 @@ function NodeEditor({
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
 
-    const newId = addChildNode(characterId, treeId, selectedNode.id, newMoveName, newAttributes);
+    const newId = addChildNode(
+      characterId,
+      treeId,
+      selectedNode.id,
+      newMoveName,
+      newAttributes,
+      newDisplayName,
+    );
     setNewMoveName('');
+    setNewDisplayName(undefined);
     setNewAttributes([]);
     selectNode(newId);
   };
@@ -257,14 +276,22 @@ function NodeEditor({
           <MoveNamePicker
             characterId={characterId}
             value={editedMoveName}
-            onChange={setEditedMoveName}
+            onChange={(name, displayName) => {
+              setEditedMoveName(name);
+              setEditedDisplayName(displayName);
+            }}
           />
           <button
             type="button"
             className="btn-primary justify-center"
             style={{ width: '100%' }}
-            disabled={!editedMoveName.trim() || editedMoveName === selectedNode.moveName}
-            onClick={() => updateNodeMoveName(characterId, treeId, selectedNode.id, editedMoveName)}
+            disabled={
+              !editedMoveName.trim() ||
+              (editedMoveName === selectedNode.moveName && editedDisplayName === selectedNode.displayName)
+            }
+            onClick={() =>
+              updateNodeMoveName(characterId, treeId, selectedNode.id, editedMoveName, editedDisplayName)
+            }
           >
             この技名に変更する
           </button>
@@ -333,7 +360,14 @@ function NodeEditor({
         onToggle={() => setIsAddFormOpen((open) => !open)}
       >
         <div style={{ display: 'grid', gap: 10 }}>
-          <MoveNamePicker characterId={characterId} value={newMoveName} onChange={setNewMoveName} />
+          <MoveNamePicker
+            characterId={characterId}
+            value={newMoveName}
+            onChange={(name, displayName) => {
+              setNewMoveName(name);
+              setNewDisplayName(displayName);
+            }}
+          />
 
           <AttributeEditor value={newAttributes} onChange={setNewAttributes} />
 

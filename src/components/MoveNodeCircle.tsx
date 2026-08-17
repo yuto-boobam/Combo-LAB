@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { MoveNode } from '../types';
 import { resolveNodeVisualStyle, NODE_BODY_COLOR_VAR, NODE_BORDER_COLOR_VAR } from '../utils/nodeVisualStyle';
 
-export const NODE_DIAMETER = 96;
+export const NODE_DIAMETER = 72;
 
 type DraggedNodeData = { id: string; parentId: string | null; index: number };
 
@@ -105,7 +105,7 @@ export function MoveNodeCircle({
         background: NODE_BODY_COLOR_VAR[visual.bodyColorKind],
         border: `${visual.borderWidth === 'thick' || isCopyAnchor || isCopySelected ? 3 : 1.5}px ${isCopyAnchor ? 'dashed' : visual.borderStyle} ${borderColor}`,
         boxShadow: isSelected ? '0 0 0 3px var(--accent-glow)' : 'none',
-        padding: 6,
+        padding: 5,
         textAlign: 'center',
         opacity: isInactiveDuringCopyMode ? 0.35 : 1,
         cursor: isInactiveDuringCopyMode ? 'default' : 'pointer',
@@ -117,17 +117,17 @@ export function MoveNodeCircle({
           title="コピー対象"
           style={{
             position: 'absolute',
-            top: -6,
-            left: -6,
-            width: 18,
-            height: 18,
+            top: -5,
+            left: -5,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
             background: 'var(--accent)',
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 900,
           }}
         >
@@ -138,7 +138,7 @@ export function MoveNodeCircle({
       {visual.isSituational && (
         <span
           title="状況限定"
-          style={{ position: 'absolute', top: -4, right: -2, fontSize: 14, lineHeight: 1 }}
+          style={{ position: 'absolute', top: -3, right: -2, fontSize: 12, lineHeight: 1 }}
         >
           📍
         </span>
@@ -146,10 +146,10 @@ export function MoveNodeCircle({
 
       <span
         style={{
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: 700,
           color: 'var(--text-secondary)',
-          lineHeight: 1.25,
+          lineHeight: 1.2,
           wordBreak: 'break-word',
           overflow: 'hidden',
           display: '-webkit-box',
@@ -158,15 +158,15 @@ export function MoveNodeCircle({
         }}
         title={node.moveName}
       >
-        {node.moveName}
+        {node.displayName || node.moveName}
       </span>
 
       {node.specialNote && (
         <span
           style={{
-            fontSize: 9,
+            fontSize: 8,
             color: 'var(--text-secondary)',
-            marginTop: 2,
+            marginTop: 1,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -189,10 +189,10 @@ export function MoveNodeCircle({
           title={isExpanded ? '子ノードを閉じる' : '子ノードを開く'}
           style={{
             position: 'absolute',
-            right: -6,
-            bottom: -6,
-            width: 18,
-            height: 18,
+            right: -5,
+            bottom: -5,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
             border: '1.5px solid var(--border)',
             background: 'var(--bg-surface)',
@@ -204,8 +204,8 @@ export function MoveNodeCircle({
           }}
         >
           <svg
-            width="8"
-            height="8"
+            width="7"
+            height="7"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

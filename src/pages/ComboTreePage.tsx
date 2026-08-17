@@ -58,10 +58,6 @@ const {
   dropZoneHeight: DROP_ZONE_HEIGHT,
 } = TREE_LAYOUT_CONFIG;
 
-function countNodes(node: MoveNode): number {
-  return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
-}
-
 function shiftPositions(
   positions: Map<string, NodePosition>,
   offsetY: number,
@@ -82,6 +78,7 @@ export function ComboTreePage() {
   const selectNode = useAppStore((state) => state.selectNode);
   const moveNode = useAppStore((state) => state.moveNode);
   const deleteComboTree = useAppStore((state) => state.deleteComboTree);
+  const moveComboTree = useAppStore((state) => state.moveComboTree);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
   const copySelectedIds = useAppStore((state) => state.copySelectedIds);
   const toggleCopySelection = useAppStore((state) => state.toggleCopySelection);
@@ -294,7 +291,7 @@ export function ComboTreePage() {
                 />
 
                 {/* 木ごとのラベル・ルートノード */}
-                {forest.blocks.map((block) => {
+                {forest.blocks.map((block, blockIndex) => {
                   const rootPos = forest.layout.positions.get(block.tree.root.id);
                   if (!rootPos) return null;
 
@@ -311,6 +308,16 @@ export function ComboTreePage() {
                               const ok = window.confirm(`「${block.tree.label}」を削除しますか？`);
                               if (ok) deleteComboTree(character.id, block.tree.id);
                             }
+                      }
+                      onMoveUp={
+                        isGuest || blockIndex === 0
+                          ? undefined
+                          : () => moveComboTree(character.id, block.tree.id, 'up')
+                      }
+                      onMoveDown={
+                        isGuest || blockIndex === forest.blocks.length - 1
+                          ? undefined
+                          : () => moveComboTree(character.id, block.tree.id, 'down')
                       }
                     />
                   );
@@ -494,11 +501,15 @@ function TreeBlockHeader({
   x,
   offsetY,
   onDelete,
+  onMoveUp,
+  onMoveDown,
 }: {
   tree: ComboTree;
   x: number;
   offsetY: number;
   onDelete?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   return (
     <div
@@ -515,9 +526,14 @@ function TreeBlockHeader({
       <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
         {tree.label}
       </span>
-      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-        {countNodes(tree.root) - 1} 手のコンボ
-      </span>
+
+      {(onMoveUp || onMoveDown) && (
+        <div style={{ display: 'flex', gap: 2 }}>
+          <ReorderButton direction="up" onClick={onMoveUp} title="この木を1つ上に移動" />
+          <ReorderButton direction="down" onClick={onMoveDown} title="この木を1つ下に移動" />
+        </div>
+      )}
+
       {onDelete && (
         <button
           type="button"
@@ -533,6 +549,31 @@ function TreeBlockHeader({
         </button>
       )}
     </div>
+  );
+}
+
+function ReorderButton({
+  direction,
+  onClick,
+  title,
+}: {
+  direction: 'up' | 'down';
+  onClick?: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="btn-icon"
+      onClick={onClick}
+      disabled={!onClick}
+      title={title}
+      style={{ width: 18, height: 18, opacity: onClick ? 1 : 0.3 }}
+    >
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        {direction === 'up' ? <polyline points="18,15 12,9 6,15" /> : <polyline points="6,9 12,15 18,9" />}
+      </svg>
+    </button>
   );
 }
 

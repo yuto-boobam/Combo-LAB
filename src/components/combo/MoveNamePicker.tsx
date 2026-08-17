@@ -1,11 +1,16 @@
 // src/components/combo/MoveNamePicker.tsx
 // 技名の選択UI。
 //
-// 通常技・空中技・共通システムは全キャラ共通の固定ボタン（クリックのみで選択完了）。
-// 特殊技・必殺技はキャラ固有のため自由入力で登録し、登録したものはボタンとして
-// 次回以降も再利用できる（Character.moveList に保存・削除で管理）。
+// 通常技（地上技・空中技）・共通システムは全キャラ共通の固定ボタン（クリックのみで選択完了）。
+// 特殊技はキャラ固有のため自由入力で登録するが、コンパクトにするため独立したカテゴリにはせず
+// 「通常技」セクションの中にそのまま内蔵する。必殺技も同様にキャラ固有で自由入力登録。
+// 登録したものはボタンとして次回以降も再利用できる（Character.moveList に保存・削除で管理）。
 // SAはSA1〜3の固定枠だが、名前はキャラごとに直接編集できる。
 // 「歩き」は方向とフレーム数を組み立てる複合ウィジェット。
+//
+// 必殺技のみ「呼び名」（木のノード上の表示用の短い名前）を任意で登録できる。ドロワーの
+// この選択UI自体は常に正式名称で表示し、選んだ瞬間に正式名称・呼び名の両方を onChange へ渡す
+// （呼び名が無ければ木のノードは正式名称のまま表示される。詳細はMoveNodeCircle.tsx参照）。
 //
 // 技は結局1つしか選ばないため、カテゴリは初期状態ではすべて閉じておき
 // （現在値が属するカテゴリだけ自動で開く）、AccordionSectionで開閉させる。
@@ -14,15 +19,16 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import type { MoveDefinition } from '../../types';
-import { AIR_MOVE_NAMES, NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../../data/commonMoves';
+import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../../data/commonMoves';
 import AccordionSection from '../AccordionSection';
 
-type SectionKey = 'normal' | 'air' | 'unique' | 'special' | 'superArt' | 'system';
+type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
 
 type Props = {
   characterId: string;
   value: string;
-  onChange: (name: string) => void;
+  // displayName は必殺技を選んだ時のみ渡ってくる（呼び名が登録されている場合）
+  onChange: (name: string, displayName?: string) => void;
 };
 
 function computeInitialOpenSections(
@@ -31,8 +37,6 @@ function computeInitialOpenSections(
 ): Record<SectionKey, boolean> {
   const initial: Record<SectionKey, boolean> = {
     normal: false,
-    air: false,
-    unique: false,
     special: false,
     superArt: false,
     system: false,
@@ -41,13 +45,17 @@ function computeInitialOpenSections(
   if (!value) return initial;
 
   if (NORMAL_MOVE_NAMES.includes(value)) return { ...initial, normal: true };
-  if (AIR_MOVE_NAMES.includes(value)) return { ...initial, air: true };
   if (SYSTEM_MOVE_NAMES.includes(value) || value.includes('歩き')) {
     return { ...initial, system: true };
   }
 
   const matchedMove = moveList.find((move) => move.name === value);
-  if (matchedMove) return { ...initial, [matchedMove.category]: true };
+  if (matchedMove) {
+    // 特殊技(unique)は「通常技」セクションに内蔵しているため、通常技を開く
+    if (matchedMove.category === 'unique') return { ...initial, normal: true };
+    if (matchedMove.category === 'special') return { ...initial, special: true };
+    if (matchedMove.category === 'superArt') return { ...initial, superArt: true };
+  }
 
   return initial;
 }
@@ -72,9 +80,9 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       <AccordionSection
-        title="地上技"
+        title="通常技"
         icon="👊"
-        count={NORMAL_MOVE_NAMES.length}
+        count={NORMAL_MOVE_NAMES.length + uniqueMoves.length}
         isOpen={openSections.normal}
         onToggle={() => toggleSection('normal')}
       >
@@ -83,36 +91,17 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
             <MovePill key={name} label={name} active={value === name} onClick={() => onChange(name)} />
           ))}
         </div>
-      </AccordionSection>
 
-      <AccordionSection
-        title="空中技"
-        icon="🦶"
-        count={AIR_MOVE_NAMES.length}
-        isOpen={openSections.air}
-        onToggle={() => toggleSection('air')}
-      >
-        <div style={styles.buttonRow}>
-          {AIR_MOVE_NAMES.map((name) => (
-            <MovePill key={name} label={name} active={value === name} onClick={() => onChange(name)} />
-          ))}
+        <div style={styles.walkBox}>
+          <div style={styles.walkTitle}>特殊技（キャラ固有）</div>
+          <CharacterMoveGroupBody
+            title="特殊技"
+            characterId={characterId}
+            moves={uniqueMoves}
+            value={value}
+            onChange={onChange}
+          />
         </div>
-      </AccordionSection>
-
-      <AccordionSection
-        title="特殊技（キャラ固有）"
-        icon="⭐"
-        count={uniqueMoves.length}
-        isOpen={openSections.unique}
-        onToggle={() => toggleSection('unique')}
-      >
-        <CharacterMoveGroupBody
-          title="特殊技"
-          characterId={characterId}
-          moves={uniqueMoves}
-          value={value}
-          onChange={onChange}
-        />
       </AccordionSection>
 
       <AccordionSection
@@ -245,25 +234,51 @@ function SpecialMoveGroupBody({
   characterId: string;
   moves: MoveDefinition[];
   value: string;
-  onChange: (name: string) => void;
+  onChange: (name: string, displayName?: string) => void;
 }) {
   const addMoveDefinition = useAppStore((state) => state.addMoveDefinition);
   const deleteMoveDefinition = useAppStore((state) => state.deleteMoveDefinition);
+  const setMoveDefinitionShortName = useAppStore((state) => state.setMoveDefinitionShortName);
   const [draftName, setDraftName] = useState('');
+  const [draftShortName, setDraftShortName] = useState('');
 
   // 現在の値が「強度+登録済み技名」の形なら、その技の強度選択を開いた状態にしておく
-  const selectedMove = moves.find((move) =>
-    SPECIAL_MOVE_STRENGTHS.some((strength) => value === `${strength}${move.name}`),
+  const currentStrength = SPECIAL_MOVE_STRENGTHS.find((strength) =>
+    moves.some((move) => value === `${strength}${move.name}`),
   );
+  // 「value と完全に一致していて本当に確定している技」かどうか。他カテゴリと違い必殺技は
+  // 技→強度の2段階選択なので、pickingMoveId（＝今どの技の強度パネルを開いているか）とは
+  // 分けて判定する。こうしないと「通常技のPを押した後も必殺技側が選択されっぱなしに見える」
+  // という不具合（＝どのカテゴリでも同時に1つしか選ばれていないように見せたい）が起きる
+  const isMoveConfirmed = (move: MoveDefinition) =>
+    SPECIAL_MOVE_STRENGTHS.some((strength) => value === `${strength}${move.name}`);
+  const selectedMove = moves.find(isMoveConfirmed);
   const [pickingMoveId, setPickingMoveId] = useState<string | null>(selectedMove?.id ?? null);
   const pickingMove = moves.find((move) => move.id === pickingMoveId) ?? null;
+
+  const handlePickMove = (move: MoveDefinition) => {
+    const wasPicked = pickingMoveId === move.id;
+    setPickingMoveId(wasPicked ? null : move.id);
+
+    // 他のカテゴリ（通常技・特殊技・SA）は1クリックで選択が確定するのに対し、必殺技だけ
+    // 「技を選ぶ→強度を選ぶ」の2手が必要で「反応しない」ように感じられていた。
+    // すでに強度が決まっている状態で別の技に切り替える場合は、その強度のまま即座に確定し、
+    // 強度を変えたい時だけ下の強度選択で選び直せるようにする
+    if (!wasPicked && currentStrength) {
+      onChange(
+        `${currentStrength}${move.name}`,
+        move.shortName ? `${currentStrength}${move.shortName}` : undefined,
+      );
+    }
+  };
 
   const handleAdd = () => {
     const trimmed = draftName.trim();
     if (!trimmed) return;
 
-    const newId = addMoveDefinition(characterId, 'special', trimmed);
+    const newId = addMoveDefinition(characterId, 'special', trimmed, draftShortName);
     setDraftName('');
+    setDraftShortName('');
     setPickingMoveId(newId);
   };
 
@@ -277,10 +292,9 @@ function SpecialMoveGroupBody({
               <div key={move.id} style={styles.managedPillWrapper}>
                 <MovePill
                   label={move.name}
-                  active={pickingMoveId === move.id}
-                  onClick={() =>
-                    setPickingMoveId((current) => (current === move.id ? null : move.id))
-                  }
+                  active={isMoveConfirmed(move)}
+                  pending={pickingMoveId === move.id && !isMoveConfirmed(move)}
+                  onClick={() => handlePickMove(move)}
                 />
                 <button
                   type="button"
@@ -302,44 +316,78 @@ function SpecialMoveGroupBody({
       </fieldset>
 
       {pickingMove && (
-        <fieldset style={styles.fieldset}>
-          <legend style={styles.legend}>強度選択</legend>
-          <div style={styles.buttonRow}>
-            {SPECIAL_MOVE_STRENGTHS.map((strength) => (
-              <MovePill
-                key={strength}
-                label={strength}
-                active={value === `${strength}${pickingMove.name}`}
-                onClick={() => onChange(`${strength}${pickingMove.name}`)}
-              />
-            ))}
-          </div>
-        </fieldset>
+        <>
+          <fieldset style={styles.fieldset}>
+            <legend style={styles.legend}>強度選択</legend>
+            <div style={styles.buttonRow}>
+              {SPECIAL_MOVE_STRENGTHS.map((strength) => (
+                <MovePill
+                  key={strength}
+                  label={strength}
+                  active={value === `${strength}${pickingMove.name}`}
+                  onClick={() =>
+                    onChange(
+                      `${strength}${pickingMove.name}`,
+                      pickingMove.shortName ? `${strength}${pickingMove.shortName}` : undefined,
+                    )
+                  }
+                />
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset style={styles.fieldset}>
+            <legend style={styles.legend}>呼び名（木のノード上の表示用・省略可）</legend>
+            <input
+              type="text"
+              className="input-field"
+              style={styles.addInput}
+              placeholder={`例: ${pickingMove.name} → 短い呼び名`}
+              value={pickingMove.shortName ?? ''}
+              onChange={(event) =>
+                setMoveDefinitionShortName(characterId, pickingMove.id, event.target.value)
+              }
+            />
+          </fieldset>
+        </>
       )}
 
       <fieldset style={styles.fieldset}>
         <legend style={styles.legend}>追加登録</legend>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              type="text"
+              className="input-field"
+              style={styles.addInput}
+              placeholder="新しい必殺技を登録...（強度は付けない技名）"
+              value={draftName}
+              onChange={(event) => setDraftName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') handleAdd();
+              }}
+            />
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.addButton}
+              onClick={handleAdd}
+              disabled={!draftName.trim()}
+            >
+              登録
+            </button>
+          </div>
           <input
             type="text"
             className="input-field"
             style={styles.addInput}
-            placeholder="新しい必殺技を登録...（強度は付けない技名）"
-            value={draftName}
-            onChange={(event) => setDraftName(event.target.value)}
+            placeholder="呼び名（省略可・木のノード上に表示）"
+            value={draftShortName}
+            onChange={(event) => setDraftShortName(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') handleAdd();
             }}
           />
-          <button
-            type="button"
-            className="btn-ghost"
-            style={styles.addButton}
-            onClick={handleAdd}
-            disabled={!draftName.trim()}
-          >
-            登録
-          </button>
         </div>
       </fieldset>
     </div>
@@ -428,10 +476,14 @@ function WalkPicker({ value, onChange }: { value: string; onChange: (name: strin
 function MovePill({
   label,
   active,
+  pending = false,
   onClick,
 }: {
   label: string;
   active: boolean;
+  // 「今まさに選択中（value と一致）」ではなく「強度・呼び名を選んでいる最中でまだ確定していない」
+  // 状態を示す弱めの見た目。activeと同時にtrueにはならない想定
+  pending?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -440,9 +492,9 @@ function MovePill({
       onClick={onClick}
       style={{
         ...styles.pill,
-        borderColor: active ? 'var(--accent)' : 'var(--border)',
+        borderColor: active ? 'var(--accent)' : pending ? 'var(--accent)' : 'var(--border)',
         background: active ? 'var(--accent)' : 'var(--bg-elevated)',
-        color: active ? '#fff' : 'var(--text-secondary)',
+        color: active ? '#fff' : pending ? 'var(--accent)' : 'var(--text-secondary)',
       }}
     >
       {label}
