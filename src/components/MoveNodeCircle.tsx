@@ -1,12 +1,17 @@
 // src/components/MoveNodeCircle.tsx
-// 円形の技ノード（企画書7〜8ページ）。Rootedの矩形カード(TaskNodeCard)とは異なり、
+// 角丸長方形の技ノード（企画書7〜8ページ）。Rootedの矩形カード(TaskNodeCard)とは異なり、
 // 基本は技名のみ表示する。ドラッグ&ドロップの実装パターンはTaskNodeCardを踏襲。
+// 幅は固定し、高さは技名の行数（最大2行）に応じて伸縮させることで、
+// 円形だった頃より縦のスペースを取らないようにしている。
 
 import { useState } from 'react';
 import type { MoveNode } from '../types';
 import { resolveNodeVisualStyle, NODE_BODY_COLOR_VAR, NODE_BORDER_COLOR_VAR } from '../utils/nodeVisualStyle';
 
-export const NODE_DIAMETER = 72;
+export const NODE_WIDTH = 72;
+// 実測前（マウント直後）の仮の高さ。1〜2行の技名がだいたい収まる目安値で、
+// 実際の高さはuseNodeHeightsの実測値にすぐ置き換わる
+export const NODE_DEFAULT_HEIGHT = 44;
 
 type DraggedNodeData = { id: string; parentId: string | null; index: number };
 
@@ -98,14 +103,14 @@ export function MoveNodeCircle({
       onClick={onClick}
       className="flex flex-col items-center justify-center select-none"
       style={{
-        width: NODE_DIAMETER,
-        height: NODE_DIAMETER,
-        borderRadius: '50%',
+        width: NODE_WIDTH,
+        minHeight: NODE_DEFAULT_HEIGHT,
+        borderRadius: 'var(--radius-lg)',
         position: 'relative',
         background: NODE_BODY_COLOR_VAR[visual.bodyColorKind],
         border: `${visual.borderWidth === 'thick' || isCopyAnchor || isCopySelected ? 3 : 1.5}px ${isCopyAnchor ? 'dashed' : visual.borderStyle} ${borderColor}`,
         boxShadow: isSelected ? '0 0 0 3px var(--accent-glow)' : 'none',
-        padding: 5,
+        padding: '6px 7px',
         textAlign: 'center',
         opacity: isInactiveDuringCopyMode ? 0.35 : 1,
         cursor: isInactiveDuringCopyMode ? 'default' : 'pointer',
