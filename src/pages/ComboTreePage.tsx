@@ -195,7 +195,7 @@ export function ComboTreePage() {
       const columns: TaggedColumn[] = [];
       const visit = (node: MoveNode, depth: number) => {
         if (node.children.length === 0) return;
-        if (depth > 0 && collapsedSet.has(node.id)) return;
+        if (collapsedSet.has(node.id)) return;
 
         columns.push({ parentId: node.id, nodes: node.children, depth, treeId: tree.id });
         for (const child of node.children) {

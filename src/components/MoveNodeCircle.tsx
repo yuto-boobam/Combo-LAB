@@ -13,6 +13,15 @@ export const NODE_WIDTH = 72;
 // 実際の高さはuseNodeHeightsの実測値にすぐ置き換わる
 export const NODE_DEFAULT_HEIGHT = 44;
 
+/**
+ * ノード表示名の中の「｜」を改行に変換する。自動折り返しが意図しない位置（例:
+ * "Lv."と"1"の間）で発生する問題を避けるため、改行を入れたい位置をユーザーが
+ * 「｜」で明示的に指定できるようにするための変換
+ */
+function applyManualLineBreaks(text: string): string {
+  return text.replace(/｜|\|/g, '\n');
+}
+
 type DraggedNodeData = { id: string; parentId: string | null; index: number };
 
 type Props = {
@@ -156,6 +165,8 @@ export function MoveNodeCircle({
           color: 'var(--text-secondary)',
           lineHeight: 1.2,
           wordBreak: 'break-word',
+          // 呼び名に含まれる改行（ストック段階などを2行目に分けたい場合）をそのまま活かす
+          whiteSpace: 'pre-line',
           overflow: 'hidden',
           display: '-webkit-box',
           WebkitLineClamp: 2,
@@ -163,7 +174,7 @@ export function MoveNodeCircle({
         }}
         title={node.moveName}
       >
-        {node.displayName || node.moveName}
+        {applyManualLineBreaks(node.displayName || node.moveName)}
       </span>
 
       {node.specialNote && (
