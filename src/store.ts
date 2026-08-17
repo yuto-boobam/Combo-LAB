@@ -13,9 +13,21 @@ import type {
   NodeAttribute,
 } from './types';
 import { supabase } from './utils/supabaseClient';
-import { createInitialCharacterRoster } from './data/characterRoster';
+import { createInitialCharacterRoster, createDefaultSuperArtMoves } from './data/characterRoster';
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
-import { findNode } from './lib/tree';
+import { findNode, buildParentMap } from './lib/tree';
+import { findNodeInComboTrees } from './utils/comboTreeSearch';
+
+/** SA1〜SA3が未登録のキャラに補完する（この機能が実装される前に保存されたデータ向けの移行措置） */
+function ensureDefaultSuperArtMoves(character: Character): Character {
+  const hasSuperArtMove = character.moveList.some((move) => move.category === 'superArt');
+  if (hasSuperArtMove) return character;
+
+  return {
+    ...character,
+    moveList: [...character.moveList, ...createDefaultSuperArtMoves()],
+  };
+}
 
 // ── ヘルパー関数 ────────────────────────────────────────────────────────────
 
@@ -33,6 +45,7 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
   return {
     id: typeof node.id === 'string' && node.id ? node.id : makeId(),
     moveName: typeof node.moveName === 'string' ? node.moveName : '（技名未設定）',
+    displayName: typeof node.displayName === 'string' ? node.displayName : undefined,
     attributes: Array.isArray(node.attributes) ? (node.attributes as NodeAttribute[]) : [],
     specialNote: typeof node.specialNote === 'string' ? node.specialNote : '',
     branchStats: node.branchStats ?? null,
@@ -65,6 +78,7 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     id: typeof move.id === 'string' && move.id ? move.id : makeId(),
     name: move.name,
     category,
+    shortName: typeof move.shortName === 'string' && move.shortName ? move.shortName : undefined,
   };
 }
 
@@ -97,10 +111,12 @@ function makeMoveNode(
   moveName: string,
   attributes: NodeAttribute[],
   createdBy: string,
+  displayName?: string,
 ): MoveNode {
   return {
     id: makeId(),
     moveName: moveName.trim() || '（技名未設定）',
+    displayName: displayName?.trim() || undefined,
     attributes,
     specialNote: '',
     branchStats: null,
@@ -208,16 +224,22 @@ export type AppState = {
     characterId: string,
     category: MoveCategory,
     name: string,
+    // 必殺技のみで使う、木のノード上に表示する短い呼び名
+    shortName?: string,
   ) => string;
   deleteMoveDefinition: (characterId: string, moveId: string) => void;
   renameMoveDefinition: (characterId: string, moveId: string, name: string) => void;
+  /** 必殺技の呼び名（ノード表示用の短い名前）を編集する */
+  setMoveDefinitionShortName: (characterId: string, moveId: string, shortName: string) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
   selectedComboTreeId: string | null;
   selectComboTree: (treeId: string) => void;
   goToCharacterHome: () => void;
-  createComboTree: (characterId: string, label: string) => string;
+  createComboTree: (characterId: string, label: string, displayName?: string) => string;
   deleteComboTree: (characterId: string, treeId: string) => void;
+  /** 木の並び順を1つ前/後ろに入れ替える（現在は追加順のみのため、手動で並び替えられるようにする） */
+  moveComboTree: (characterId: string, treeId: string, direction: 'up' | 'down') => void;
 
   // ノード（技）操作
   selectedNodeId: string | null;
@@ -232,6 +254,7 @@ export type AppState = {
     parentId: string,
     moveName: string,
     attributes?: NodeAttribute[],
+    displayName?: string,
   ) => string;
 
   deleteNode: (characterId: string, treeId: string, nodeId: string) => void;
@@ -249,6 +272,7 @@ export type AppState = {
     treeId: string,
     nodeId: string,
     moveName: string,
+    displayName?: string,
   ) => void;
 
   updateNodeSpecialNote: (
@@ -271,6 +295,24 @@ export type AppState = {
     nodeId: string,
     branchStats: ComboBranchStats | null,
   ) => void;
+
+  // ──「枝を選んでまとめてコピー」機能 ─────────────────────────────────
+  // コピーモード: あるノード（起点）を選び、そこから続く枝（子孫ごと）を
+  // 好きな数だけクリックして選び、まとめてクリップボードにコピーする。
+  // 起点の外側のノードは選択対象にしない（UI側で候補を起点の子孫に絞る）。
+  copyModeAnchorId: string | null;
+  copySelectedIds: string[];
+  startCopyMode: (nodeId: string) => void;
+  toggleCopySelection: (nodeId: string) => void;
+  cancelCopyMode: () => void;
+  /** 選択中の枝をクリップボードに複製して確定し、コピーモードを終了する */
+  confirmCopy: (characterId: string) => void;
+
+  /** コピー確定済みの枝（複数可）。貼り付けのたびに新しいIDで複製するので、
+   * 何度でも別の場所へ貼り付けられる */
+  clipboard: MoveNode[] | null;
+  clearClipboard: () => void;
+  pasteClipboard: (characterId: string, treeId: string, targetNodeId: string) => void;
 };
 
 // ── ストア本体 ─────────────────────────────────────────────────────────────
@@ -369,11 +411,12 @@ export const useAppStore = create<AppState>()(
 
       // ──── 技マスタ ───────────────────────────────────────────────────
 
-      addMoveDefinition: (characterId, category, name) => {
+      addMoveDefinition: (characterId, category, name, shortName) => {
         const newMove: MoveDefinition = {
           id: makeId(),
           name: name.trim() || '（技名未設定）',
           category,
+          shortName: shortName?.trim() || undefined,
         };
 
         set((state) => ({
@@ -421,6 +464,24 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      setMoveDefinitionShortName: (characterId, moveId, shortName) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId
+                      ? { ...move, shortName: shortName.trim() || undefined }
+                      : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
       // ──── コンボ木 ───────────────────────────────────────────────────
 
       selectedComboTreeId: null,
@@ -433,14 +494,14 @@ export const useAppStore = create<AppState>()(
         set({ selectedComboTreeId: null, selectedNodeId: null });
       },
 
-      createComboTree: (characterId, label) => {
+      createComboTree: (characterId, label, displayName) => {
         const { nickname } = get();
         const trimmedLabel = label.trim() || '無題の木';
 
         const newTree: ComboTree = {
           id: makeId(),
           label: trimmedLabel,
-          root: makeMoveNode(trimmedLabel, [], nickname),
+          root: makeMoveNode(trimmedLabel, [], nickname, displayName),
         };
 
         set((state) => ({
@@ -475,6 +536,25 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      moveComboTree: (characterId, treeId, direction) => {
+        set((state) => ({
+          characters: state.characters.map((character) => {
+            if (character.id !== characterId) return character;
+
+            const index = character.comboTrees.findIndex((tree) => tree.id === treeId);
+            const targetIndex = direction === 'up' ? index - 1 : index + 1;
+            if (index === -1 || targetIndex < 0 || targetIndex >= character.comboTrees.length) {
+              return character;
+            }
+
+            const comboTrees = [...character.comboTrees];
+            [comboTrees[index], comboTrees[targetIndex]] = [comboTrees[targetIndex], comboTrees[index]];
+
+            return { ...character, comboTrees, updatedAt: new Date().toISOString() };
+          }),
+        }));
+      },
+
       // ──── ノード（技）操作 ────────────────────────────────────────────
 
       selectedNodeId: null,
@@ -493,9 +573,9 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      addChildNode: (characterId, treeId, parentId, moveName, attributes = []) => {
+      addChildNode: (characterId, treeId, parentId, moveName, attributes = [], displayName) => {
         const { nickname } = get();
-        const newNode = makeMoveNode(moveName, attributes, nickname);
+        const newNode = makeMoveNode(moveName, attributes, nickname, displayName);
 
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
@@ -565,10 +645,14 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      updateNodeMoveName: (characterId, treeId, nodeId, moveName) => {
+      updateNodeMoveName: (characterId, treeId, nodeId, moveName, displayName) => {
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, nodeId, (node) => ({ ...node, moveName })),
+            mapMoveNode(root, nodeId, (node) => ({
+              ...node,
+              moveName,
+              displayName: displayName?.trim() || undefined,
+            })),
           ),
         }));
       },
@@ -596,6 +680,95 @@ export const useAppStore = create<AppState>()(
           ),
         }));
       },
+
+      // ──「枝を選んでまとめてコピー」機能 ────────────────────────────────
+
+      copyModeAnchorId: null,
+      copySelectedIds: [],
+
+      startCopyMode: (nodeId) => {
+        set({ copyModeAnchorId: nodeId, copySelectedIds: [], selectedNodeId: null });
+      },
+
+      toggleCopySelection: (nodeId) => {
+        set((state) => ({
+          copySelectedIds: state.copySelectedIds.includes(nodeId)
+            ? state.copySelectedIds.filter((id) => id !== nodeId)
+            : [...state.copySelectedIds, nodeId],
+        }));
+      },
+
+      cancelCopyMode: () => {
+        set({ copyModeAnchorId: null, copySelectedIds: [] });
+      },
+
+      confirmCopy: (characterId) => {
+        set((state) => {
+          const { copyModeAnchorId, copySelectedIds } = state;
+          if (!copyModeAnchorId || copySelectedIds.length === 0) {
+            return { copyModeAnchorId: null, copySelectedIds: [] };
+          }
+
+          const character = state.characters.find((item) => item.id === characterId);
+          const found = character ? findNodeInComboTrees(character.comboTrees, copyModeAnchorId) : null;
+          if (!found) return { copyModeAnchorId: null, copySelectedIds: [] };
+
+          const parentOf = buildParentMap(found.tree.root);
+          const selectedSet = new Set(copySelectedIds);
+
+          // 選択されたノードの祖先も選択されている場合、そのノードは祖先の複製に
+          // まるごと含まれるため、独立した断片としては数えない（重複コピー防止）
+          const hasSelectedAncestor = (id: string): boolean => {
+            let cursor = parentOf.get(id);
+            while (cursor) {
+              if (selectedSet.has(cursor)) return true;
+              cursor = parentOf.get(cursor);
+            }
+            return false;
+          };
+
+          const fragments = copySelectedIds
+            .filter((id) => !hasSelectedAncestor(id))
+            .map((id) => findNode(found.tree.root, id))
+            .filter((node): node is MoveNode => node !== null);
+
+          return {
+            clipboard: fragments,
+            copyModeAnchorId: null,
+            copySelectedIds: [],
+          };
+        });
+      },
+
+      clipboard: null,
+
+      clearClipboard: () => {
+        set({ clipboard: null });
+      },
+
+      pasteClipboard: (characterId, treeId, targetNodeId) => {
+        const { clipboard, nickname } = get();
+        if (!clipboard || clipboard.length === 0) return;
+
+        const cloneWithFreshIds = (node: MoveNode): MoveNode => ({
+          ...node,
+          id: makeId(),
+          createdBy: nickname,
+          createdAt: new Date().toISOString(),
+          children: node.children.map(cloneWithFreshIds),
+        });
+
+        const pastedNodes = clipboard.map(cloneWithFreshIds);
+
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, targetNodeId, (node) => ({
+              ...node,
+              children: [...node.children, ...pastedNodes],
+            })),
+          ),
+        }));
+      },
     }),
     {
       name: 'combo-lab-storage',
@@ -615,10 +788,12 @@ export const useAppStore = create<AppState>()(
         return {
           ...currentState,
           ...persisted,
-          // 保存済みデータが壊れている/空の場合は初期ロースターにフォールバックする
+          // 保存済みデータが壊れている/空の場合は初期ロースターにフォールバックする。
+          // SA1〜3の初期枠はこの機能の実装後に追加されたため、それより前に保存された
+          // キャラには入っていない。読み込み時に不足していれば補完する
           characters:
             Array.isArray(persisted?.characters) && persisted.characters.length > 0
-              ? persisted.characters
+              ? persisted.characters.map(ensureDefaultSuperArtMoves)
               : currentState.characters,
           user: currentState.user,
           nickname: persisted?.isGuest ? 'ゲスト' : currentState.nickname,
