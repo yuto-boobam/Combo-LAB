@@ -2,16 +2,16 @@
 // ComboTreePageの見た目に関する調整値。Rootedの TreePage.config.ts と同じ考え方。
 
 import type { TreeLayoutConfig } from '../lib/tree';
-import { NODE_DIAMETER } from '../components/MoveNodeCircle';
+import { NODE_WIDTH, NODE_DEFAULT_HEIGHT } from '../components/MoveNodeCircle';
 
-/** 円形ノードのサイズ・列間隔など、木構造レイアウト計算に渡す寸法設定 */
+/** 角丸長方形ノードのサイズ・列間隔など、木構造レイアウト計算に渡す寸法設定 */
 export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
-  cardWidth: NODE_DIAMETER,
-  rootWidth: NODE_DIAMETER,
+  cardWidth: NODE_WIDTH,
+  rootWidth: NODE_WIDTH,
   gapX: 56,
   dropZoneHeight: 16,
-  defaultNodeHeight: NODE_DIAMETER,
-  defaultRootHeight: NODE_DIAMETER,
+  defaultNodeHeight: NODE_DEFAULT_HEIGHT,
+  defaultRootHeight: NODE_DEFAULT_HEIGHT,
 };
 
 /** キャンバス端の余白(px) */
