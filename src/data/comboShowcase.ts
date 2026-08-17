@@ -1,7 +1,7 @@
 // src/data/comboShowcase.ts
 // ポートフォリオ閲覧者（ゲストモード）に見せる、閲覧専用のコンボデータ。
 //
-// 運用: CharacterHomePageの「このキャラのデータをエクスポート」で書き出した
+// 運用: Headerの「エクスポート」で書き出した
 // キャラ1人分のJSON（{id, name, moveList, comboTrees, ...} という Character そのもの）を、
 // そのまま src/data/comboShowcaseSources/ に置いてコミットする。ファイル名は自由。
 // 後方互換として、Headerの「エクスポート」で作ったフルバックアップ形式

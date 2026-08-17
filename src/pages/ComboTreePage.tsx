@@ -71,7 +71,7 @@ export function ComboTreePage() {
   const characters = useVisibleCharacters();
   const isGuest = useAppStore((state) => state.isGuest);
   const selectedCharacterId = useAppStore((state) => state.selectedCharacterId);
-  const goToCharacterHome = useAppStore((state) => state.goToCharacterHome);
+  const goToCharacterSelect = useAppStore((state) => state.goToCharacterSelect);
   const collapsedNodeIds = useAppStore((state) => state.collapsedNodeIds);
   const toggleNodeExpanded = useAppStore((state) => state.toggleNodeExpanded);
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
@@ -231,7 +231,7 @@ export function ComboTreePage() {
   if (!character) {
     return (
       <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
-        <Header onLogoClick={goToCharacterHome} />
+        <Header onLogoClick={goToCharacterSelect} />
         <main
           className="flex-1 flex items-center justify-center"
           style={{ color: 'var(--text-secondary)' }}
@@ -245,7 +245,7 @@ export function ComboTreePage() {
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       <Header
-        onLogoClick={goToCharacterHome}
+        onLogoClick={goToCharacterSelect}
         title={`${character.name} のコンボ — ${trees.length}本`}
         character={character}
         rightSlot={<ZoomBar zoom={zoom} onChange={setZoom} />}
