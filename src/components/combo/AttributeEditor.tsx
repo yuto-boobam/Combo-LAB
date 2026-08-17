@@ -1,8 +1,9 @@
 // src/components/combo/AttributeEditor.tsx
 // ノードの属性を編集するUI。
 //
-// 本体色グループ（通常/ガード/空振り/コンボ締め）と枠線・接続線色グループ
-// （通常/CH/PC/ラッシュ）はそれぞれ排他（ラジオボタン相当）。そのほかの属性は複数選択可のトグル。
+// 本体色グループ（ガード/空振り/コンボ締め）と枠線・接続線色グループ（CH/PC/ラッシュ）は
+// それぞれ排他（ラジオボタン相当）。「通常」専用のボタンは置かず、選択中のものをもう一度
+// 押すと解除（＝通常に戻る）する。そのほかの属性は複数選択可のトグル。
 // 枠線・接続線色は「このノード自身の技がカウンター/パニッシュカウンター/ラッシュだった」場合に、
 // このノードの枠線と、直前（親）のノードから続く接続線に反映される
 // （例: 2中P→2中Kがカウンターで繋がる場合は、2中K側にカウンターを付ける）。
@@ -25,13 +26,13 @@ const BODY_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
 
 const BORDER_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
   { type: 'counter', label: 'カウンター(CH)' },
-  { type: 'punishCounter', label: 'パニッシュカウンター(PC)' },
+  { type: 'punishCounter', label: 'パニカン(PC)' },
   { type: 'rush', label: 'ラッシュ' },
 ];
 
 const TOGGLE_ATTRS: { type: SimpleAttributeType; label: string }[] = [
   { type: 'hit', label: 'ヒット' },
-  { type: 'airHit', label: '空中ヒット' },
+  { type: 'airHit', label: '空中' },
   { type: 'delay', label: 'ディレイ' },
   { type: 'okizeme', label: '起き攻め' },
 ];
@@ -61,6 +62,15 @@ export function AttributeEditor({ value, onChange, readOnly = false }: Props) {
     onChange(nextType ? [...withoutGroup, { type: nextType }] : withoutGroup);
   };
 
+  // 「通常」ボタンは置かず、選択済みのものをもう一度押すと解除（＝通常に戻る）する
+  const toggleExclusive = (
+    group: { type: SimpleAttributeType; label: string }[],
+    current: SimpleAttributeType | null,
+    type: SimpleAttributeType,
+  ) => {
+    setExclusiveGroup(group, current === type ? null : type);
+  };
+
   const toggleSimple = (type: SimpleAttributeType) => {
     onChange(
       has(type)
@@ -80,20 +90,14 @@ export function AttributeEditor({ value, onChange, readOnly = false }: Props) {
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       <fieldset style={styles.fieldset}>
-        <legend style={styles.legend}>本体色（1つ選択）</legend>
+        <legend style={styles.legend}>本体色（押すと選択、もう一度押すと通常に戻る）</legend>
         <div style={styles.buttonRow}>
-          <AttributePill
-            label="通常"
-            active={currentBodyColor === null}
-            onClick={() => setExclusiveGroup(BODY_COLOR_ATTRS, null)}
-            disabled={readOnly}
-          />
           {BODY_COLOR_ATTRS.map((attribute) => (
             <AttributePill
               key={attribute.type}
               label={attribute.label}
               active={currentBodyColor === attribute.type}
-              onClick={() => setExclusiveGroup(BODY_COLOR_ATTRS, attribute.type)}
+              onClick={() => toggleExclusive(BODY_COLOR_ATTRS, currentBodyColor, attribute.type)}
               disabled={readOnly}
             />
           ))}
@@ -101,20 +105,14 @@ export function AttributeEditor({ value, onChange, readOnly = false }: Props) {
       </fieldset>
 
       <fieldset style={styles.fieldset}>
-        <legend style={styles.legend}>枠線・接続線（直前の線にも反映／1つ選択）</legend>
+        <legend style={styles.legend}>枠線・接続線（直前の線にも反映／押すと選択、もう一度押すと通常に戻る）</legend>
         <div style={styles.buttonRow}>
-          <AttributePill
-            label="通常"
-            active={currentBorderColor === null}
-            onClick={() => setExclusiveGroup(BORDER_COLOR_ATTRS, null)}
-            disabled={readOnly}
-          />
           {BORDER_COLOR_ATTRS.map((attribute) => (
             <AttributePill
               key={attribute.type}
               label={attribute.label}
               active={currentBorderColor === attribute.type}
-              onClick={() => setExclusiveGroup(BORDER_COLOR_ATTRS, attribute.type)}
+              onClick={() => toggleExclusive(BORDER_COLOR_ATTRS, currentBorderColor, attribute.type)}
               disabled={readOnly}
             />
           ))}
