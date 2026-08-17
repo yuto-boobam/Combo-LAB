@@ -13,11 +13,11 @@ import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
+import { findNodeInComboTrees } from '../utils/comboTreeSearch';
 import {
   computeTreeLayout,
   useNodeHeights,
   useTreeExpandAnimation,
-  findNode,
   buildParentMap,
   ConnectionsOverlay,
   type DropZoneSpec,
@@ -41,7 +41,7 @@ type DraggedNodeData = { id: string; parentId: string | null; index: number };
 type TaggedColumn = TreeColumn<MoveNode> & { treeId: string };
 type TaggedDropZone = DropZoneSpec & { treeId: string };
 
-/** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター属性）に合わせる */
+/** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター/ラッシュ属性）に合わせる */
 function getBranchLineColor(_column: TreeColumn<MoveNode>, childNode: MoveNode): string {
   return NODE_LINE_COLOR_VAR[resolveBorderColorKind(childNode.attributes)];
 }
@@ -60,14 +60,6 @@ const {
 
 function countNodes(node: MoveNode): number {
   return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
-}
-
-function findNodeInTrees(trees: ComboTree[], id: string): MoveNode | null {
-  for (const tree of trees) {
-    const found = findNode(tree.root, id);
-    if (found) return found;
-  }
-  return null;
 }
 
 function shiftPositions(
@@ -90,6 +82,10 @@ export function ComboTreePage() {
   const selectNode = useAppStore((state) => state.selectNode);
   const moveNode = useAppStore((state) => state.moveNode);
   const deleteComboTree = useAppStore((state) => state.deleteComboTree);
+  const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
+  const copySelectedIds = useAppStore((state) => state.copySelectedIds);
+  const toggleCopySelection = useAppStore((state) => state.toggleCopySelection);
+  const pasteClipboard = useAppStore((state) => state.pasteClipboard);
 
   const character = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId) ?? null,
@@ -97,6 +93,35 @@ export function ComboTreePage() {
   );
 
   const trees = useMemo(() => character?.comboTrees ?? [], [character]);
+
+  // ── コピーモード: 起点ノード＋その子孫だけが選択候補になる
+  const copyCandidateIds = useMemo(() => {
+    if (!copyModeAnchorId) return null;
+
+    const anchorNode = findNodeInComboTrees(trees, copyModeAnchorId)?.node ?? null;
+    if (!anchorNode) return null;
+
+    const ids = new Set<string>();
+    const collect = (node: MoveNode) => {
+      ids.add(node.id);
+      node.children.forEach(collect);
+    };
+    collect(anchorNode);
+    return ids;
+  }, [trees, copyModeAnchorId]);
+
+  const copySelectedSet = useMemo(() => new Set(copySelectedIds), [copySelectedIds]);
+
+  const handleNodeClick = useCallback(
+    (nodeId: string) => {
+      if (copyModeAnchorId) {
+        if (copyCandidateIds?.has(nodeId)) toggleCopySelection(nodeId);
+        return;
+      }
+      selectNode(nodeId);
+    },
+    [copyModeAnchorId, copyCandidateIds, toggleCopySelection, selectNode],
+  );
 
   // ── 画面比率（ズーム）
   const [zoom, setZoom] = useState(1);
@@ -311,7 +336,7 @@ export function ComboTreePage() {
                         node={block.tree.root}
                         isRoot
                         isSelected={selectedNodeId === block.tree.root.id}
-                        onClick={() => selectNode(block.tree.root.id)}
+                        onClick={() => handleNodeClick(block.tree.root.id)}
                         isExpanded={!collapsedSet.has(block.tree.root.id)}
                         onToggleExpand={
                           block.tree.root.children.length > 0
@@ -325,6 +350,11 @@ export function ComboTreePage() {
                           if (draggedData.id === block.tree.root.id) return;
                           moveNode(character.id, block.tree.id, draggedData.id, block.tree.root.id);
                         }}
+                        isCopyModeActive={copyModeAnchorId !== null}
+                        isCopyAnchor={copyModeAnchorId === block.tree.root.id}
+                        isCopyCandidate={copyCandidateIds?.has(block.tree.root.id) ?? false}
+                        isCopySelected={copySelectedSet.has(block.tree.root.id)}
+                        onPasteDrop={() => pasteClipboard(character.id, block.tree.id, block.tree.root.id)}
                       />
                     </div>
                   );
@@ -353,7 +383,7 @@ export function ComboTreePage() {
                         <MoveNodeCircle
                           node={node}
                           isSelected={selectedNodeId === node.id}
-                          onClick={() => selectNode(node.id)}
+                          onClick={() => handleNodeClick(node.id)}
                           isExpanded={!collapsedSet.has(node.id)}
                           onToggleExpand={
                             node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
@@ -365,6 +395,11 @@ export function ComboTreePage() {
                             if (draggedData.id === node.id) return;
                             moveNode(character.id, column.treeId, draggedData.id, node.id);
                           }}
+                          isCopyModeActive={copyModeAnchorId !== null}
+                          isCopyAnchor={copyModeAnchorId === node.id}
+                          isCopyCandidate={copyCandidateIds?.has(node.id) ?? false}
+                          isCopySelected={copySelectedSet.has(node.id)}
+                          onPasteDrop={() => pasteClipboard(character.id, column.treeId, node.id)}
                         />
                       </div>
                     );
@@ -375,7 +410,7 @@ export function ComboTreePage() {
                 {Array.from(exitingNodes.entries())
                   .filter(([id]) => !forest.layout.positions.has(id))
                   .map(([id, pos]) => {
-                    const node = findNodeInTrees(trees, id);
+                    const node = findNodeInComboTrees(trees, id)?.node ?? null;
                     if (!node) return null;
 
                     return (

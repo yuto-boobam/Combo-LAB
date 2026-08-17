@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-08-17-f9752b2c",
+    "date": "2026-08-17",
+    "buildNumber": 7,
+    "type": "other",
+    "title": "ノードのコピー機能を実装",
+    "description": "サイドドロワーでコピーし、それをドラッグ＆ドロップすることでペーストができる。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260817-build7-after.png?v=1786944618982"
+  },
+  {
     "id": "2026-08-16-9de7a9a7",
     "date": "2026-08-16",
     "buildNumber": 6,

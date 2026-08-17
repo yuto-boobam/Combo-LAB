@@ -59,6 +59,17 @@ describe('resolveNodeVisualStyle', () => {
     expect(style.borderColorKind).toBe('punishCounter');
   });
 
+  it('ラッシュ単体は自分の枠線がラッシュ色になる', () => {
+    const style = resolveNodeVisualStyle([attr('rush')]);
+    expect(style.borderColorKind).toBe('rush');
+    expect(style.borderWidth).toBe('thick');
+  });
+
+  it('ラッシュ かつ カウンターの場合はカウンターを優先する', () => {
+    const style = resolveNodeVisualStyle([attr('rush'), attr('counter')]);
+    expect(style.borderColorKind).toBe('counter');
+  });
+
   it('キャラ限定属性は状況限定マークを立てるが、色には影響しない', () => {
     const style = resolveNodeVisualStyle([{ type: 'characterLimited', note: 'ザンギエフ限定' }]);
     expect(style.isSituational).toBe(true);

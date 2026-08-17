@@ -6,11 +6,12 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
-import { findNode } from '../../lib/tree';
+import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
 import type { ComboTree, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { MoveNamePicker } from './MoveNamePicker';
+import { ClipboardPreview } from './ClipboardPreview';
 import AccordionSection from '../AccordionSection';
 
 type Props = {
@@ -20,31 +21,21 @@ type Props = {
   comboTrees: ComboTree[];
 };
 
-/** 選択中ノードIDから、それがどの木に属するかを探す（木をまたいでも一意なノードIDを利用） */
-function findSelectedInTrees(
-  comboTrees: ComboTree[],
-  selectedNodeId: string | null,
-): { tree: ComboTree; node: MoveNode } | null {
-  if (!selectedNodeId) return null;
-
-  for (const tree of comboTrees) {
-    const node = findNode(tree.root, selectedNodeId);
-    if (node) return { tree, node };
-  }
-  return null;
-}
-
 export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
+  const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
+  const clipboard = useAppStore((state) => state.clipboard);
 
-  const selectedInfo = findSelectedInTrees(comboTrees, selectedNodeId);
+  const selectedInfo = findNodeInComboTrees(comboTrees, selectedNodeId);
 
   return (
     <aside style={styles.drawer}>
       <div className="drawer-scroll" style={styles.body}>
         {isGuest ? (
           <ReadOnlyNodeView selectedNode={selectedInfo?.node ?? null} />
+        ) : copyModeAnchorId ? (
+          <CopyModePanel characterId={characterId} comboTrees={comboTrees} anchorId={copyModeAnchorId} />
         ) : selectedInfo ? (
           // selectedNode.id をkeyにすることで、ノードを切り替えるたびに
           // NodeEditor をマウントし直し、新規追加フォームの入力状態を自然にリセットする
@@ -62,8 +53,61 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
         )}
 
         {!isGuest && <NewTreeSection characterId={characterId} />}
+        {!isGuest && clipboard && <ClipboardPreview />}
       </div>
     </aside>
+  );
+}
+
+function CopyModePanel({
+  characterId,
+  comboTrees,
+  anchorId,
+}: {
+  characterId: string;
+  comboTrees: ComboTree[];
+  anchorId: string;
+}) {
+  const copySelectedIds = useAppStore((state) => state.copySelectedIds);
+  const cancelCopyMode = useAppStore((state) => state.cancelCopyMode);
+  const confirmCopy = useAppStore((state) => state.confirmCopy);
+  const [isOpen, setIsOpen] = useState(true);
+
+  const anchorNode = findNodeInComboTrees(comboTrees, anchorId)?.node ?? null;
+
+  return (
+    <AccordionSection
+      title={`コピーモード：${anchorNode?.moveName ?? ''}`}
+      icon="📋"
+      count={copySelectedIds.length}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        <p style={styles.hint}>
+          「{anchorNode?.moveName}」から続く枝をクリックして選択してください。選んだ枝は子孫ごとコピーされます。
+        </p>
+
+        <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
+          {copySelectedIds.length}個の枝を選択中
+        </p>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn-primary justify-center"
+            style={{ flex: 1 }}
+            disabled={copySelectedIds.length === 0}
+            onClick={() => confirmCopy(characterId)}
+          >
+            コピーを確定
+          </button>
+          <button type="button" style={styles.dangerButton} onClick={cancelCopyMode}>
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </AccordionSection>
   );
 }
 
@@ -170,6 +214,7 @@ function NodeEditor({
   const updateNodeSpecialNote = useAppStore((state) => state.updateNodeSpecialNote);
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
+  const startCopyMode = useAppStore((state) => state.startCopyMode);
 
   const [newMoveName, setNewMoveName] = useState('');
   const [newAttributes, setNewAttributes] = useState<NodeAttribute[]>([]);
@@ -251,6 +296,15 @@ function NodeEditor({
               />
             </div>
           )}
+
+          <button
+            type="button"
+            className="btn-ghost justify-center"
+            style={{ width: '100%' }}
+            onClick={() => startCopyMode(selectedNode.id)}
+          >
+            📋 ここからコピー開始
+          </button>
 
           {selectedNode.id !== root.id && (
             <button

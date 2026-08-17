@@ -4,8 +4,8 @@
 // ルール（企画書13ページ + ユーザー指示による変更）:
 // - 本体色は「このノード自身の技がどう終わるか」を示す属性（ガード/空振り/コンボ締め）で決まる。
 //   優先順位: ガード > 空振り > コンボ締め。
-// - 枠線色・接続線色は「このノード自身の技がカウンター/パニッシュカウンターだったか」で決まる。
-//   優先順位: パニッシュカウンター > カウンター。
+// - 枠線色・接続線色は「このノード自身の技がカウンター/パニッシュカウンター/ラッシュだったか」で決まる。
+//   優先順位: パニッシュカウンター > カウンター > ラッシュ。
 //   接続線（親→このノード）もこのノード自身の枠線色に合わせる。つまり「2中P→2中Kがカウンターで
 //   つながる」場合は 2中K 側にカウンター属性を付ける（2中P側は通常のまま）。
 // - 空振りは色に加えて点線枠にする（枠線色とは独立）。
@@ -15,7 +15,7 @@
 import type { NodeAttribute, NodeAttributeType } from '../types';
 
 export type NodeBodyColorKind = 'default' | 'guard' | 'whiff' | 'comboEnder';
-export type NodeBorderColorKind = 'default' | 'counter' | 'punishCounter';
+export type NodeBorderColorKind = 'default' | 'counter' | 'punishCounter' | 'rush';
 
 export type NodeVisualStyle = {
   bodyColorKind: NodeBodyColorKind;
@@ -26,7 +26,7 @@ export type NodeVisualStyle = {
 };
 
 const BODY_COLOR_PRIORITY: NodeAttributeType[] = ['guard', 'whiff', 'comboEnder'];
-const BORDER_COLOR_PRIORITY: NodeAttributeType[] = ['punishCounter', 'counter'];
+const BORDER_COLOR_PRIORITY: NodeAttributeType[] = ['punishCounter', 'counter', 'rush'];
 
 /** 自分自身の属性から、自分の枠線・接続線（親→自分）の色を決める */
 export function resolveBorderColorKind(attributes: NodeAttribute[]): NodeBorderColorKind {
@@ -69,9 +69,10 @@ export const NODE_BORDER_COLOR_VAR: Record<NodeBorderColorKind, string> = {
   default: 'var(--border)',
   counter: 'var(--node-counter-border)',
   punishCounter: 'var(--node-punish-counter-border)',
+  rush: 'var(--node-rush-border)',
 };
 
-/** 接続線に使うCSS変数。カウンター/パニッシュカウンターの色は枠線と共通だが、
+/** 接続線に使うCSS変数。カウンター/パニッシュカウンター/ラッシュの色は枠線と共通だが、
  * 通常時は --border だと線としては薄すぎるため、少し主張の強い色にする */
 export const NODE_LINE_COLOR_VAR: Record<NodeBorderColorKind, string> = {
   ...NODE_BORDER_COLOR_VAR,
