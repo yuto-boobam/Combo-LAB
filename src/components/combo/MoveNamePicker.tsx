@@ -18,7 +18,7 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
-import type { MoveDefinition } from '../../types';
+import type { MoveDefinition, MoveStrength } from '../../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../../data/commonMoves';
 import AccordionSection from '../AccordionSection';
 
@@ -223,7 +223,26 @@ function CharacterMoveGroupBody({
   );
 }
 
-const SPECIAL_MOVE_STRENGTHS = ['弱', '中', '強', 'OD'] as const;
+const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
+
+/**
+ * valueが `${強度}${技名}` または `${強度}${技名}(特殊性能)` のどちらの形かを判定する。
+ * ストック・同時押しなど、強度だけでは技の状態を表現しきれない技（hasSpecialVariant参照）は
+ * 後者の形で選んだ特殊性能を保持する
+ */
+function parseSpecialMoveValue(
+  value: string,
+  moveName: string,
+): { strength: MoveStrength; subLevel: string | null } | null {
+  for (const strength of SPECIAL_MOVE_STRENGTHS) {
+    const prefix = `${strength}${moveName}`;
+    if (value === prefix) return { strength, subLevel: null };
+    if (value.startsWith(`${prefix}(`) && value.endsWith(')')) {
+      return { strength, subLevel: value.slice(prefix.length + 1, -1) };
+    }
+  }
+  return null;
+}
 
 function SpecialMoveGroupBody({
   characterId,
@@ -239,22 +258,32 @@ function SpecialMoveGroupBody({
   const addMoveDefinition = useAppStore((state) => state.addMoveDefinition);
   const deleteMoveDefinition = useAppStore((state) => state.deleteMoveDefinition);
   const setMoveDefinitionShortName = useAppStore((state) => state.setMoveDefinitionShortName);
+  const setMoveDefinitionHasSpecialVariant = useAppStore(
+    (state) => state.setMoveDefinitionHasSpecialVariant,
+  );
   const [draftName, setDraftName] = useState('');
   const [draftShortName, setDraftShortName] = useState('');
 
-  // 現在の値が「強度+登録済み技名」の形なら、その技の強度選択を開いた状態にしておく
-  const currentStrength = SPECIAL_MOVE_STRENGTHS.find((strength) =>
-    moves.some((move) => value === `${strength}${move.name}`),
-  );
+  // valueがどの技の何強度（＋選んだ特殊性能）に該当するかをまとめて判定する
+  let parsedValue: { move: MoveDefinition; strength: MoveStrength; subLevel: string | null } | null = null;
+  for (const move of moves) {
+    const parsed = parseSpecialMoveValue(value, move.name);
+    if (parsed) {
+      parsedValue = { move, ...parsed };
+      break;
+    }
+  }
+  const currentStrength = parsedValue?.strength ?? null;
   // 「value と完全に一致していて本当に確定している技」かどうか。他カテゴリと違い必殺技は
   // 技→強度の2段階選択なので、pickingMoveId（＝今どの技の強度パネルを開いているか）とは
   // 分けて判定する。こうしないと「通常技のPを押した後も必殺技側が選択されっぱなしに見える」
   // という不具合（＝どのカテゴリでも同時に1つしか選ばれていないように見せたい）が起きる
-  const isMoveConfirmed = (move: MoveDefinition) =>
-    SPECIAL_MOVE_STRENGTHS.some((strength) => value === `${strength}${move.name}`);
-  const selectedMove = moves.find(isMoveConfirmed);
+  const isMoveConfirmed = (move: MoveDefinition) => parsedValue?.move.id === move.id;
+  const selectedMove = parsedValue?.move ?? null;
   const [pickingMoveId, setPickingMoveId] = useState<string | null>(selectedMove?.id ?? null);
   const pickingMove = moves.find((move) => move.id === pickingMoveId) ?? null;
+  // valueが今開いている技のものであれば、その強度・特殊性能の選択状態を復元する
+  const pickingMoveMatch = pickingMove && parsedValue?.move.id === pickingMove.id ? parsedValue : null;
 
   const handlePickMove = (move: MoveDefinition) => {
     const wasPicked = pickingMoveId === move.id;
@@ -324,7 +353,7 @@ function SpecialMoveGroupBody({
                 <MovePill
                   key={strength}
                   label={strength}
-                  active={value === `${strength}${pickingMove.name}`}
+                  active={pickingMoveMatch?.strength === strength}
                   onClick={() =>
                     onChange(
                       `${strength}${pickingMove.name}`,
@@ -348,6 +377,32 @@ function SpecialMoveGroupBody({
                 setMoveDefinitionShortName(characterId, pickingMove.id, event.target.value)
               }
             />
+          </fieldset>
+
+          <fieldset style={styles.fieldset}>
+            <legend style={styles.legend}>特殊性能（省略可）</legend>
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={pickingMove.hasSpecialVariant ?? false}
+                onChange={(event) =>
+                  setMoveDefinitionHasSpecialVariant(characterId, pickingMove.id, event.target.checked)
+                }
+              />
+              特殊性能あり
+            </label>
+
+            {pickingMove.hasSpecialVariant && (
+              <SpecialVariantRegistration
+                characterId={characterId}
+                move={pickingMove}
+                activeVariant={pickingMoveMatch?.subLevel ?? null}
+                onSelectVariant={(variant) => {
+                  if (!pickingMoveMatch) return;
+                  onChange(`${pickingMoveMatch.strength}${pickingMove.name}(${variant})`, variant);
+                }}
+              />
+            )}
           </fieldset>
         </>
       )}
@@ -394,6 +449,95 @@ function SpecialMoveGroupBody({
   );
 }
 
+/**
+ * 特殊性能（ストック・同時押しなど）の選択肢を、必殺技の登録と同じ感覚で1件ずつ登録・削除する。
+ * ピル自体をクリックすると選択（呼び名として採用）でき、×で削除できる
+ * （「特殊性能を選択」欄を別立てにせず、登録欄がそのまま選択欄を兼ねることで省スペース化している）
+ */
+function SpecialVariantRegistration({
+  characterId,
+  move,
+  activeVariant,
+  onSelectVariant,
+}: {
+  characterId: string;
+  move: MoveDefinition;
+  activeVariant: string | null;
+  onSelectVariant: (variant: string) => void;
+}) {
+  const setMoveDefinitionSpecialVariantOptions = useAppStore(
+    (state) => state.setMoveDefinitionSpecialVariantOptions,
+  );
+  const [draftVariant, setDraftVariant] = useState('');
+
+  const options = move.specialVariantOptions ?? [];
+
+  const handleAdd = () => {
+    const trimmed = draftVariant.trim();
+    if (!trimmed || options.includes(trimmed)) return;
+
+    setMoveDefinitionSpecialVariantOptions(characterId, move.id, [...options, trimmed]);
+    setDraftVariant('');
+  };
+
+  const handleRemove = (variant: string) => {
+    setMoveDefinitionSpecialVariantOptions(
+      characterId,
+      move.id,
+      options.filter((option) => option !== variant),
+    );
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+      {options.length > 0 && (
+        <div style={styles.buttonRow}>
+          {options.map((variant) => (
+            <div key={variant} style={styles.managedPillWrapper}>
+              <MovePill
+                label={variant}
+                active={activeVariant === variant}
+                onClick={() => onSelectVariant(variant)}
+              />
+              <button
+                type="button"
+                title="この選択肢を削除"
+                style={styles.removeButton}
+                onClick={() => handleRemove(variant)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input
+          type="text"
+          className="input-field"
+          style={styles.addInput}
+          placeholder="新しい特殊性能を登録...（例: ビームレベル2）"
+          value={draftVariant}
+          onChange={(event) => setDraftVariant(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') handleAdd();
+          }}
+        />
+        <button
+          type="button"
+          className="btn-ghost"
+          style={styles.addButton}
+          onClick={handleAdd}
+          disabled={!draftVariant.trim()}
+        >
+          登録
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SuperArtGroupBody({
   characterId,
   moves,
@@ -415,7 +559,7 @@ function SuperArtGroupBody({
           <input
             type="text"
             className="input-field"
-            style={{ ...styles.addInput, flex: '1 1 auto' }}
+            style={styles.superArtNameInput}
             value={move.name}
             onChange={(event) => renameMoveDefinition(characterId, move.id, event.target.value)}
           />
@@ -538,6 +682,14 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     padding: '6px 10px',
   },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 12,
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+  },
   addButton: {
     flex: '0 0 auto',
     padding: '6px 12px',
@@ -574,5 +726,12 @@ const styles: Record<string, CSSProperties> = {
     width: 64,
     fontSize: 12,
     padding: '6px 8px',
+  },
+  superArtNameInput: {
+    width: 120,
+    minWidth: 0,
+    flex: '0 0 auto',
+    fontSize: 12,
+    padding: '6px 10px',
   },
 };
