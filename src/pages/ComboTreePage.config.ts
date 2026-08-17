@@ -9,7 +9,7 @@ export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
   cardWidth: NODE_WIDTH,
   rootWidth: NODE_WIDTH,
   gapX: 56,
-  dropZoneHeight: 16,
+  dropZoneHeight: 10,
   defaultNodeHeight: NODE_DEFAULT_HEIGHT,
   defaultRootHeight: NODE_DEFAULT_HEIGHT,
 };
@@ -18,7 +18,7 @@ export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
 export const CANVAS_PADDING = 48;
 
 /** 1キャラが複数の木（森）を持つ場合、木と木の縦の間隔(px)。ラベル表示分の余白も含む */
-export const TREE_BLOCK_GAP = 88;
+export const TREE_BLOCK_GAP = 48;
 
 /** ノードが閉じて消えるフェードアウトの所要時間(ms) */
 export const EXIT_TRANSITION_MS = 200;
