@@ -15,7 +15,8 @@ import type {
 import { supabase } from './utils/supabaseClient';
 import { createInitialCharacterRoster } from './data/characterRoster';
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
-import { findNode } from './lib/tree';
+import { findNode, buildParentMap } from './lib/tree';
+import { findNodeInComboTrees } from './utils/comboTreeSearch';
 
 // ── ヘルパー関数 ────────────────────────────────────────────────────────────
 
@@ -271,6 +272,24 @@ export type AppState = {
     nodeId: string,
     branchStats: ComboBranchStats | null,
   ) => void;
+
+  // ──「枝を選んでまとめてコピー」機能 ─────────────────────────────────
+  // コピーモード: あるノード（起点）を選び、そこから続く枝（子孫ごと）を
+  // 好きな数だけクリックして選び、まとめてクリップボードにコピーする。
+  // 起点の外側のノードは選択対象にしない（UI側で候補を起点の子孫に絞る）。
+  copyModeAnchorId: string | null;
+  copySelectedIds: string[];
+  startCopyMode: (nodeId: string) => void;
+  toggleCopySelection: (nodeId: string) => void;
+  cancelCopyMode: () => void;
+  /** 選択中の枝をクリップボードに複製して確定し、コピーモードを終了する */
+  confirmCopy: (characterId: string) => void;
+
+  /** コピー確定済みの枝（複数可）。貼り付けのたびに新しいIDで複製するので、
+   * 何度でも別の場所へ貼り付けられる */
+  clipboard: MoveNode[] | null;
+  clearClipboard: () => void;
+  pasteClipboard: (characterId: string, treeId: string, targetNodeId: string) => void;
 };
 
 // ── ストア本体 ─────────────────────────────────────────────────────────────
@@ -593,6 +612,95 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({ ...node, branchStats })),
+          ),
+        }));
+      },
+
+      // ──「枝を選んでまとめてコピー」機能 ────────────────────────────────
+
+      copyModeAnchorId: null,
+      copySelectedIds: [],
+
+      startCopyMode: (nodeId) => {
+        set({ copyModeAnchorId: nodeId, copySelectedIds: [], selectedNodeId: null });
+      },
+
+      toggleCopySelection: (nodeId) => {
+        set((state) => ({
+          copySelectedIds: state.copySelectedIds.includes(nodeId)
+            ? state.copySelectedIds.filter((id) => id !== nodeId)
+            : [...state.copySelectedIds, nodeId],
+        }));
+      },
+
+      cancelCopyMode: () => {
+        set({ copyModeAnchorId: null, copySelectedIds: [] });
+      },
+
+      confirmCopy: (characterId) => {
+        set((state) => {
+          const { copyModeAnchorId, copySelectedIds } = state;
+          if (!copyModeAnchorId || copySelectedIds.length === 0) {
+            return { copyModeAnchorId: null, copySelectedIds: [] };
+          }
+
+          const character = state.characters.find((item) => item.id === characterId);
+          const found = character ? findNodeInComboTrees(character.comboTrees, copyModeAnchorId) : null;
+          if (!found) return { copyModeAnchorId: null, copySelectedIds: [] };
+
+          const parentOf = buildParentMap(found.tree.root);
+          const selectedSet = new Set(copySelectedIds);
+
+          // 選択されたノードの祖先も選択されている場合、そのノードは祖先の複製に
+          // まるごと含まれるため、独立した断片としては数えない（重複コピー防止）
+          const hasSelectedAncestor = (id: string): boolean => {
+            let cursor = parentOf.get(id);
+            while (cursor) {
+              if (selectedSet.has(cursor)) return true;
+              cursor = parentOf.get(cursor);
+            }
+            return false;
+          };
+
+          const fragments = copySelectedIds
+            .filter((id) => !hasSelectedAncestor(id))
+            .map((id) => findNode(found.tree.root, id))
+            .filter((node): node is MoveNode => node !== null);
+
+          return {
+            clipboard: fragments,
+            copyModeAnchorId: null,
+            copySelectedIds: [],
+          };
+        });
+      },
+
+      clipboard: null,
+
+      clearClipboard: () => {
+        set({ clipboard: null });
+      },
+
+      pasteClipboard: (characterId, treeId, targetNodeId) => {
+        const { clipboard, nickname } = get();
+        if (!clipboard || clipboard.length === 0) return;
+
+        const cloneWithFreshIds = (node: MoveNode): MoveNode => ({
+          ...node,
+          id: makeId(),
+          createdBy: nickname,
+          createdAt: new Date().toISOString(),
+          children: node.children.map(cloneWithFreshIds),
+        });
+
+        const pastedNodes = clipboard.map(cloneWithFreshIds);
+
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, targetNodeId, (node) => ({
+              ...node,
+              children: [...node.children, ...pastedNodes],
+            })),
           ),
         }));
       },

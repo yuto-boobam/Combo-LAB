@@ -2,8 +2,8 @@
 // ノードの属性を編集するUI。
 //
 // 本体色グループ（通常/ガード/空振り/コンボ締め）と枠線・接続線色グループ
-// （通常/CH/PC）はそれぞれ排他（ラジオボタン相当）。そのほかの属性は複数選択可のトグル。
-// 枠線・接続線色は「このノード自身の技がカウンター/パニッシュカウンターだった」場合に、
+// （通常/CH/PC/ラッシュ）はそれぞれ排他（ラジオボタン相当）。そのほかの属性は複数選択可のトグル。
+// 枠線・接続線色は「このノード自身の技がカウンター/パニッシュカウンター/ラッシュだった」場合に、
 // このノードの枠線と、直前（親）のノードから続く接続線に反映される
 // （例: 2中P→2中Kがカウンターで繋がる場合は、2中K側にカウンターを付ける）。
 // キャラ限定・位置限定・その他は自由記述メモを伴う（詳細は src/utils/nodeVisualStyle.ts 参照）。
@@ -26,11 +26,11 @@ const BODY_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
 const BORDER_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
   { type: 'counter', label: 'カウンター(CH)' },
   { type: 'punishCounter', label: 'パニッシュカウンター(PC)' },
+  { type: 'rush', label: 'ラッシュ' },
 ];
 
 const TOGGLE_ATTRS: { type: SimpleAttributeType; label: string }[] = [
   { type: 'hit', label: 'ヒット' },
-  { type: 'rush', label: 'ラッシュ' },
   { type: 'airHit', label: '空中ヒット' },
   { type: 'delay', label: 'ディレイ' },
   { type: 'okizeme', label: '起き攻め' },
