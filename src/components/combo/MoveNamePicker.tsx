@@ -366,12 +366,12 @@ function SpecialMoveGroupBody({
           </fieldset>
 
           <fieldset style={styles.fieldset}>
-            <legend style={styles.legend}>呼び名（木のノード上の表示用・省略可）</legend>
+            <legend style={styles.legend}>呼び名（木のノード上の表示用・省略可・「｜」で改行）</legend>
             <input
               type="text"
               className="input-field"
               style={styles.addInput}
-              placeholder={`例: ${pickingMove.name} → 短い呼び名`}
+              placeholder={`例: ${pickingMove.name}｜Lv.1（改行したい位置に｜）`}
               value={pickingMove.shortName ?? ''}
               onChange={(event) =>
                 setMoveDefinitionShortName(characterId, pickingMove.id, event.target.value)
@@ -517,7 +517,7 @@ function SpecialVariantRegistration({
           type="text"
           className="input-field"
           style={styles.addInput}
-          placeholder="新しい特殊性能を登録...（例: ビームレベル2）"
+          placeholder="新しい特殊性能を登録...（例: ビーム｜Lv.2・改行したい位置に｜）"
           value={draftVariant}
           onChange={(event) => setDraftVariant(event.target.value)}
           onKeyDown={(event) => {
