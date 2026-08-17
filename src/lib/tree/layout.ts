@@ -28,9 +28,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
   const depthX = (depth: number) =>
     depth === 0 ? 0 : rootWidth + gapX + (depth - 1) * (cardWidth + gapX);
 
-  // ルートは開閉トグルを持たないため常に展開扱い
-  const isExpanded = (node: TreeNodeLike, depth: number) =>
-    depth === 0 || !collapsedSet.has(node.id);
+  const isExpanded = (node: TreeNodeLike) => !collapsedSet.has(node.id);
 
   const requiredCache = new Map<string, number>();
 
@@ -40,7 +38,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
     if (cached !== undefined) return cached;
 
     const own = heightOf(node.id, depth === 0);
-    const children = isExpanded(node, depth) ? node.children : [];
+    const children = isExpanded(node) ? node.children : [];
 
     let required = own;
     if (children.length > 0) {
@@ -71,7 +69,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
 
     const own = heightOf(node.id, depth === 0);
     const required = requiredCache.get(node.id) ?? own;
-    const children = isExpanded(node, depth) ? node.children : [];
+    const children = isExpanded(node) ? node.children : [];
 
     if (children.length === 0) {
       // required === own のため、そのまま配置してよい

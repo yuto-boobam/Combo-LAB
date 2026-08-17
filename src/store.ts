@@ -231,6 +231,18 @@ export type AppState = {
   renameMoveDefinition: (characterId: string, moveId: string, name: string) => void;
   /** 必殺技の呼び名（ノード表示用の短い名前）を編集する */
   setMoveDefinitionShortName: (characterId: string, moveId: string, shortName: string) => void;
+  /** 必殺技が「特殊性能」（ストック・同時押しなど）を持つかどうかを編集する */
+  setMoveDefinitionHasSpecialVariant: (
+    characterId: string,
+    moveId: string,
+    hasSpecialVariant: boolean,
+  ) => void;
+  /** 必殺技の特殊性能の選択肢一覧を編集する（空なら特殊性能の選択肢なしに戻す） */
+  setMoveDefinitionSpecialVariantOptions: (
+    characterId: string,
+    moveId: string,
+    options: string[],
+  ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
   createComboTree: (characterId: string, label: string, displayName?: string) => string;
@@ -470,6 +482,40 @@ export const useAppStore = create<AppState>()(
                   moveList: character.moveList.map((move) =>
                     move.id === moveId
                       ? { ...move, shortName: shortName.trim() || undefined }
+                      : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      setMoveDefinitionHasSpecialVariant: (characterId, moveId, hasSpecialVariant) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId ? { ...move, hasSpecialVariant } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      setMoveDefinitionSpecialVariantOptions: (characterId, moveId, options) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId
+                      ? { ...move, specialVariantOptions: options.length > 0 ? options : undefined }
                       : move,
                   ),
                   updatedAt: new Date().toISOString(),
