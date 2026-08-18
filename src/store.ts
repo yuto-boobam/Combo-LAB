@@ -18,6 +18,7 @@ import { createInitialCharacterRoster, createDefaultSuperArtMoves } from './data
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode, buildParentMap } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
+import { collectChain, findMatchingChains } from './utils/chainMatch';
 
 /**
  * 保存済みキャラデータを現行スキーマに合わせて補完する（読み込み時の移行措置）。
@@ -350,17 +351,31 @@ export type AppState = {
   pasteClipboard: (characterId: string, treeId: string, targetNodeId: string) => void;
 
   // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────
-  // グループ化モード: あるノード（起点）を選び、そこから続く一本道（分岐なし）の
-  // 区間を選んで名前を付ける。名前を付けた区間は木の表示上1個のノードに折りたためる
-  // （表示側の変換は src/lib/tree/groupView.ts）。起点自身は常に区間に含まれる。
+  // グループ化モード: 1つ以上の「枝」（あるノードを起点に、そこから続く一本道＝分岐なしの
+  // 区間）をまとめて選び、まとめて同じ名前を付ける。名前を付けた区間は木の表示上、
+  // 枝ごとに1個のノードへ折りたためる（表示側の変換は src/lib/tree/groupView.ts）。
+  // 起点自身は常に区間に含まれる。
+  //
+  // groupModeActive: グループ化モード中かどうか（次の枝の起点待ちの間もtrueのまま）
+  // groupModeAnchorId/groupSelectedIds: 「今まさに範囲を選んでいる枝」の起点と選択範囲。
+  //   起点がnullなのはactive中は「次の枝の起点待ち」を意味する
+  // groupModeRuns: 「＋この枝を追加」で確定済みの枝のリスト（起点＋選択範囲のペア）
+  groupModeActive: boolean;
   groupModeAnchorId: string | null;
   groupSelectedIds: string[];
+  groupModeRuns: { anchorId: string; selectedIds: string[] }[];
   startGroupMode: (nodeId: string) => void;
+  /** 次の枝の起点を選ぶ（groupModeRunsはそのまま、今の枝の選択だけリセットする） */
+  setGroupModeAnchor: (nodeId: string) => void;
   /** 選択区間（起点は含まない、起点直下からの連続ノード列）を丸ごと置き換える。
    * 一本道のどこまでを含めるかの妥当性はUI側（起点からの一本道）で判断する */
   setGroupSelectedIds: (nodeIds: string[]) => void;
+  /** 今編集中の枝をgroupModeRunsへ積み、次の枝の起点待ちに戻す */
+  addGroupModeRun: () => void;
+  /** 確定済みの枝を1つ取り除く（誤操作の訂正用） */
+  removeGroupModeRun: (index: number) => void;
   cancelGroupMode: () => void;
-  /** 選択中の区間に名前を付けて確定する。同名の既存グループがあれば使い回す */
+  /** 確定済みの枝＋今編集中の枝、すべてに名前を付けて確定する。同名の既存グループがあれば使い回す */
   confirmGroupSelection: (characterId: string, name: string) => void;
   /** 指定ノードを含む「同じgroupIdが連続する区間」全体のグループ化を解除する */
   ungroupNode: (characterId: string, treeId: string, nodeId: string) => void;
@@ -368,6 +383,35 @@ export type AppState = {
   /** 折りたたまれた区間のうち、展開表示中のものの先頭ノードIDの一覧（出現箇所ごとに独立） */
   expandedGroupIds: string[];
   toggleGroupExpanded: (pillId: string) => void;
+
+  // ──「一致箇所への一括反映」機能 ────────────────────────────────
+  // パターン選択モード: グループ化モードと同じ操作感で、起点から続く分岐のない一本道を
+  // 選んで確定する。確定すると、キャラの全ての木から技名・呼び名が完全一致する一本道を
+  // 検索し、一覧（matchedAnchorIds）を表示する。一致箇所の1つを選んで普通に編集した後、
+  // 「他にも反映」を押すと、編集前後の差分（境界内の内容変更＋末尾への追加）が
+  // 他の一致箇所にも複製される（マッチ判定・境界の考え方は src/utils/chainMatch.ts 参照）。
+  matchModeAnchorId: string | null;
+  matchSelectedIds: string[];
+  startMatchMode: (nodeId: string) => void;
+  setMatchSelectedIds: (nodeIds: string[]) => void;
+  cancelMatchMode: () => void;
+
+  /** 一致箇所の起点ノードID一覧（元の選択自身も含む）。nullなら検索前 */
+  matchedAnchorIds: string[] | null;
+  /** 検索時のパターンの長さ（一本道のノード数）。反映時の境界判定に使う */
+  matchChainLength: number;
+  /** 選択範囲で一致検索を実行し、matchedAnchorIdsを確定してパターン選択モードを終了する。
+   * includeAttributesをtrueにすると、属性（カウンター/ガード/空振り等）も完全一致条件に加える */
+  confirmMatchSearch: (characterId: string, includeAttributes: boolean) => void;
+  /** 一致箇所の一覧を破棄して機能全体を終了する */
+  clearMatchResults: () => void;
+
+  /** 一致箇所の一覧から選んで編集を始めた瞬間のディープコピー（変更前プレビュー・差分計算用） */
+  matchEditBeforeSnapshot: MoveNode | null;
+  /** 一致箇所の一覧からノードを選ぶ（選択状態にし、編集前スナップショットを取る） */
+  startEditingMatch: (nodeId: string) => void;
+  /** 選択中ノードの編集前後の差分を、他の一致箇所すべてに反映する。完了後は一覧ごと終了する */
+  propagateMatchChanges: (characterId: string) => void;
 };
 
 // ── ストア本体 ─────────────────────────────────────────────────────────────
@@ -776,8 +820,14 @@ export const useAppStore = create<AppState>()(
           copyModeAnchorId: nodeId,
           copySelectedIds: [],
           selectedNodeId: null,
+          groupModeActive: false,
           groupModeAnchorId: null,
           groupSelectedIds: [],
+          groupModeRuns: [],
+          matchModeAnchorId: null,
+          matchSelectedIds: [],
+          matchedAnchorIds: null,
+          matchEditBeforeSnapshot: null,
         });
       },
 
@@ -863,58 +913,105 @@ export const useAppStore = create<AppState>()(
 
       // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────
 
+      groupModeActive: false,
       groupModeAnchorId: null,
       groupSelectedIds: [],
+      groupModeRuns: [],
 
       startGroupMode: (nodeId) => {
         set({
+          groupModeActive: true,
           groupModeAnchorId: nodeId,
           groupSelectedIds: [],
+          groupModeRuns: [],
           selectedNodeId: null,
           copyModeAnchorId: null,
           copySelectedIds: [],
+          matchModeAnchorId: null,
+          matchSelectedIds: [],
+          matchedAnchorIds: null,
+          matchEditBeforeSnapshot: null,
         });
+      },
+
+      setGroupModeAnchor: (nodeId) => {
+        set({ groupModeAnchorId: nodeId, groupSelectedIds: [] });
       },
 
       setGroupSelectedIds: (nodeIds) => {
         set({ groupSelectedIds: nodeIds });
       },
 
+      addGroupModeRun: () => {
+        set((state) => {
+          if (!state.groupModeAnchorId) return state;
+
+          return {
+            groupModeRuns: [
+              ...state.groupModeRuns,
+              { anchorId: state.groupModeAnchorId, selectedIds: state.groupSelectedIds },
+            ],
+            groupModeAnchorId: null,
+            groupSelectedIds: [],
+          };
+        });
+      },
+
+      removeGroupModeRun: (index) => {
+        set((state) => ({
+          groupModeRuns: state.groupModeRuns.filter((_, i) => i !== index),
+        }));
+      },
+
       cancelGroupMode: () => {
-        set({ groupModeAnchorId: null, groupSelectedIds: [] });
+        set({ groupModeActive: false, groupModeAnchorId: null, groupSelectedIds: [], groupModeRuns: [] });
       },
 
       confirmGroupSelection: (characterId, name) => {
         set((state) => {
-          const { groupModeAnchorId, groupSelectedIds } = state;
+          const { groupModeAnchorId, groupSelectedIds, groupModeRuns } = state;
           const trimmedName = name.trim();
-          if (!groupModeAnchorId || !trimmedName) {
-            return { groupModeAnchorId: null, groupSelectedIds: [] };
-          }
-
-          const character = state.characters.find((item) => item.id === characterId);
-          const found = character ? findNodeInComboTrees(character.comboTrees, groupModeAnchorId) : null;
-          if (!found) return { groupModeAnchorId: null, groupSelectedIds: [] };
-
-          const existingGroup = character?.namedComboGroups.find((group) => group.name === trimmedName);
-          const groupId = existingGroup?.id ?? makeId();
-          const memberIds = [groupModeAnchorId, ...groupSelectedIds];
-
-          const nextRoot = memberIds.reduce(
-            (root, id) => mapMoveNode(root, id, (node) => ({ ...node, groupId })),
-            found.tree.root,
-          );
-
-          return {
-            characters: updateComboTreeRoot(state.characters, characterId, found.tree.id, () => nextRoot).map(
-              (item) =>
-                item.id === characterId && !existingGroup
-                  ? { ...item, namedComboGroups: [...item.namedComboGroups, { id: groupId, name: trimmedName }] }
-                  : item,
-            ),
+          const resetState = {
+            groupModeActive: false,
             groupModeAnchorId: null,
             groupSelectedIds: [],
+            groupModeRuns: [],
           };
+
+          // 今編集中の枝が残っていれば、確定済みの枝リストに含めてから一括で反映する
+          const allRuns = groupModeAnchorId
+            ? [...groupModeRuns, { anchorId: groupModeAnchorId, selectedIds: groupSelectedIds }]
+            : groupModeRuns;
+
+          if (allRuns.length === 0 || !trimmedName) return resetState;
+
+          const character = state.characters.find((item) => item.id === characterId);
+          if (!character) return resetState;
+
+          const existingGroup = character.namedComboGroups.find((group) => group.name === trimmedName);
+          const groupId = existingGroup?.id ?? makeId();
+
+          // 枝ごとに別の木へ属していることもあるため、枝ごとに所属する木を探して反映する
+          let nextCharacters = state.characters;
+          for (const run of allRuns) {
+            const found = findNodeInComboTrees(character.comboTrees, run.anchorId);
+            if (!found) continue;
+
+            const memberIds = [run.anchorId, ...run.selectedIds];
+            nextCharacters = updateComboTreeRoot(nextCharacters, characterId, found.tree.id, (root) =>
+              memberIds.reduce((r, id) => mapMoveNode(r, id, (node) => ({ ...node, groupId })), root),
+            );
+          }
+
+          if (!existingGroup) {
+            nextCharacters = nextCharacters.map((item) =>
+              item.id === characterId
+                ? { ...item, namedComboGroups: [...item.namedComboGroups, { id: groupId, name: trimmedName }] }
+                : item,
+            );
+          }
+
+          return { characters: nextCharacters, ...resetState };
         });
       },
 
@@ -967,6 +1064,186 @@ export const useAppStore = create<AppState>()(
             ? state.expandedGroupIds.filter((id) => id !== pillId)
             : [...state.expandedGroupIds, pillId],
         }));
+      },
+
+      // ──「一致箇所への一括反映」機能 ────────────────────────────────
+
+      matchModeAnchorId: null,
+      matchSelectedIds: [],
+
+      startMatchMode: (nodeId) => {
+        set({
+          matchModeAnchorId: nodeId,
+          matchSelectedIds: [],
+          matchedAnchorIds: null,
+          matchEditBeforeSnapshot: null,
+          matchChainLength: 0,
+          selectedNodeId: null,
+          copyModeAnchorId: null,
+          copySelectedIds: [],
+          groupModeActive: false,
+          groupModeAnchorId: null,
+          groupSelectedIds: [],
+          groupModeRuns: [],
+        });
+      },
+
+      setMatchSelectedIds: (nodeIds) => {
+        set({ matchSelectedIds: nodeIds });
+      },
+
+      cancelMatchMode: () => {
+        set({
+          matchModeAnchorId: null,
+          matchSelectedIds: [],
+          matchedAnchorIds: null,
+          matchEditBeforeSnapshot: null,
+          matchChainLength: 0,
+        });
+      },
+
+      matchedAnchorIds: null,
+      matchChainLength: 0,
+
+      confirmMatchSearch: (characterId, includeAttributes) => {
+        set((state) => {
+          const { matchModeAnchorId, matchSelectedIds } = state;
+          if (!matchModeAnchorId) {
+            return { matchModeAnchorId: null, matchSelectedIds: [] };
+          }
+
+          const character = state.characters.find((item) => item.id === characterId);
+          if (!character) return { matchModeAnchorId: null, matchSelectedIds: [] };
+
+          const patternIds = [matchModeAnchorId, ...matchSelectedIds];
+          const patternChain = patternIds
+            .map((id) => findNodeInComboTrees(character.comboTrees, id)?.node)
+            .filter((node): node is MoveNode => node !== undefined);
+
+          if (patternChain.length !== patternIds.length) {
+            return { matchModeAnchorId: null, matchSelectedIds: [] };
+          }
+
+          const matches = findMatchingChains(character.comboTrees, patternChain, { includeAttributes });
+
+          return {
+            matchModeAnchorId: null,
+            matchSelectedIds: [],
+            matchedAnchorIds: matches,
+            matchChainLength: patternChain.length,
+          };
+        });
+      },
+
+      clearMatchResults: () => {
+        set({ matchedAnchorIds: null, matchEditBeforeSnapshot: null, matchChainLength: 0 });
+      },
+
+      matchEditBeforeSnapshot: null,
+
+      startEditingMatch: (nodeId) => {
+        set((state) => {
+          let foundNode: MoveNode | null = null;
+          for (const character of state.characters) {
+            const found = findNodeInComboTrees(character.comboTrees, nodeId);
+            if (found) {
+              foundNode = found.node;
+              break;
+            }
+          }
+
+          return {
+            selectedNodeId: nodeId,
+            matchEditBeforeSnapshot: foundNode ? structuredClone(foundNode) : null,
+          };
+        });
+      },
+
+      propagateMatchChanges: (characterId) => {
+        set((state) => {
+          const { matchedAnchorIds, matchChainLength, matchEditBeforeSnapshot, selectedNodeId } = state;
+          const resetState = {
+            matchedAnchorIds: null,
+            matchEditBeforeSnapshot: null,
+            matchChainLength: 0,
+          };
+
+          if (!matchedAnchorIds || !matchEditBeforeSnapshot || !selectedNodeId) return resetState;
+
+          const character = state.characters.find((item) => item.id === characterId);
+          const sourceFound = character ? findNodeInComboTrees(character.comboTrees, selectedNodeId) : null;
+          if (!sourceFound) return resetState;
+
+          const beforeChain = collectChain(matchEditBeforeSnapshot, matchChainLength);
+          const afterChain = collectChain(sourceFound.node, matchChainLength);
+          if (!beforeChain || !afterChain) return resetState;
+
+          // 境界内(0..N-1)で内容が変わった位置（branchStatsは常に対象外）
+          const changedPositions = afterChain
+            .map((node, index) => ({ index, node, before: beforeChain[index] }))
+            .filter(
+              ({ node, before }) =>
+                node.moveName !== before.moveName ||
+                (node.displayName ?? null) !== (before.displayName ?? null) ||
+                JSON.stringify(node.attributes) !== JSON.stringify(before.attributes) ||
+                node.specialNote !== before.specialNote,
+            );
+
+          // 末尾ノードに新しく増えた子（＝「直後に枝を追加」操作の追加分）
+          const beforeTail = beforeChain[beforeChain.length - 1];
+          const afterTail = afterChain[afterChain.length - 1];
+          const newTailChildren = afterTail.children.slice(beforeTail.children.length);
+
+          const cloneWithoutStats = (node: MoveNode): MoveNode => ({
+            ...node,
+            id: makeId(),
+            branchStats: null,
+            children: node.children.map(cloneWithoutStats),
+          });
+
+          let nextCharacters = state.characters;
+
+          matchedAnchorIds
+            .filter((anchorId) => anchorId !== selectedNodeId)
+            .forEach((anchorId) => {
+              const currentCharacter = nextCharacters.find((item) => item.id === characterId);
+              const found = currentCharacter
+                ? findNodeInComboTrees(currentCharacter.comboTrees, anchorId)
+                : null;
+              if (!found) return;
+
+              const targetChain = collectChain(found.node, matchChainLength);
+              if (!targetChain) return;
+
+              const targetIds = targetChain.map((node) => node.id);
+              const clonedNewChildren = newTailChildren.map(cloneWithoutStats);
+
+              nextCharacters = updateComboTreeRoot(nextCharacters, characterId, found.tree.id, (root) => {
+                let nextRoot = root;
+
+                changedPositions.forEach(({ index, node }) => {
+                  nextRoot = mapMoveNode(nextRoot, targetIds[index], (targetNode) => ({
+                    ...targetNode,
+                    moveName: node.moveName,
+                    displayName: node.displayName,
+                    attributes: node.attributes,
+                    specialNote: node.specialNote,
+                  }));
+                });
+
+                if (clonedNewChildren.length > 0) {
+                  nextRoot = mapMoveNode(nextRoot, targetIds[targetIds.length - 1], (targetNode) => ({
+                    ...targetNode,
+                    children: [...targetNode.children, ...clonedNewChildren],
+                  }));
+                }
+
+                return nextRoot;
+              });
+            });
+
+          return { characters: nextCharacters, ...resetState };
+        });
       },
     }),
     {

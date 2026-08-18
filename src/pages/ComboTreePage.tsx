@@ -87,11 +87,17 @@ export function ComboTreePage() {
   const copySelectedIds = useAppStore((state) => state.copySelectedIds);
   const toggleCopySelection = useAppStore((state) => state.toggleCopySelection);
   const pasteClipboard = useAppStore((state) => state.pasteClipboard);
+  const groupModeActive = useAppStore((state) => state.groupModeActive);
   const groupModeAnchorId = useAppStore((state) => state.groupModeAnchorId);
   const groupSelectedIds = useAppStore((state) => state.groupSelectedIds);
+  const setGroupModeAnchor = useAppStore((state) => state.setGroupModeAnchor);
   const setGroupSelectedIds = useAppStore((state) => state.setGroupSelectedIds);
   const expandedGroupIds = useAppStore((state) => state.expandedGroupIds);
   const toggleGroupExpanded = useAppStore((state) => state.toggleGroupExpanded);
+  const matchModeAnchorId = useAppStore((state) => state.matchModeAnchorId);
+  const setMatchSelectedIds = useAppStore((state) => state.setMatchSelectedIds);
+  const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
+  const startEditingMatch = useAppStore((state) => state.startEditingMatch);
 
   const character = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId) ?? null,
@@ -143,17 +149,55 @@ export function ComboTreePage() {
 
   const expandedGroupSet = useMemo(() => new Set(expandedGroupIds), [expandedGroupIds]);
 
+  // ── 一致検索モード: 起点から分岐のない一本道だけが選択候補になる（グループ化モードと同じ考え方）
+  const matchChainIds = useMemo(() => {
+    if (!matchModeAnchorId) return null;
+
+    const anchorNode = findNodeInComboTrees(trees, matchModeAnchorId)?.node ?? null;
+    if (!anchorNode) return null;
+
+    const chain: string[] = [];
+    let cursor: MoveNode | null = anchorNode;
+    while (cursor) {
+      chain.push(cursor.id);
+      cursor = cursor.children.length === 1 ? cursor.children[0] : null;
+    }
+    return chain;
+  }, [trees, matchModeAnchorId]);
+
+  const matchCandidateIds = useMemo(
+    () => (matchChainIds ? new Set(matchChainIds) : null),
+    [matchChainIds],
+  );
+
   const handleNodeClick = useCallback(
     (nodeId: string) => {
       if (copyModeAnchorId) {
         if (copyCandidateIds?.has(nodeId)) toggleCopySelection(nodeId);
         return;
       }
-      if (groupModeAnchorId) {
+      if (groupModeActive) {
+        if (!groupModeAnchorId) {
+          // 次の枝の起点待ち。分岐の有無に関わらずどのノードでも起点にできる
+          setGroupModeAnchor(nodeId);
+          return;
+        }
         if (groupChainIds && groupModeAnchorId !== nodeId && groupCandidateIds?.has(nodeId)) {
           const index = groupChainIds.indexOf(nodeId);
           setGroupSelectedIds(groupChainIds.slice(1, index + 1));
         }
+        return;
+      }
+      if (matchModeAnchorId) {
+        if (matchChainIds && matchModeAnchorId !== nodeId && matchCandidateIds?.has(nodeId)) {
+          const index = matchChainIds.indexOf(nodeId);
+          setMatchSelectedIds(matchChainIds.slice(1, index + 1));
+        }
+        return;
+      }
+      if (matchedAnchorIds?.includes(nodeId)) {
+        // 一致箇所の一覧に含まれるノードをクリックしたら、編集前スナップショットを取って選択する
+        startEditingMatch(nodeId);
         return;
       }
       selectNode(nodeId);
@@ -162,10 +206,18 @@ export function ComboTreePage() {
       copyModeAnchorId,
       copyCandidateIds,
       toggleCopySelection,
+      groupModeActive,
       groupModeAnchorId,
       groupChainIds,
       groupCandidateIds,
+      setGroupModeAnchor,
       setGroupSelectedIds,
+      matchModeAnchorId,
+      matchChainIds,
+      matchCandidateIds,
+      setMatchSelectedIds,
+      matchedAnchorIds,
+      startEditingMatch,
       selectNode,
     ],
   );
@@ -429,7 +481,7 @@ export function ComboTreePage() {
                           parentId={null}
                           dragIndex={0}
                           readOnly={isGuest}
-                          isDisabledByOtherMode={copyModeAnchorId !== null || groupModeAnchorId !== null}
+                          isDisabledByOtherMode={copyModeAnchorId !== null || groupModeActive}
                         />
                       ) : (
                         <MoveNodeCircle
@@ -452,7 +504,7 @@ export function ComboTreePage() {
                           isCopyAnchor={copyModeAnchorId === rootId}
                           isCopyCandidate={copyCandidateIds?.has(rootId) ?? false}
                           isCopySelected={copySelectedSet.has(rootId)}
-                          isGroupModeActive={groupModeAnchorId !== null}
+                          isGroupModeActive={groupModeActive && groupModeAnchorId !== null}
                           isGroupAnchor={groupModeAnchorId === rootId}
                           isGroupCandidate={groupCandidateIds?.has(rootId) ?? false}
                           isGroupSelected={groupSelectedSet.has(rootId)}
@@ -506,7 +558,7 @@ export function ComboTreePage() {
                             parentId={column.parentId}
                             dragIndex={nodeIndex}
                             readOnly={isGuest}
-                            isDisabledByOtherMode={copyModeAnchorId !== null || groupModeAnchorId !== null}
+                            isDisabledByOtherMode={copyModeAnchorId !== null || groupModeActive}
                           />
                         ) : (
                           <MoveNodeCircle
@@ -528,7 +580,7 @@ export function ComboTreePage() {
                             isCopyAnchor={copyModeAnchorId === node.id}
                             isCopyCandidate={copyCandidateIds?.has(node.id) ?? false}
                             isCopySelected={copySelectedSet.has(node.id)}
-                            isGroupModeActive={groupModeAnchorId !== null}
+                            isGroupModeActive={groupModeActive && groupModeAnchorId !== null}
                             isGroupAnchor={groupModeAnchorId === node.id}
                             isGroupCandidate={groupCandidateIds?.has(node.id) ?? false}
                             isGroupSelected={groupSelectedSet.has(node.id)}

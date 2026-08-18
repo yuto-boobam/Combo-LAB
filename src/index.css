@@ -54,7 +54,7 @@
   --node-counter-border:        #fbbf24;                  /* カウンター(CH): 明るい黄色の枠線・接続線 */
   --node-punish-counter-border: #fb923c;                  /* パニッシュカウンター(PC): 明るいオレンジの枠線・接続線 */
   --node-rush-border:           #4ade80;                  /* ラッシュ: 緑の枠線・接続線 */
-  --node-cancel-rush-bg:        rgba(74, 222, 128, 0.32); /* キャンセルラッシュ: 目立たせるための緑（技名固定） */
+  --node-rush-bg:               rgba(74, 222, 128, 0.32); /* キャンセルラッシュ/生ラッシュ: 目立たせるための緑（技名固定） */
   --node-guard-bg:              rgba(56, 189, 248, 0.22); /* ガード: 水色〜青 */
   --node-whiff-bg:              rgba(255, 255, 255, 0.22); /* 空振り: ダークモードでは少し白く */
 
@@ -101,7 +101,7 @@
   --node-counter-border:        #d97706;
   --node-punish-counter-border: #ea580c;
   --node-rush-border:           #16a34a;
-  --node-cancel-rush-bg:        rgba(22, 163, 74, 0.22);
+  --node-rush-bg:               rgba(22, 163, 74, 0.22);
   --node-guard-bg:              rgba(2, 132, 199, 0.14);
   --node-whiff-bg:              rgba(0, 0, 0, 0.16); /* 空振り: ライトモードでは少し暗く */
 }

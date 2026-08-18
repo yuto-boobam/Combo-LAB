@@ -7,34 +7,7 @@
 
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
-import type { MoveNode } from '../../types';
-
-const MAX_CHAIN_LENGTH = 4;
-
-type ChainItem = { id: string; moveName: string };
-
-/** 1本の枝を「単一の子」を辿れる限りチェーンとして表示する。
- * 4つを超える場合は最初の2つ・最後の2つだけを表示し、間を省略する。
- * 途中で枝分かれしたら、そこで表示を打ち切り件数だけ添える。 */
-function buildPreviewChain(root: MoveNode): { items: ChainItem[]; moreBranches: number } {
-  const items: ChainItem[] = [];
-  let cursor: MoveNode = root;
-
-  while (true) {
-    items.push({ id: cursor.id, moveName: cursor.moveName });
-    if (cursor.children.length !== 1) break;
-    cursor = cursor.children[0];
-  }
-
-  const moreBranches = cursor.children.length > 1 ? cursor.children.length : 0;
-
-  if (items.length <= MAX_CHAIN_LENGTH) return { items, moreBranches };
-
-  return {
-    items: [...items.slice(0, 2), { id: `${root.id}-ellipsis`, moveName: '…' }, ...items.slice(-2)],
-    moreBranches,
-  };
-}
+import { ChainPreviewRow } from './ChainPreviewRow';
 
 export function ClipboardPreview() {
   const clipboard = useAppStore((state) => state.clipboard);
@@ -69,20 +42,9 @@ export function ClipboardPreview() {
       <p style={styles.hint}>ここをドラッグして、ツリー上の貼り付け先ノードにドロップしてください</p>
 
       <div style={styles.branchList}>
-        {clipboard.map((fragment) => {
-          const { items, moreBranches } = buildPreviewChain(fragment);
-          return (
-            <div key={fragment.id} style={styles.branchRow}>
-              {items.map((item, index) => (
-                <span key={item.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {index > 0 && <span style={styles.arrow}>→</span>}
-                  <span style={styles.chip}>{item.moveName}</span>
-                </span>
-              ))}
-              {moreBranches > 0 && <span style={styles.moreBranches}>＋他{moreBranches}分岐</span>}
-            </div>
-          );
-        })}
+        {clipboard.map((fragment) => (
+          <ChainPreviewRow key={fragment.id} root={fragment} />
+        ))}
       </div>
     </div>
   );
@@ -116,29 +78,5 @@ const styles: Record<string, CSSProperties> = {
   branchList: {
     display: 'grid',
     gap: 8,
-  },
-  branchRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 4,
-  },
-  arrow: {
-    color: 'var(--text-muted)',
-    fontSize: 11,
-  },
-  chip: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 999,
-    padding: '3px 9px',
-  },
-  moreBranches: {
-    fontSize: 10,
-    color: 'var(--text-muted)',
-    marginLeft: 4,
   },
 };
