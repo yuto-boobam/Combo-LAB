@@ -106,4 +106,27 @@ describe('buildGroupView', () => {
     expect(viewRoot.children[0].id).toBe('b');
     expect(viewRoot.children[0].children[0].id).toBe('c');
   });
+
+  it('同じgroupIdが2つの兄弟枝にまたがる場合、それぞれ独立したピルになる', () => {
+    // branch -> [eA(g1) -> eB(g1), fA(g1) -> fB(g1)]
+    const eB = makeNode('eB', { groupId: 'g1' });
+    const eA = makeNode('eA', { groupId: 'g1', children: [eB] });
+    const fB = makeNode('fB', { groupId: 'g1' });
+    const fA = makeNode('fA', { groupId: 'g1', children: [fB] });
+    const branch = makeNode('branch', { children: [eA, fA] });
+    const root = makeNode('root', { children: [branch] });
+
+    const { viewRoot, pillMetaById } = buildGroupView(root, new Map([['g1', 'コンボA']]), new Set());
+
+    // branchは分岐点なのでピルにならず、そのまま2つの子(eA, fA)を持つ
+    const branchView = viewRoot.children[0];
+    expect(branchView.id).toBe('branch');
+    expect(branchView.children.map((c) => c.id)).toEqual(['eA', 'fA']);
+
+    expect(pillMetaById.size).toBe(2);
+    expect(pillMetaById.get('eA')?.memberIds).toEqual(['eA', 'eB']);
+    expect(pillMetaById.get('fA')?.memberIds).toEqual(['fA', 'fB']);
+    expect(pillMetaById.get('eA')?.groupName).toBe('コンボA');
+    expect(pillMetaById.get('fA')?.groupName).toBe('コンボA');
+  });
 });
