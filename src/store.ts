@@ -80,11 +80,17 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     ? (move.category as MoveCategory)
     : 'unique';
 
+  const specialVariantOptions = Array.isArray(move.specialVariantOptions)
+    ? move.specialVariantOptions.filter((option): option is string => typeof option === 'string')
+    : [];
+
   return {
     id: typeof move.id === 'string' && move.id ? move.id : makeId(),
     name: move.name,
     category,
     shortName: typeof move.shortName === 'string' && move.shortName ? move.shortName : undefined,
+    hasSpecialVariant: move.hasSpecialVariant === true ? true : undefined,
+    specialVariantOptions: specialVariantOptions.length > 0 ? specialVariantOptions : undefined,
   };
 }
 

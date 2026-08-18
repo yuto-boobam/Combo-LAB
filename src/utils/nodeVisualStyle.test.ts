@@ -36,10 +36,13 @@ describe('resolveNodeVisualStyle', () => {
     expect(result.borderStyle).toBe('dashed');
   });
 
-  it('技名が「キャンセルラッシュ」の場合、属性に関わらず本体色が固定で緑になる', () => {
+  it('技名が「キャンセルラッシュ」の場合、属性に関わらず本体色・枠線色（≒接続線色）が固定で緑になる', () => {
     expect(style('キャンセルラッシュ').bodyColorKind).toBe('cancelRush');
+    expect(style('キャンセルラッシュ').borderColorKind).toBe('cancelRush');
     expect(style('キャンセルラッシュ', [attr('guard')]).bodyColorKind).toBe('cancelRush');
     expect(style('キャンセルラッシュ', [attr('whiff')]).bodyColorKind).toBe('cancelRush');
+    // パニッシュカウンターのような優先度の高い属性を持っていても、キャンセルラッシュの緑を優先する
+    expect(style('キャンセルラッシュ', [attr('punishCounter')]).borderColorKind).toBe('cancelRush');
   });
 
   it('カウンター単体は自分の枠線がカウンター色になる', () => {

@@ -110,6 +110,36 @@ describe('restoreCharacters', () => {
     expect(updated.moveList[0].category).toBe('unique'); // 不正なカテゴリはuniqueにフォールバック
     expect(updated.comboTrees).toHaveLength(0);
   });
+
+  it('技マスタのhasSpecialVariant/specialVariantOptionsがインポート時に消えない', () => {
+    const target = useAppStore.getState().characters[3];
+
+    useAppStore.getState().restoreCharacters([
+      {
+        id: target.id,
+        moveList: [
+          {
+            id: 'beam',
+            name: 'ビーム',
+            category: 'special',
+            hasSpecialVariant: true,
+            specialVariantOptions: ['ビームレベル2', 'ビームレベル3', 'ビームレベル4'],
+          },
+          { id: 'normal-move', name: '波動拳', category: 'special' }, // 特殊性能なしの技は影響なし
+        ],
+        comboTrees: [],
+      },
+    ]);
+
+    const updated = getCharacter(target.id);
+    const beam = updated.moveList.find((move) => move.id === 'beam');
+    expect(beam?.hasSpecialVariant).toBe(true);
+    expect(beam?.specialVariantOptions).toEqual(['ビームレベル2', 'ビームレベル3', 'ビームレベル4']);
+
+    const normalMove = updated.moveList.find((move) => move.id === 'normal-move');
+    expect(normalMove?.hasSpecialVariant).toBeUndefined();
+    expect(normalMove?.specialVariantOptions).toBeUndefined();
+  });
 });
 
 describe('共通区間を名前付きグループとして折りたたむ機能', () => {

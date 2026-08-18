@@ -6,9 +6,16 @@
 
 import { useState } from 'react';
 import type { MoveNode } from '../types';
-import { resolveNodeVisualStyle, NODE_BODY_COLOR_VAR, NODE_BORDER_COLOR_VAR } from '../utils/nodeVisualStyle';
+import {
+  resolveNodeVisualStyle,
+  NODE_BODY_COLOR_VAR,
+  NODE_BORDER_COLOR_VAR,
+  CANCEL_RUSH_MOVE_NAME,
+} from '../utils/nodeVisualStyle';
 
-export const NODE_WIDTH = 72;
+// 「キャンセルラッシュ」のような5文字の技名でも1行目（「キャンセル」）が折り返さず、
+// ｜で指定した位置で2行に分かれるように少し広めにしている（以前は72px）
+export const NODE_WIDTH = 88;
 // 実測前（マウント直後）の仮の高さ。1〜2行の技名がだいたい収まる目安値で、
 // 実際の高さはuseNodeHeightsの実測値にすぐ置き換わる
 export const NODE_DEFAULT_HEIGHT = 44;
@@ -76,6 +83,13 @@ export function MoveNodeCircle({
   const [isDragOver, setIsDragOver] = useState(false);
   const isLeaf = node.children.length === 0;
   const visual = resolveNodeVisualStyle(node.moveName, node.attributes);
+
+  // 「キャンセルラッシュ」は名前が長く見切れやすいため、呼び名が未設定の場合に限り
+  // デフォルトで改行位置を指定する（呼び名が設定されていればそちらを優先する）
+  const displayLabel =
+    !node.displayName && node.moveName === CANCEL_RUSH_MOVE_NAME
+      ? 'キャンセル｜ラッシュ'
+      : node.displayName || node.moveName;
 
   const isPicked = isCopyAnchor || isCopySelected || isGroupAnchor || isGroupSelected;
 
@@ -220,7 +234,7 @@ export function MoveNodeCircle({
         }}
         title={node.moveName}
       >
-        {applyManualLineBreaks(node.displayName || node.moveName)}
+        {applyManualLineBreaks(displayLabel)}
       </span>
 
       {node.specialNote && (
