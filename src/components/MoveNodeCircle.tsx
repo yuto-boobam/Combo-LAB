@@ -6,9 +6,16 @@
 
 import { useState } from 'react';
 import type { MoveNode } from '../types';
-import { resolveNodeVisualStyle, NODE_BODY_COLOR_VAR, NODE_BORDER_COLOR_VAR } from '../utils/nodeVisualStyle';
+import {
+  resolveNodeVisualStyle,
+  NODE_BODY_COLOR_VAR,
+  NODE_BORDER_COLOR_VAR,
+  CANCEL_RUSH_MOVE_NAME,
+} from '../utils/nodeVisualStyle';
 
-export const NODE_WIDTH = 72;
+// 「キャンセルラッシュ」のような5文字の技名でも1行目（「キャンセル」）が折り返さず、
+// ｜で指定した位置で2行に分かれるように少し広めにしている（以前は72px）
+export const NODE_WIDTH = 88;
 // 実測前（マウント直後）の仮の高さ。1〜2行の技名がだいたい収まる目安値で、
 // 実際の高さはuseNodeHeightsの実測値にすぐ置き換わる
 export const NODE_DEFAULT_HEIGHT = 44;
@@ -40,6 +47,13 @@ type Props = {
   isCopyAnchor?: boolean;
   isCopyCandidate?: boolean;
   isCopySelected?: boolean;
+  // グループ化モード関連（コピーモードと同じ考え方。グループ化モード中でない時はすべて未指定でよい）
+  isGroupModeActive?: boolean;
+  isGroupAnchor?: boolean;
+  isGroupCandidate?: boolean;
+  isGroupSelected?: boolean;
+  // 展開表示中の名前付きグループの先頭ノードにのみ渡す。「折りたたむ」バッジを出す
+  groupBadge?: { groupName: string; onCollapse: () => void };
   // クリップボードをドラッグ&ドロップで貼り付けられた時に呼ばれる
   onPasteDrop?: () => void;
 };
@@ -59,28 +73,45 @@ export function MoveNodeCircle({
   isCopyAnchor = false,
   isCopyCandidate = false,
   isCopySelected = false,
+  isGroupModeActive = false,
+  isGroupAnchor = false,
+  isGroupCandidate = false,
+  isGroupSelected = false,
+  groupBadge,
   onPasteDrop,
 }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isLeaf = node.children.length === 0;
-  const visual = resolveNodeVisualStyle(node.attributes);
+  const visual = resolveNodeVisualStyle(node.moveName, node.attributes);
 
-  // コピーモード中は「起点/候補ではないノード」をクリックできないようにするため、
-  // 通常の選択リング（isSelected）ではなくコピー用の枠色を優先する
-  const borderColor = isCopyAnchor || isCopySelected
+  // 「キャンセルラッシュ」は名前が長く見切れやすいため、呼び名が未設定の場合に限り
+  // デフォルトで改行位置を指定する（呼び名が設定されていればそちらを優先する）
+  const displayLabel =
+    !node.displayName && node.moveName === CANCEL_RUSH_MOVE_NAME
+      ? 'キャンセル｜ラッシュ'
+      : node.displayName || node.moveName;
+
+  const isPicked = isCopyAnchor || isCopySelected || isGroupAnchor || isGroupSelected;
+
+  // コピー/グループ化モード中は「起点/候補ではないノード」をクリックできないようにするため、
+  // 通常の選択リング（isSelected）ではなくそれ専用の枠色を優先する
+  const borderColor = isPicked
     ? 'var(--accent)'
     : isDragOver || isSelected
       ? 'var(--accent)'
       : NODE_BORDER_COLOR_VAR[visual.borderColorKind];
 
-  const isInactiveDuringCopyMode = isCopyModeActive && !isCopyAnchor && !isCopyCandidate;
+  const isDisabledMode = isCopyModeActive || isGroupModeActive;
+  const isInactiveDuringMode =
+    (isCopyModeActive && !isCopyAnchor && !isCopyCandidate) ||
+    (isGroupModeActive && !isGroupAnchor && !isGroupCandidate);
 
   return (
     <div
       id={`node-${node.id}`}
-      draggable={!isRoot && !readOnly && !isCopyModeActive}
+      draggable={!isRoot && !readOnly && !isDisabledMode}
       onDragStart={(event) => {
-        if (readOnly || isCopyModeActive) return;
+        if (readOnly || isDisabledMode) return;
         event.dataTransfer.setData(
           'application/json',
           JSON.stringify({ id: node.id, parentId, index: dragIndex }),
@@ -117,18 +148,18 @@ export function MoveNodeCircle({
         borderRadius: 'var(--radius-lg)',
         position: 'relative',
         background: NODE_BODY_COLOR_VAR[visual.bodyColorKind],
-        border: `${visual.borderWidth === 'thick' || isCopyAnchor || isCopySelected ? 3 : 1.5}px ${isCopyAnchor ? 'dashed' : visual.borderStyle} ${borderColor}`,
+        border: `${visual.borderWidth === 'thick' || isPicked ? 3 : 1.5}px ${isCopyAnchor || isGroupAnchor ? 'dashed' : visual.borderStyle} ${borderColor}`,
         boxShadow: isSelected ? '0 0 0 3px var(--accent-glow)' : 'none',
         padding: '6px 7px',
         textAlign: 'center',
-        opacity: isInactiveDuringCopyMode ? 0.35 : 1,
-        cursor: isInactiveDuringCopyMode ? 'default' : 'pointer',
+        opacity: isInactiveDuringMode ? 0.35 : 1,
+        cursor: isInactiveDuringMode ? 'default' : 'pointer',
         transition: 'border-color 0.15s, box-shadow 0.15s, opacity 0.15s',
       }}
     >
-      {isCopySelected && (
+      {(isCopySelected || isGroupSelected) && (
         <span
-          title="コピー対象"
+          title={isGroupSelected ? 'グループ化対象' : 'コピー対象'}
           style={{
             position: 'absolute',
             top: -5,
@@ -147,6 +178,35 @@ export function MoveNodeCircle({
         >
           ✓
         </span>
+      )}
+
+      {groupBadge && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            groupBadge.onCollapse();
+          }}
+          title={`「${groupBadge.groupName}」として折りたたむ`}
+          style={{
+            position: 'absolute',
+            left: -5,
+            bottom: -5,
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            border: '1.5px solid var(--accent)',
+            background: 'var(--bg-surface)',
+            color: 'var(--accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 9,
+            cursor: 'pointer',
+          }}
+        >
+          🔗
+        </button>
       )}
 
       {visual.isSituational && (
@@ -174,7 +234,7 @@ export function MoveNodeCircle({
         }}
         title={node.moveName}
       >
-        {applyManualLineBreaks(node.displayName || node.moveName)}
+        {applyManualLineBreaks(displayLabel)}
       </span>
 
       {node.specialNote && (

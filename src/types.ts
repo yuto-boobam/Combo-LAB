@@ -54,7 +54,6 @@ export type NodeAttributeType =
   | 'punishCounter'    // パニッシュカウンター(PC)
   | 'rush'             // ラッシュ
   | 'airHit'           // 空中ヒット
-  | 'comboEnder'       // コンボ締め
   | 'delay'            // ディレイ
   | 'okizeme'          // 起き攻め
   | 'other';           // その他
@@ -74,11 +73,9 @@ export type NodeAttribute =
 /**
  * root→leaf の1パス（=1つの枝）に紐づく統計。
  *
- * 入力欄は「コンボ締め」「ガード」「空振り」のいずれかの属性を持つノードにのみ表示する
- * （表示条件は src/components/combo/SideDrawerPanel.tsx の showStatsEditor を参照）。
- * 葉ノードがこれらの属性を持たず自分の branchStats を持たない場合、直近の祖先にある
- * 「コンボ締め」ノードの branchStats を初期値として引き継ぐ
- * （継承の解決は utils/branchStats.ts の resolveEffectiveBranchStats を使う）。
+ * 入力欄は「葉ノード（子を持たない）」または「ガード」「空振り」のいずれかの属性を持つ
+ * ノードにのみ表示する（表示条件は src/components/combo/SideDrawerPanel.tsx の
+ * showStatsEditor を参照）。
  */
 export type ComboBranchStats = {
   damage: number | null;
@@ -105,13 +102,21 @@ export type MoveNode = {
   attributes: NodeAttribute[];
   specialNote: string; // 「ディレイ~F」のような特殊記入。基本は空文字
 
-  // コンボ締め/ガード/空振り属性を持つノードにのみ意味を持つ（上記コメント参照）
+  // 葉ノード、またはガード/空振り属性を持つノードにのみ意味を持つ（上記コメント参照）
   branchStats: ComboBranchStats | null;
 
   createdBy: string;
   createdAt: string;
 
   children: MoveNode[];
+
+  /**
+   * このノードが属する名前付きグループ（Character.namedComboGroups の id）。
+   * 同じ groupId が分岐なしで連続するノード列は、木の表示上1個の折りたたみノード
+   * （例:「コンボA」）にまとめられる。始動技違いで途中から同じ連携になるコンボを
+   * 表現するための機能。詳細は src/lib/tree/groupView.ts を参照
+   */
+  groupId?: string;
 };
 
 // ── コンボ木・キャラクター ──────────────────────────────────────────────────
@@ -123,6 +128,12 @@ export type ComboTree = {
   root: MoveNode;
 };
 
+/** キャラごとの「名前付きグループ」カタログ（MoveNode.groupId が参照する） */
+export type NamedComboGroup = {
+  id: string;
+  name: string;
+};
+
 export type Character = {
   id: string;
   name: string;
@@ -130,6 +141,7 @@ export type Character = {
   imageUrl: string | null;
   moveList: MoveDefinition[];
   comboTrees: ComboTree[];
+  namedComboGroups: NamedComboGroup[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;

@@ -1,12 +1,28 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useAppStore } from './store';
-import type { Character } from './types';
+import type { Character, MoveNode } from './types';
 import { createInitialCharacterRoster } from './data/characterRoster';
+import { buildGroupView } from './lib/tree';
 
 function getCharacter(id: string): Character {
   const character = useAppStore.getState().characters.find((c) => c.id === id);
   if (!character) throw new Error(`character not found: ${id}`);
   return character;
+}
+
+function findNodeByMoveNameOrNull(root: MoveNode, moveName: string): MoveNode | null {
+  if (root.moveName === moveName) return root;
+  for (const child of root.children) {
+    const found = findNodeByMoveNameOrNull(child, moveName);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findNodeByMoveName(root: MoveNode, moveName: string): MoveNode {
+  const found = findNodeByMoveNameOrNull(root, moveName);
+  if (!found) throw new Error(`node not found: ${moveName}`);
+  return found;
 }
 
 describe('restoreCharacters', () => {
@@ -93,5 +109,324 @@ describe('restoreCharacters', () => {
     expect(updated.moveList[0].name).toBe('龍巻旋風脚');
     expect(updated.moveList[0].category).toBe('unique'); // 不正なカテゴリはuniqueにフォールバック
     expect(updated.comboTrees).toHaveLength(0);
+  });
+
+  it('技マスタのhasSpecialVariant/specialVariantOptionsがインポート時に消えない', () => {
+    const target = useAppStore.getState().characters[3];
+
+    useAppStore.getState().restoreCharacters([
+      {
+        id: target.id,
+        moveList: [
+          {
+            id: 'beam',
+            name: 'ビーム',
+            category: 'special',
+            hasSpecialVariant: true,
+            specialVariantOptions: ['ビームレベル2', 'ビームレベル3', 'ビームレベル4'],
+          },
+          { id: 'normal-move', name: '波動拳', category: 'special' }, // 特殊性能なしの技は影響なし
+        ],
+        comboTrees: [],
+      },
+    ]);
+
+    const updated = getCharacter(target.id);
+    const beam = updated.moveList.find((move) => move.id === 'beam');
+    expect(beam?.hasSpecialVariant).toBe(true);
+    expect(beam?.specialVariantOptions).toEqual(['ビームレベル2', 'ビームレベル3', 'ビームレベル4']);
+
+    const normalMove = updated.moveList.find((move) => move.id === 'normal-move');
+    expect(normalMove?.hasSpecialVariant).toBeUndefined();
+    expect(normalMove?.specialVariantOptions).toBeUndefined();
+  });
+});
+
+describe('共通区間を名前付きグループとして折りたたむ機能', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      characters: createInitialCharacterRoster(),
+      groupModeActive: false,
+      groupModeAnchorId: null,
+      groupSelectedIds: [],
+      groupModeRuns: [],
+      expandedGroupIds: [],
+      selectedNodeId: null,
+    });
+  });
+
+  function buildChainTree(characterId: string) {
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '小P始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+
+    const aId = store.addChildNode(characterId, treeId, rootId, 'a');
+    const bId = store.addChildNode(characterId, treeId, aId, 'b');
+    const cId = store.addChildNode(characterId, treeId, bId, 'c');
+    const dId = store.addChildNode(characterId, treeId, cId, 'd');
+
+    return { treeId, rootId, aId, bId, cId, dId };
+  }
+
+  it('起点から続く区間に名前を付けると、対象ノードすべてに同じgroupIdが付き、カタログに追加される', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const { aId, bId, cId } = buildChainTree(characterId);
+
+    useAppStore.getState().startGroupMode(aId);
+    useAppStore.getState().setGroupSelectedIds([bId, cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const character = getCharacter(characterId);
+    const tree = character.comboTrees[0];
+    const a = findNodeByMoveName(tree.root, 'a');
+    const b = findNodeByMoveName(tree.root, 'b');
+    const c = findNodeByMoveName(tree.root, 'c');
+    const d = findNodeByMoveName(tree.root, 'd');
+
+    expect(a.id).toBe(aId);
+    expect(a.groupId).toBeDefined();
+    expect(a.groupId).toBe(b.groupId);
+    expect(a.groupId).toBe(c.groupId);
+    expect(d.groupId).toBeUndefined(); // 選択範囲外は影響を受けない
+
+    expect(character.namedComboGroups).toHaveLength(1);
+    expect(character.namedComboGroups[0].name).toBe('コンボA');
+
+    // グループ化モードは確定後に終了する
+    expect(useAppStore.getState().groupModeAnchorId).toBeNull();
+    expect(useAppStore.getState().groupSelectedIds).toEqual([]);
+  });
+
+  it('別の木で同名グループを付けると、同じgroupId（同じカタログ項目）が再利用される', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+
+    const first = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(first.aId);
+    useAppStore.getState().setGroupSelectedIds([first.bId, first.cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const second = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(second.aId);
+    useAppStore.getState().setGroupSelectedIds([second.bId, second.cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const character = getCharacter(characterId);
+    expect(character.namedComboGroups).toHaveLength(1); // カタログは増えない
+
+    const firstA = findNodeByMoveName(character.comboTrees[0].root, 'a');
+    const secondA = findNodeByMoveName(character.comboTrees[1].root, 'a');
+    expect(firstA.groupId).toBe(secondA.groupId);
+  });
+
+  it('buildGroupViewで表示すると、対象区間が1個のピルにまとまり、末尾ノードの先の子はそのまま繋がる', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+
+    const { treeId, aId, bId, cId, dId } = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(aId);
+    useAppStore.getState().setGroupSelectedIds([bId, cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const character = getCharacter(characterId);
+    const tree = character.comboTrees.find((t) => t.id === treeId)!;
+    const groupNameById = new Map(character.namedComboGroups.map((g) => [g.id, g.name]));
+
+    const { viewRoot, pillMetaById } = buildGroupView(tree.root, groupNameById, new Set());
+
+    // root -> pill(a) -> d
+    const pillNode = viewRoot.children[0];
+    expect(pillNode.id).toBe(aId);
+    expect(pillNode.children.map((c) => c.id)).toEqual([dId]);
+
+    const meta = pillMetaById.get(aId);
+    expect(meta?.groupName).toBe('コンボA');
+    expect(meta?.memberIds).toEqual([aId, bId, cId]);
+  });
+
+  it('ungroupNodeで区間全体のgroupIdが解除される（カタログ自体は残る）', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+
+    const { treeId, aId, bId, cId } = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(aId);
+    useAppStore.getState().setGroupSelectedIds([bId, cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    // 区間の途中(b)から解除しても、区間全体(a,b,c)が解除される
+    useAppStore.getState().ungroupNode(characterId, treeId, bId);
+
+    const character = getCharacter(characterId);
+    const tree = character.comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(tree.root, 'a').groupId).toBeUndefined();
+    expect(findNodeByMoveName(tree.root, 'b').groupId).toBeUndefined();
+    expect(findNodeByMoveName(tree.root, 'c').groupId).toBeUndefined();
+    expect(character.namedComboGroups).toHaveLength(1); // カタログ自体は残る
+  });
+
+  it('複数の枝をまとめて同じグループとして登録できる（addGroupModeRun/setGroupModeAnchor）', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '小P始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+
+    // root -> branch -> [eA -> eB, fA -> fB]（branchで2本に分岐）
+    const branchId = store.addChildNode(characterId, treeId, rootId, 'branch');
+    const eAId = store.addChildNode(characterId, treeId, branchId, 'eA');
+    const eBId = store.addChildNode(characterId, treeId, eAId, 'eB');
+    const fAId = store.addChildNode(characterId, treeId, branchId, 'fA');
+    const fBId = store.addChildNode(characterId, treeId, fAId, 'fB');
+
+    useAppStore.getState().startGroupMode(eAId);
+    useAppStore.getState().setGroupSelectedIds([eBId]);
+    useAppStore.getState().addGroupModeRun();
+
+    // 1本目を追加した直後は、起点待ち（groupModeAnchorId=null）だがモード自体は継続している
+    expect(useAppStore.getState().groupModeRuns).toEqual([{ anchorId: eAId, selectedIds: [eBId] }]);
+    expect(useAppStore.getState().groupModeAnchorId).toBeNull();
+    expect(useAppStore.getState().groupModeActive).toBe(true);
+
+    useAppStore.getState().setGroupModeAnchor(fAId);
+    useAppStore.getState().setGroupSelectedIds([fBId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const character = getCharacter(characterId);
+    const tree = character.comboTrees.find((t) => t.id === treeId)!;
+    const eA = findNodeByMoveName(tree.root, 'eA');
+    const eB = findNodeByMoveName(tree.root, 'eB');
+    const fA = findNodeByMoveName(tree.root, 'fA');
+    const fB = findNodeByMoveName(tree.root, 'fB');
+
+    expect(eA.groupId).toBeDefined();
+    expect(eA.groupId).toBe(eB.groupId);
+    expect(eA.groupId).toBe(fA.groupId);
+    expect(eA.groupId).toBe(fB.groupId);
+    expect(character.namedComboGroups).toHaveLength(1);
+
+    // 確定後はモード自体も完全に終了する
+    expect(useAppStore.getState().groupModeActive).toBe(false);
+    expect(useAppStore.getState().groupModeRuns).toEqual([]);
+
+    // 表示側（groupView.ts）は無改造でも、枝ごとに独立したピルとして畳まれる
+    const groupNameById = new Map(character.namedComboGroups.map((g) => [g.id, g.name]));
+    const { pillMetaById } = buildGroupView(tree.root, groupNameById, new Set());
+    expect(pillMetaById.get(eAId)?.memberIds).toEqual([eAId, eBId]);
+    expect(pillMetaById.get(fAId)?.memberIds).toEqual([fAId, fBId]);
+  });
+
+  it('removeGroupModeRunで登録済みの枝を取り消せる', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const { aId, bId, cId } = buildChainTree(characterId);
+
+    useAppStore.getState().startGroupMode(aId);
+    useAppStore.getState().setGroupSelectedIds([bId]);
+    useAppStore.getState().addGroupModeRun();
+    useAppStore.getState().setGroupModeAnchor(cId);
+    useAppStore.getState().addGroupModeRun();
+
+    expect(useAppStore.getState().groupModeRuns).toHaveLength(2);
+
+    useAppStore.getState().removeGroupModeRun(0);
+
+    expect(useAppStore.getState().groupModeRuns).toEqual([{ anchorId: cId, selectedIds: [] }]);
+  });
+});
+
+describe('一致箇所への一括反映機能', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      characters: createInitialCharacterRoster(),
+      matchModeAnchorId: null,
+      matchSelectedIds: [],
+      matchedAnchorIds: null,
+      matchChainLength: 0,
+      matchEditBeforeSnapshot: null,
+      selectedNodeId: null,
+    });
+  });
+
+  function buildNamedChainTree(characterId: string, names: string[]) {
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '小P始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+
+    let parentId = rootId;
+    const ids: string[] = [];
+    for (const name of names) {
+      const id = store.addChildNode(characterId, treeId, parentId, name);
+      ids.push(id);
+      parentId = id;
+    }
+    return { treeId, rootId, ids };
+  }
+
+  it('技名が完全一致する一本道をすべて見つけ、途中が違う箇所は除外する', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const first = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+    const second = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+    buildNamedChainTree(characterId, ['p', 'x', 'r']); // 途中が違うので一致しない
+
+    useAppStore.getState().startMatchMode(first.ids[0]);
+    useAppStore.getState().setMatchSelectedIds([first.ids[1], first.ids[2]]);
+    useAppStore.getState().confirmMatchSearch(characterId, false);
+
+    const matched = useAppStore.getState().matchedAnchorIds;
+    expect([...(matched ?? [])].sort()).toEqual([first.ids[0], second.ids[0]].sort());
+    expect(useAppStore.getState().matchChainLength).toBe(3);
+    expect(useAppStore.getState().matchModeAnchorId).toBeNull(); // 選択モードは検索確定で終了
+  });
+
+  it('境界内の内容変更と末尾への追加が他の一致箇所へ反映される（branchStatsは対象外・境界より先は保持）', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const source = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+    const target = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+
+    const store = useAppStore.getState();
+    // targetのr(末尾)に元々あった独自の続き。境界より先なので壊れないことを確認する対象
+    const preExistingId = store.addChildNode(characterId, target.treeId, target.ids[2], '既存の続き');
+    // targetのq(位置1)にbranchStatsを設定しておく。上書きされないことを確認する対象
+    store.setNodeBranchStats(characterId, target.treeId, target.ids[1], {
+      damage: 1234,
+      dGaugeChange: null,
+      saGaugeGain: null,
+      damageRating: null,
+      dGaugeRating: null,
+      saGaugeRating: null,
+      overallRating: null,
+      plusFrame: null,
+      isThrowRange: false,
+      canOkizeme: false,
+    });
+
+    useAppStore.getState().startMatchMode(source.ids[0]);
+    useAppStore.getState().setMatchSelectedIds([source.ids[1], source.ids[2]]);
+    useAppStore.getState().confirmMatchSearch(characterId, false);
+
+    useAppStore.getState().startEditingMatch(source.ids[0]);
+
+    // 境界内(位置1)の内容を変更
+    useAppStore.getState().updateNodeMoveName(characterId, source.treeId, source.ids[1], 'q改');
+    // 末尾(位置2)に新しいノードを追加
+    const newTailId = useAppStore.getState().addChildNode(characterId, source.treeId, source.ids[2], '新しい枝');
+
+    useAppStore.getState().propagateMatchChanges(characterId);
+
+    const character = getCharacter(characterId);
+    const targetTree = character.comboTrees.find((t) => t.id === target.treeId)!;
+
+    const targetQ = findNodeByMoveName(targetTree.root, 'q改');
+    expect(targetQ.id).toBe(target.ids[1]); // 実体は上書きするだけで、IDは変わらない
+    expect(targetQ.branchStats?.damage).toBe(1234); // branchStatsは対象外で保持される
+
+    const targetR = findNodeByMoveName(targetTree.root, 'r');
+    const targetNewTail = targetR.children.find((c) => c.moveName === '新しい枝');
+    expect(targetNewTail).toBeDefined();
+    expect(targetNewTail!.id).not.toBe(newTailId); // クローンなのでIDは新規
+    expect(targetNewTail!.branchStats).toBeNull();
+
+    // 境界より先に元々あった独自の続きは壊れていない
+    const preExisting = targetR.children.find((c) => c.id === preExistingId);
+    expect(preExisting?.moveName).toBe('既存の続き');
+
+    // 反映後はモードごと完全に終了する
+    expect(useAppStore.getState().matchedAnchorIds).toBeNull();
+    expect(useAppStore.getState().matchEditBeforeSnapshot).toBeNull();
   });
 });
