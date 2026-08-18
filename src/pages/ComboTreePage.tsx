@@ -10,6 +10,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import { MoveNodeCircle } from '../components/MoveNodeCircle';
+import { GroupPillNode } from '../components/GroupPillNode';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
@@ -19,8 +20,10 @@ import {
   useNodeHeights,
   useTreeExpandAnimation,
   buildParentMap,
+  buildGroupView,
   ConnectionsOverlay,
   type DropZoneSpec,
+  type GroupPillMeta,
   type NodePosition,
   type TreeColumn,
   type TreeLayout,
@@ -48,6 +51,7 @@ function getBranchLineColor(_column: TreeColumn<MoveNode>, childNode: MoveNode):
 
 type TreeBlock = {
   tree: ComboTree;
+  viewRoot: MoveNode;
   offsetY: number;
   columns: TaggedColumn[];
 };
@@ -83,6 +87,11 @@ export function ComboTreePage() {
   const copySelectedIds = useAppStore((state) => state.copySelectedIds);
   const toggleCopySelection = useAppStore((state) => state.toggleCopySelection);
   const pasteClipboard = useAppStore((state) => state.pasteClipboard);
+  const groupModeAnchorId = useAppStore((state) => state.groupModeAnchorId);
+  const groupSelectedIds = useAppStore((state) => state.groupSelectedIds);
+  const setGroupSelectedIds = useAppStore((state) => state.setGroupSelectedIds);
+  const expandedGroupIds = useAppStore((state) => state.expandedGroupIds);
+  const toggleGroupExpanded = useAppStore((state) => state.toggleGroupExpanded);
 
   const character = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId) ?? null,
@@ -109,15 +118,56 @@ export function ComboTreePage() {
 
   const copySelectedSet = useMemo(() => new Set(copySelectedIds), [copySelectedIds]);
 
+  // ── グループ化モード: 起点から分岐のない一本道だけが選択候補になる
+  const groupChainIds = useMemo(() => {
+    if (!groupModeAnchorId) return null;
+
+    const anchorNode = findNodeInComboTrees(trees, groupModeAnchorId)?.node ?? null;
+    if (!anchorNode) return null;
+
+    const chain: string[] = [];
+    let cursor: MoveNode | null = anchorNode;
+    while (cursor) {
+      chain.push(cursor.id);
+      cursor = cursor.children.length === 1 ? cursor.children[0] : null;
+    }
+    return chain;
+  }, [trees, groupModeAnchorId]);
+
+  const groupCandidateIds = useMemo(
+    () => (groupChainIds ? new Set(groupChainIds) : null),
+    [groupChainIds],
+  );
+
+  const groupSelectedSet = useMemo(() => new Set(groupSelectedIds), [groupSelectedIds]);
+
+  const expandedGroupSet = useMemo(() => new Set(expandedGroupIds), [expandedGroupIds]);
+
   const handleNodeClick = useCallback(
     (nodeId: string) => {
       if (copyModeAnchorId) {
         if (copyCandidateIds?.has(nodeId)) toggleCopySelection(nodeId);
         return;
       }
+      if (groupModeAnchorId) {
+        if (groupChainIds && groupModeAnchorId !== nodeId && groupCandidateIds?.has(nodeId)) {
+          const index = groupChainIds.indexOf(nodeId);
+          setGroupSelectedIds(groupChainIds.slice(1, index + 1));
+        }
+        return;
+      }
       selectNode(nodeId);
     },
-    [copyModeAnchorId, copyCandidateIds, toggleCopySelection, selectNode],
+    [
+      copyModeAnchorId,
+      copyCandidateIds,
+      toggleCopySelection,
+      groupModeAnchorId,
+      groupChainIds,
+      groupCandidateIds,
+      setGroupSelectedIds,
+      selectNode,
+    ],
   );
 
   // ── 画面比率（ズーム）
@@ -180,7 +230,14 @@ export function ComboTreePage() {
 
   const nodeHeights = useNodeHeights(zoom);
 
-  // ── すべての木を縦に積み上げて1つのキャンバスにする
+  const groupNameById = useMemo(
+    () => new Map((character?.namedComboGroups ?? []).map((group) => [group.id, group.name])),
+    [character],
+  );
+
+  // ── すべての木を縦に積み上げて1つのキャンバスにする。
+  // 各木は描画直前に buildGroupView で「表示用の木」に変換してからレイアウト計算に渡す
+  // （折りたたまれたグループ区間を1個の合成ノードに差し替える。実データには一切手を入れない）
   const forest = useMemo(() => {
     let cursorY = 0;
     let maxWidth = 0;
@@ -188,9 +245,16 @@ export function ComboTreePage() {
     const positions = new Map<string, NodePosition>();
     const dropZones: TaggedDropZone[] = [];
     const parentOf = new Map<string, string>();
+    const pillMetaById = new Map<string, GroupPillMeta>();
+    const expandedGroupStartMetaById = new Map<string, GroupPillMeta>();
 
     trees.forEach((tree) => {
-      const layout = computeTreeLayout(tree.root, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG);
+      const groupView = buildGroupView(tree.root, groupNameById, expandedGroupSet);
+      const viewRoot = groupView.viewRoot;
+      groupView.pillMetaById.forEach((meta, id) => pillMetaById.set(id, meta));
+      groupView.expandedGroupStartMetaById.forEach((meta, id) => expandedGroupStartMetaById.set(id, meta));
+
+      const layout = computeTreeLayout(viewRoot, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG);
 
       const columns: TaggedColumn[] = [];
       const visit = (node: MoveNode, depth: number) => {
@@ -202,16 +266,16 @@ export function ComboTreePage() {
           visit(child, depth + 1);
         }
       };
-      visit(tree.root, 0);
+      visit(viewRoot, 0);
 
       const offsetY = cursorY;
       shiftPositions(layout.positions, offsetY).forEach((pos, id) => positions.set(id, pos));
       layout.dropZones.forEach((dropZone) =>
         dropZones.push({ ...dropZone, y: dropZone.y + offsetY, treeId: tree.id }),
       );
-      buildParentMap(tree.root).forEach((parentId, id) => parentOf.set(id, parentId));
+      buildParentMap(viewRoot).forEach((parentId, id) => parentOf.set(id, parentId));
 
-      blocks.push({ tree, offsetY, columns });
+      blocks.push({ tree, viewRoot, offsetY, columns });
       maxWidth = Math.max(maxWidth, layout.width);
       cursorY += layout.height + TREE_BLOCK_GAP;
     });
@@ -219,8 +283,15 @@ export function ComboTreePage() {
     const totalHeight = blocks.length > 0 ? cursorY - TREE_BLOCK_GAP : 0;
     const layout: TreeLayout = { positions, dropZones, width: maxWidth, height: totalHeight };
 
-    return { blocks, layout, parentOf, columns: blocks.flatMap((block) => block.columns) };
-  }, [trees, collapsedSet, nodeHeights]);
+    return {
+      blocks,
+      layout,
+      parentOf,
+      pillMetaById,
+      expandedGroupStartMetaById,
+      columns: blocks.flatMap((block) => block.columns),
+    };
+  }, [trees, collapsedSet, nodeHeights, groupNameById, expandedGroupSet]);
 
   const { exitingNodes, enteringNodes } = useTreeExpandAnimation(
     forest.layout,
@@ -292,7 +363,7 @@ export function ComboTreePage() {
 
                 {/* 木ごとのラベル・ルートノード */}
                 {forest.blocks.map((block, blockIndex) => {
-                  const rootPos = forest.layout.positions.get(block.tree.root.id);
+                  const rootPos = forest.layout.positions.get(block.viewRoot.id);
                   if (!rootPos) return null;
 
                   return (
@@ -324,8 +395,11 @@ export function ComboTreePage() {
                 })}
 
                 {forest.blocks.map((block) => {
-                  const rootPos = forest.layout.positions.get(block.tree.root.id);
+                  const rootPos = forest.layout.positions.get(block.viewRoot.id);
                   if (!rootPos) return null;
+
+                  const rootId = block.viewRoot.id;
+                  const pillMeta = forest.pillMetaById.get(rootId);
 
                   return (
                     <div
@@ -339,30 +413,60 @@ export function ComboTreePage() {
                         transition: 'transform 220ms ease',
                       }}
                     >
-                      <MoveNodeCircle
-                        node={block.tree.root}
-                        isRoot
-                        isSelected={selectedNodeId === block.tree.root.id}
-                        onClick={() => handleNodeClick(block.tree.root.id)}
-                        isExpanded={!collapsedSet.has(block.tree.root.id)}
-                        onToggleExpand={
-                          block.tree.root.children.length > 0
-                            ? () => toggleNodeExpanded(block.tree.root.id)
-                            : undefined
-                        }
-                        parentId={null}
-                        dragIndex={0}
-                        readOnly={isGuest}
-                        onDrop={(draggedData: DraggedNodeData) => {
-                          if (draggedData.id === block.tree.root.id) return;
-                          moveNode(character.id, block.tree.id, draggedData.id, block.tree.root.id);
-                        }}
-                        isCopyModeActive={copyModeAnchorId !== null}
-                        isCopyAnchor={copyModeAnchorId === block.tree.root.id}
-                        isCopyCandidate={copyCandidateIds?.has(block.tree.root.id) ?? false}
-                        isCopySelected={copySelectedSet.has(block.tree.root.id)}
-                        onPasteDrop={() => pasteClipboard(character.id, block.tree.id, block.tree.root.id)}
-                      />
+                      {pillMeta ? (
+                        <GroupPillNode
+                          id={rootId}
+                          groupName={pillMeta.groupName}
+                          memberCount={pillMeta.memberIds.length}
+                          hasChildren={block.viewRoot.children.length > 0}
+                          isExpanded={!collapsedSet.has(rootId)}
+                          onExpand={() => toggleGroupExpanded(rootId)}
+                          onToggleExpand={
+                            block.viewRoot.children.length > 0
+                              ? () => toggleNodeExpanded(rootId)
+                              : undefined
+                          }
+                          parentId={null}
+                          dragIndex={0}
+                          readOnly={isGuest}
+                          isDisabledByOtherMode={copyModeAnchorId !== null || groupModeAnchorId !== null}
+                        />
+                      ) : (
+                        <MoveNodeCircle
+                          node={block.viewRoot}
+                          isRoot
+                          isSelected={selectedNodeId === rootId}
+                          onClick={() => handleNodeClick(rootId)}
+                          isExpanded={!collapsedSet.has(rootId)}
+                          onToggleExpand={
+                            block.viewRoot.children.length > 0 ? () => toggleNodeExpanded(rootId) : undefined
+                          }
+                          parentId={null}
+                          dragIndex={0}
+                          readOnly={isGuest}
+                          onDrop={(draggedData: DraggedNodeData) => {
+                            if (draggedData.id === rootId) return;
+                            moveNode(character.id, block.tree.id, draggedData.id, rootId);
+                          }}
+                          isCopyModeActive={copyModeAnchorId !== null}
+                          isCopyAnchor={copyModeAnchorId === rootId}
+                          isCopyCandidate={copyCandidateIds?.has(rootId) ?? false}
+                          isCopySelected={copySelectedSet.has(rootId)}
+                          isGroupModeActive={groupModeAnchorId !== null}
+                          isGroupAnchor={groupModeAnchorId === rootId}
+                          isGroupCandidate={groupCandidateIds?.has(rootId) ?? false}
+                          isGroupSelected={groupSelectedSet.has(rootId)}
+                          groupBadge={
+                            forest.expandedGroupStartMetaById.has(rootId)
+                              ? {
+                                  groupName: forest.expandedGroupStartMetaById.get(rootId)!.groupName,
+                                  onCollapse: () => toggleGroupExpanded(rootId),
+                                }
+                              : undefined
+                          }
+                          onPasteDrop={() => pasteClipboard(character.id, block.tree.id, rootId)}
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -374,6 +478,7 @@ export function ComboTreePage() {
                     if (!pos) return null;
 
                     const renderPos = enteringNodes.get(node.id) ?? pos;
+                    const pillMeta = forest.pillMetaById.get(node.id);
 
                     return (
                       <div
@@ -387,27 +492,57 @@ export function ComboTreePage() {
                           transition: 'transform 220ms ease',
                         }}
                       >
-                        <MoveNodeCircle
-                          node={node}
-                          isSelected={selectedNodeId === node.id}
-                          onClick={() => handleNodeClick(node.id)}
-                          isExpanded={!collapsedSet.has(node.id)}
-                          onToggleExpand={
-                            node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
-                          }
-                          parentId={column.parentId}
-                          dragIndex={nodeIndex}
-                          readOnly={isGuest}
-                          onDrop={(draggedData: DraggedNodeData) => {
-                            if (draggedData.id === node.id) return;
-                            moveNode(character.id, column.treeId, draggedData.id, node.id);
-                          }}
-                          isCopyModeActive={copyModeAnchorId !== null}
-                          isCopyAnchor={copyModeAnchorId === node.id}
-                          isCopyCandidate={copyCandidateIds?.has(node.id) ?? false}
-                          isCopySelected={copySelectedSet.has(node.id)}
-                          onPasteDrop={() => pasteClipboard(character.id, column.treeId, node.id)}
-                        />
+                        {pillMeta ? (
+                          <GroupPillNode
+                            id={node.id}
+                            groupName={pillMeta.groupName}
+                            memberCount={pillMeta.memberIds.length}
+                            hasChildren={node.children.length > 0}
+                            isExpanded={!collapsedSet.has(node.id)}
+                            onExpand={() => toggleGroupExpanded(node.id)}
+                            onToggleExpand={
+                              node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
+                            }
+                            parentId={column.parentId}
+                            dragIndex={nodeIndex}
+                            readOnly={isGuest}
+                            isDisabledByOtherMode={copyModeAnchorId !== null || groupModeAnchorId !== null}
+                          />
+                        ) : (
+                          <MoveNodeCircle
+                            node={node}
+                            isSelected={selectedNodeId === node.id}
+                            onClick={() => handleNodeClick(node.id)}
+                            isExpanded={!collapsedSet.has(node.id)}
+                            onToggleExpand={
+                              node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
+                            }
+                            parentId={column.parentId}
+                            dragIndex={nodeIndex}
+                            readOnly={isGuest}
+                            onDrop={(draggedData: DraggedNodeData) => {
+                              if (draggedData.id === node.id) return;
+                              moveNode(character.id, column.treeId, draggedData.id, node.id);
+                            }}
+                            isCopyModeActive={copyModeAnchorId !== null}
+                            isCopyAnchor={copyModeAnchorId === node.id}
+                            isCopyCandidate={copyCandidateIds?.has(node.id) ?? false}
+                            isCopySelected={copySelectedSet.has(node.id)}
+                            isGroupModeActive={groupModeAnchorId !== null}
+                            isGroupAnchor={groupModeAnchorId === node.id}
+                            isGroupCandidate={groupCandidateIds?.has(node.id) ?? false}
+                            isGroupSelected={groupSelectedSet.has(node.id)}
+                            groupBadge={
+                              forest.expandedGroupStartMetaById.has(node.id)
+                                ? {
+                                    groupName: forest.expandedGroupStartMetaById.get(node.id)!.groupName,
+                                    onCollapse: () => toggleGroupExpanded(node.id),
+                                  }
+                                : undefined
+                            }
+                            onPasteDrop={() => pasteClipboard(character.id, column.treeId, node.id)}
+                          />
+                        )}
                       </div>
                     );
                   }),

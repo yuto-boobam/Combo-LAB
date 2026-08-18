@@ -49,12 +49,12 @@
 
   /* コンボノードの本体色・枠線色（企画書13ページの色ルール + ユーザー指示による変更）。
      ノードの背景色はデフォルトで --bg-surface、枠線はデフォルトで --border を使う。
-     本体色＝自分の技の結果（ガード/空振り/コンボ締め）、枠線・接続線色＝親の技が
+     本体色＝自分の技の結果（ガード/空振り）、枠線・接続線色＝親の技が
      カウンター/パニッシュカウンターだったか、を表す。 */
   --node-counter-border:        #fbbf24;                  /* カウンター(CH): 明るい黄色の枠線・接続線 */
   --node-punish-counter-border: #fb923c;                  /* パニッシュカウンター(PC): 明るいオレンジの枠線・接続線 */
   --node-rush-border:           #4ade80;                  /* ラッシュ: 緑の枠線・接続線 */
-  --node-combo-ender-bg:        rgba(124, 58, 237, 0.28); /* コンボ締め: 紫 */
+  --node-cancel-rush-bg:        rgba(74, 222, 128, 0.32); /* キャンセルラッシュ: 目立たせるための緑（技名固定） */
   --node-guard-bg:              rgba(56, 189, 248, 0.22); /* ガード: 水色〜青 */
   --node-whiff-bg:              rgba(255, 255, 255, 0.22); /* 空振り: ダークモードでは少し白く */
 
@@ -101,7 +101,7 @@
   --node-counter-border:        #d97706;
   --node-punish-counter-border: #ea580c;
   --node-rush-border:           #16a34a;
-  --node-combo-ender-bg:        rgba(124, 58, 237, 0.16);
+  --node-cancel-rush-bg:        rgba(22, 163, 74, 0.22);
   --node-guard-bg:              rgba(2, 132, 199, 0.14);
   --node-whiff-bg:              rgba(0, 0, 0, 0.16); /* 空振り: ライトモードでは少し暗く */
 }

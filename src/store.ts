@@ -10,6 +10,7 @@ import type {
   MoveCategory,
   MoveDefinition,
   MoveNode,
+  NamedComboGroup,
   NodeAttribute,
 } from './types';
 import { supabase } from './utils/supabaseClient';
@@ -18,14 +19,18 @@ import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode, buildParentMap } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
 
-/** SA1〜SA3が未登録のキャラに補完する（この機能が実装される前に保存されたデータ向けの移行措置） */
-function ensureDefaultSuperArtMoves(character: Character): Character {
+/**
+ * 保存済みキャラデータを現行スキーマに合わせて補完する（読み込み時の移行措置）。
+ * - SA1〜3の初期枠: この機能の実装前に保存されたキャラには入っていない
+ * - namedComboGroups: グループ化機能の実装前に保存されたキャラには存在しない
+ */
+function migrateLegacyCharacter(character: Character): Character {
   const hasSuperArtMove = character.moveList.some((move) => move.category === 'superArt');
-  if (hasSuperArtMove) return character;
 
   return {
     ...character,
-    moveList: [...character.moveList, ...createDefaultSuperArtMoves()],
+    moveList: hasSuperArtMove ? character.moveList : [...character.moveList, ...createDefaultSuperArtMoves()],
+    namedComboGroups: Array.isArray(character.namedComboGroups) ? character.namedComboGroups : [],
   };
 }
 
@@ -54,6 +59,7 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
     children: Array.isArray(node.children)
       ? node.children.map((child) => normalizeMoveNode(child as Partial<MoveNode>))
       : [],
+    groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
   };
 }
 
@@ -82,6 +88,15 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
   };
 }
 
+function normalizeNamedComboGroup(group: Partial<NamedComboGroup>): NamedComboGroup | null {
+  if (typeof group.name !== 'string' || !group.name) return null;
+
+  return {
+    id: typeof group.id === 'string' && group.id ? group.id : makeId(),
+    name: group.name,
+  };
+}
+
 /** インポートしたキャラ1人分を正規化する。壊れている項目は現在の値（fallback）を維持する */
 function normalizeImportedCharacter(imported: Partial<Character>, fallback: Character): Character {
   return {
@@ -98,6 +113,11 @@ function normalizeImportedCharacter(imported: Partial<Character>, fallback: Char
           .map((tree) => normalizeComboTree(tree as Partial<ComboTree>))
           .filter((tree): tree is ComboTree => tree !== null)
       : fallback.comboTrees,
+    namedComboGroups: Array.isArray(imported.namedComboGroups)
+      ? imported.namedComboGroups
+          .map((group) => normalizeNamedComboGroup(group as Partial<NamedComboGroup>))
+          .filter((group): group is NamedComboGroup => group !== null)
+      : fallback.namedComboGroups,
     createdBy: typeof imported.createdBy === 'string' ? imported.createdBy : fallback.createdBy,
     createdAt: typeof imported.createdAt === 'string' ? imported.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),
@@ -322,6 +342,26 @@ export type AppState = {
   clipboard: MoveNode[] | null;
   clearClipboard: () => void;
   pasteClipboard: (characterId: string, treeId: string, targetNodeId: string) => void;
+
+  // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────
+  // グループ化モード: あるノード（起点）を選び、そこから続く一本道（分岐なし）の
+  // 区間を選んで名前を付ける。名前を付けた区間は木の表示上1個のノードに折りたためる
+  // （表示側の変換は src/lib/tree/groupView.ts）。起点自身は常に区間に含まれる。
+  groupModeAnchorId: string | null;
+  groupSelectedIds: string[];
+  startGroupMode: (nodeId: string) => void;
+  /** 選択区間（起点は含まない、起点直下からの連続ノード列）を丸ごと置き換える。
+   * 一本道のどこまでを含めるかの妥当性はUI側（起点からの一本道）で判断する */
+  setGroupSelectedIds: (nodeIds: string[]) => void;
+  cancelGroupMode: () => void;
+  /** 選択中の区間に名前を付けて確定する。同名の既存グループがあれば使い回す */
+  confirmGroupSelection: (characterId: string, name: string) => void;
+  /** 指定ノードを含む「同じgroupIdが連続する区間」全体のグループ化を解除する */
+  ungroupNode: (characterId: string, treeId: string, nodeId: string) => void;
+
+  /** 折りたたまれた区間のうち、展開表示中のものの先頭ノードIDの一覧（出現箇所ごとに独立） */
+  expandedGroupIds: string[];
+  toggleGroupExpanded: (pillId: string) => void;
 };
 
 // ── ストア本体 ─────────────────────────────────────────────────────────────
@@ -726,7 +766,13 @@ export const useAppStore = create<AppState>()(
       copySelectedIds: [],
 
       startCopyMode: (nodeId) => {
-        set({ copyModeAnchorId: nodeId, copySelectedIds: [], selectedNodeId: null });
+        set({
+          copyModeAnchorId: nodeId,
+          copySelectedIds: [],
+          selectedNodeId: null,
+          groupModeAnchorId: null,
+          groupSelectedIds: [],
+        });
       },
 
       toggleCopySelection: (nodeId) => {
@@ -808,6 +854,114 @@ export const useAppStore = create<AppState>()(
           ),
         }));
       },
+
+      // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────
+
+      groupModeAnchorId: null,
+      groupSelectedIds: [],
+
+      startGroupMode: (nodeId) => {
+        set({
+          groupModeAnchorId: nodeId,
+          groupSelectedIds: [],
+          selectedNodeId: null,
+          copyModeAnchorId: null,
+          copySelectedIds: [],
+        });
+      },
+
+      setGroupSelectedIds: (nodeIds) => {
+        set({ groupSelectedIds: nodeIds });
+      },
+
+      cancelGroupMode: () => {
+        set({ groupModeAnchorId: null, groupSelectedIds: [] });
+      },
+
+      confirmGroupSelection: (characterId, name) => {
+        set((state) => {
+          const { groupModeAnchorId, groupSelectedIds } = state;
+          const trimmedName = name.trim();
+          if (!groupModeAnchorId || !trimmedName) {
+            return { groupModeAnchorId: null, groupSelectedIds: [] };
+          }
+
+          const character = state.characters.find((item) => item.id === characterId);
+          const found = character ? findNodeInComboTrees(character.comboTrees, groupModeAnchorId) : null;
+          if (!found) return { groupModeAnchorId: null, groupSelectedIds: [] };
+
+          const existingGroup = character?.namedComboGroups.find((group) => group.name === trimmedName);
+          const groupId = existingGroup?.id ?? makeId();
+          const memberIds = [groupModeAnchorId, ...groupSelectedIds];
+
+          const nextRoot = memberIds.reduce(
+            (root, id) => mapMoveNode(root, id, (node) => ({ ...node, groupId })),
+            found.tree.root,
+          );
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, found.tree.id, () => nextRoot).map(
+              (item) =>
+                item.id === characterId && !existingGroup
+                  ? { ...item, namedComboGroups: [...item.namedComboGroups, { id: groupId, name: trimmedName }] }
+                  : item,
+            ),
+            groupModeAnchorId: null,
+            groupSelectedIds: [],
+          };
+        });
+      },
+
+      ungroupNode: (characterId, treeId, nodeId) => {
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const tree = character?.comboTrees.find((item) => item.id === treeId);
+          const node = tree ? findNode(tree.root, nodeId) : null;
+          const groupId = node?.groupId;
+          if (!tree || !groupId) return state;
+
+          const parentOf = buildParentMap(tree.root);
+
+          // nodeIdを含む「同じgroupIdが連続する区間」を上下に辿って特定する
+          const memberIds = new Set<string>([nodeId]);
+
+          let ancestorCursor = parentOf.get(nodeId);
+          while (ancestorCursor) {
+            const ancestorNode = findNode(tree.root, ancestorCursor);
+            if (!ancestorNode || ancestorNode.groupId !== groupId) break;
+            memberIds.add(ancestorNode.id);
+            ancestorCursor = parentOf.get(ancestorCursor);
+          }
+
+          const collectDescendants = (current: MoveNode) => {
+            current.children.forEach((child) => {
+              if (child.groupId !== groupId) return;
+              memberIds.add(child.id);
+              collectDescendants(child);
+            });
+          };
+          collectDescendants(node);
+
+          const nextRoot = Array.from(memberIds).reduce(
+            (root, id) => mapMoveNode(root, id, (n) => ({ ...n, groupId: undefined })),
+            tree.root,
+          );
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, () => nextRoot),
+          };
+        });
+      },
+
+      expandedGroupIds: [],
+
+      toggleGroupExpanded: (pillId) => {
+        set((state) => ({
+          expandedGroupIds: state.expandedGroupIds.includes(pillId)
+            ? state.expandedGroupIds.filter((id) => id !== pillId)
+            : [...state.expandedGroupIds, pillId],
+        }));
+      },
     }),
     {
       name: 'combo-lab-storage',
@@ -818,6 +972,7 @@ export const useAppStore = create<AppState>()(
         characters: state.characters,
         selectedCharacterId: state.selectedCharacterId,
         collapsedNodeIds: state.collapsedNodeIds,
+        expandedGroupIds: state.expandedGroupIds,
       }),
 
       merge: (persistedState, currentState) => {
@@ -831,7 +986,7 @@ export const useAppStore = create<AppState>()(
           // キャラには入っていない。読み込み時に不足していれば補完する
           characters:
             Array.isArray(persisted?.characters) && persisted.characters.length > 0
-              ? persisted.characters.map(ensureDefaultSuperArtMoves)
+              ? persisted.characters.map(migrateLegacyCharacter)
               : currentState.characters,
           user: currentState.user,
           nickname: persisted?.isGuest ? 'ゲスト' : currentState.nickname,

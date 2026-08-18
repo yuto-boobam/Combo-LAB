@@ -70,6 +70,7 @@ export function createInitialCharacterRoster(): Character[] {
     imageUrl: null,
     moveList: createDefaultMoveList(),
     comboTrees: [],
+    namedComboGroups: [],
     createdBy: '',
     createdAt: now,
     updatedAt: now,

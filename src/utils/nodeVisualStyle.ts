@@ -2,8 +2,9 @@
 // 属性の組み合わせから、ノードの見た目（本体色・枠線色）を導出する。
 //
 // ルール（企画書13ページ + ユーザー指示による変更）:
-// - 本体色は「このノード自身の技がどう終わるか」を示す属性（ガード/空振り/コンボ締め）で決まる。
-//   優先順位: ガード > 空振り > コンボ締め。
+// - 本体色は「このノード自身の技がどう終わるか」を示す属性（ガード/空振り）で決まる。
+//   優先順位: ガード > 空振り。
+//   ただし「キャンセルラッシュ」ノードだけは目立たせるため、属性に関わらず常に緑にする。
 // - 枠線色・接続線色は「このノード自身の技がカウンター/パニッシュカウンター/ラッシュだったか」で決まる。
 //   優先順位: パニッシュカウンター > カウンター > ラッシュ。
 //   接続線（親→このノード）もこのノード自身の枠線色に合わせる。つまり「2中P→2中Kがカウンターで
@@ -14,7 +15,10 @@
 
 import type { NodeAttribute, NodeAttributeType } from '../types';
 
-export type NodeBodyColorKind = 'default' | 'guard' | 'whiff' | 'comboEnder';
+/** このノードだけ、属性に関わらず本体色を緑にして目立たせる（src/data/commonMoves.ts の技名） */
+const CANCEL_RUSH_MOVE_NAME = 'キャンセルラッシュ';
+
+export type NodeBodyColorKind = 'default' | 'guard' | 'whiff' | 'cancelRush';
 export type NodeBorderColorKind = 'default' | 'counter' | 'punishCounter' | 'rush';
 
 export type NodeVisualStyle = {
@@ -25,7 +29,7 @@ export type NodeVisualStyle = {
   isSituational: boolean;
 };
 
-const BODY_COLOR_PRIORITY: NodeAttributeType[] = ['guard', 'whiff', 'comboEnder'];
+const BODY_COLOR_PRIORITY: NodeAttributeType[] = ['guard', 'whiff'];
 const BORDER_COLOR_PRIORITY: NodeAttributeType[] = ['punishCounter', 'counter', 'rush'];
 
 /** 自分自身の属性から、自分の枠線・接続線（親→自分）の色を決める */
@@ -37,12 +41,13 @@ export function resolveBorderColorKind(attributes: NodeAttribute[]): NodeBorderC
   );
 }
 
-export function resolveNodeVisualStyle(attributes: NodeAttribute[]): NodeVisualStyle {
+export function resolveNodeVisualStyle(moveName: string, attributes: NodeAttribute[]): NodeVisualStyle {
   const types = new Set(attributes.map((attribute) => attribute.type));
 
-  const bodyColorKind =
-    (BODY_COLOR_PRIORITY.find((type) => types.has(type)) as NodeBodyColorKind | undefined) ??
-    'default';
+  const bodyColorKind: NodeBodyColorKind =
+    moveName === CANCEL_RUSH_MOVE_NAME
+      ? 'cancelRush'
+      : (BODY_COLOR_PRIORITY.find((type) => types.has(type)) as NodeBodyColorKind | undefined) ?? 'default';
 
   const borderColorKind = resolveBorderColorKind(attributes);
   const isWhiff = types.has('whiff');
@@ -61,7 +66,7 @@ export const NODE_BODY_COLOR_VAR: Record<NodeBodyColorKind, string> = {
   default: 'var(--bg-surface)',
   guard: 'var(--node-guard-bg)',
   whiff: 'var(--node-whiff-bg)',
-  comboEnder: 'var(--node-combo-ender-bg)',
+  cancelRush: 'var(--node-cancel-rush-bg)',
 };
 
 /** ノード枠線に使うCSS変数（index.cssに定義） */

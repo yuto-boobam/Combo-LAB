@@ -1,7 +1,7 @@
 // src/components/combo/AttributeEditor.tsx
 // ノードの属性を編集するUI。
 //
-// 本体色グループ（ガード/空振り/コンボ締め）と枠線・接続線色グループ（CH/PC/ラッシュ）は
+// 本体色グループ（ガード/空振り）と枠線・接続線色グループ（CH/PC/ラッシュ）は
 // それぞれ排他（ラジオボタン相当）。「通常」専用のボタンは置かず、選択中のものをもう一度
 // 押すと解除（＝通常に戻る）する。そのほかの属性は複数選択可のトグル。
 // 枠線・接続線色は「このノード自身の技がカウンター/パニッシュカウンター/ラッシュだった」場合に、
@@ -21,7 +21,6 @@ type NoteAttributeType = 'characterLimited' | 'positionLimited' | 'other';
 const BODY_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
   { type: 'guard', label: 'ガード' },
   { type: 'whiff', label: '空振り' },
-  { type: 'comboEnder', label: 'コンボ締め' },
 ];
 
 const BORDER_COLOR_ATTRS: { type: SimpleAttributeType; label: string }[] = [
