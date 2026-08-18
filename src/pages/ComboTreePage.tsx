@@ -44,9 +44,9 @@ type DraggedNodeData = { id: string; parentId: string | null; index: number };
 type TaggedColumn = TreeColumn<MoveNode> & { treeId: string };
 type TaggedDropZone = DropZoneSpec & { treeId: string };
 
-/** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター/ラッシュ属性）に合わせる */
+/** 接続線（親→子）は、子ノード自身の枠線色（カウンター/パニッシュカウンター/ラッシュ属性、またはキャンセルラッシュ技名）に合わせる */
 function getBranchLineColor(_column: TreeColumn<MoveNode>, childNode: MoveNode): string {
-  return NODE_LINE_COLOR_VAR[resolveBorderColorKind(childNode.attributes)];
+  return NODE_LINE_COLOR_VAR[resolveBorderColorKind(childNode.moveName, childNode.attributes)];
 }
 
 type TreeBlock = {
