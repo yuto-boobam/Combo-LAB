@@ -1,6 +1,6 @@
 // src/components/combo/BranchStatsEditor.tsx
-// 枝（コンボ）の統計情報の編集UI。葉ノード、またはコンボ締め属性を持つノードで使う
-// （表示するかどうかの判断は呼び出し側で行う。src/utils/branchStats.ts も参照）。
+// 枝（コンボ）の統計情報の編集UI。葉ノード、またはガード/空振り属性を持つノードで使う
+// （表示するかどうかの判断は呼び出し側で行う。src/components/combo/SideDrawerPanel.tsx を参照）。
 
 import type { CSSProperties } from 'react';
 import type { ComboBranchStats, Rating5 } from '../../types';

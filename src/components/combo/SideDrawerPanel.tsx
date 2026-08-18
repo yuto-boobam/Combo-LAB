@@ -12,6 +12,7 @@ import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
+import { ChainPreviewRow } from './ChainPreviewRow';
 import AccordionSection from '../AccordionSection';
 
 type Props = {
@@ -25,6 +26,9 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
+  const groupModeActive = useAppStore((state) => state.groupModeActive);
+  const matchModeAnchorId = useAppStore((state) => state.matchModeAnchorId);
+  const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
   const clipboard = useAppStore((state) => state.clipboard);
 
   const selectedInfo = findNodeInComboTrees(comboTrees, selectedNodeId);
@@ -32,10 +36,18 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   return (
     <aside style={styles.drawer}>
       <div className="drawer-scroll" style={styles.body}>
+        {!isGuest && matchedAnchorIds && (
+          <MatchResultsPanel characterId={characterId} comboTrees={comboTrees} />
+        )}
+
         {isGuest ? (
           <ReadOnlyNodeView selectedNode={selectedInfo?.node ?? null} />
         ) : copyModeAnchorId ? (
           <CopyModePanel characterId={characterId} comboTrees={comboTrees} anchorId={copyModeAnchorId} />
+        ) : groupModeActive ? (
+          <GroupModePanel characterId={characterId} comboTrees={comboTrees} />
+        ) : matchModeAnchorId ? (
+          <MatchModePanel characterId={characterId} comboTrees={comboTrees} />
         ) : selectedInfo ? (
           // selectedNode.id をkeyにすることで、ノードを切り替えるたびに
           // NodeEditor をマウントし直し、新規追加フォームの入力状態を自然にリセットする
@@ -111,6 +123,301 @@ function CopyModePanel({
   );
 }
 
+function GroupModePanel({
+  characterId,
+  comboTrees,
+}: {
+  characterId: string;
+  comboTrees: ComboTree[];
+}) {
+  const groupModeAnchorId = useAppStore((state) => state.groupModeAnchorId);
+  const groupSelectedIds = useAppStore((state) => state.groupSelectedIds);
+  const groupModeRuns = useAppStore((state) => state.groupModeRuns);
+  const addGroupModeRun = useAppStore((state) => state.addGroupModeRun);
+  const removeGroupModeRun = useAppStore((state) => state.removeGroupModeRun);
+  const cancelGroupMode = useAppStore((state) => state.cancelGroupMode);
+  const confirmGroupSelection = useAppStore((state) => state.confirmGroupSelection);
+  const namedComboGroups = useAppStore(
+    (state) => state.characters.find((item) => item.id === characterId)?.namedComboGroups ?? [],
+  );
+  const [isOpen, setIsOpen] = useState(true);
+  const [name, setName] = useState('');
+
+  const moveNameOf = (nodeId: string) => findNodeInComboTrees(comboTrees, nodeId)?.node.moveName ?? '?';
+
+  const anchorNode = groupModeAnchorId ? findNodeInComboTrees(comboTrees, groupModeAnchorId)?.node ?? null : null;
+  const currentRunCount = groupModeAnchorId ? groupSelectedIds.length + 1 : 0;
+  const totalCount =
+    groupModeRuns.reduce((sum, run) => sum + run.selectedIds.length + 1, 0) + currentRunCount;
+
+  const handleConfirm = () => {
+    if (!name.trim()) return;
+    confirmGroupSelection(characterId, name);
+    setName('');
+  };
+
+  return (
+    <AccordionSection
+      title="グループ化モード"
+      icon="🔗"
+      count={totalCount}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        {groupModeRuns.length > 0 && (
+          <div style={{ display: 'grid', gap: 6 }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>登録済みの枝</p>
+            {groupModeRuns.map((run, index) => {
+              const endId = run.selectedIds[run.selectedIds.length - 1] ?? run.anchorId;
+              const count = run.selectedIds.length + 1;
+              return (
+                <div key={`${run.anchorId}-${index}`} style={styles.runRow}>
+                  <span style={{ fontSize: 12, color: 'var(--text-primary)' }}>
+                    {moveNameOf(run.anchorId)}
+                    {endId !== run.anchorId ? ` → ${moveNameOf(endId)}` : ''}（{count}個）
+                  </span>
+                  <button
+                    type="button"
+                    title="この枝を取り消す"
+                    style={styles.removeButton}
+                    onClick={() => removeGroupModeRun(index)}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {groupModeAnchorId ? (
+          <>
+            <p style={styles.hint}>
+              「{anchorNode?.moveName}」から続く一本道の技をクリックして、まとめる範囲を選んでください
+              （分岐がある技より先は選べません）。
+            </p>
+
+            <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
+              現在の枝：{currentRunCount}個の技を選択中
+            </p>
+
+            <button type="button" className="btn-ghost justify-center" onClick={addGroupModeRun}>
+              ＋ この枝を追加して次へ
+            </button>
+          </>
+        ) : (
+          <p style={styles.hint}>
+            木の中で、次にまとめたい枝の始点になる技をクリックしてください
+            （もう枝を追加しない場合は、そのまま下で名前を付けて確定できます）。
+          </p>
+        )}
+
+        {namedComboGroups.length > 0 && (
+          <label style={styles.fieldLabel}>
+            既存のグループ名から選ぶ
+            <select
+              className="input-field"
+              style={styles.textInput}
+              value=""
+              onChange={(event) => {
+                if (event.target.value) setName(event.target.value);
+              }}
+            >
+              <option value="">（選択してください）</option>
+              {namedComboGroups.map((group) => (
+                <option key={group.id} value={group.name}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label style={styles.fieldLabel}>
+          グループ名（新規作成、または上で選んだ名前を使う）
+          <input
+            type="text"
+            className="input-field"
+            style={styles.textInput}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="例: コンボA"
+          />
+        </label>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn-primary justify-center"
+            style={{ flex: 1 }}
+            disabled={!name.trim() || totalCount === 0}
+            onClick={handleConfirm}
+          >
+            グループ化を確定
+          </button>
+          <button type="button" style={styles.dangerButton} onClick={cancelGroupMode}>
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </AccordionSection>
+  );
+}
+
+function MatchModePanel({
+  characterId,
+  comboTrees,
+}: {
+  characterId: string;
+  comboTrees: ComboTree[];
+}) {
+  const matchModeAnchorId = useAppStore((state) => state.matchModeAnchorId);
+  const matchSelectedIds = useAppStore((state) => state.matchSelectedIds);
+  const cancelMatchMode = useAppStore((state) => state.cancelMatchMode);
+  const confirmMatchSearch = useAppStore((state) => state.confirmMatchSearch);
+  const [isOpen, setIsOpen] = useState(true);
+  const [includeAttributes, setIncludeAttributes] = useState(false);
+
+  const anchorNode = matchModeAnchorId
+    ? findNodeInComboTrees(comboTrees, matchModeAnchorId)?.node ?? null
+    : null;
+  const count = matchSelectedIds.length + 1;
+
+  return (
+    <AccordionSection
+      title="一致箇所を探す"
+      icon="🔍"
+      count={count}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        <p style={styles.hint}>
+          「{anchorNode?.moveName}」から続く一本道の技をクリックして、探したい並びを選んでください
+          （分岐がある技より先は選べません）。
+        </p>
+
+        <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
+          {count}個の技を選択中
+        </p>
+
+        <label style={styles.checkboxLabel}>
+          <input
+            type="checkbox"
+            checked={includeAttributes}
+            onChange={(event) => setIncludeAttributes(event.target.checked)}
+          />
+          属性も一致条件に含める（当たり方の違いで実際には繋がらない組み合わせを除外したい場合）
+        </label>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn-primary justify-center"
+            style={{ flex: 1 }}
+            onClick={() => confirmMatchSearch(characterId, includeAttributes)}
+          >
+            この内容で検索する
+          </button>
+          <button type="button" style={styles.dangerButton} onClick={cancelMatchMode}>
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </AccordionSection>
+  );
+}
+
+function MatchResultsPanel({
+  characterId,
+  comboTrees,
+}: {
+  characterId: string;
+  comboTrees: ComboTree[];
+}) {
+  const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
+  const selectedNodeId = useAppStore((state) => state.selectedNodeId);
+  const matchEditBeforeSnapshot = useAppStore((state) => state.matchEditBeforeSnapshot);
+  const startEditingMatch = useAppStore((state) => state.startEditingMatch);
+  const clearMatchResults = useAppStore((state) => state.clearMatchResults);
+  const propagateMatchChanges = useAppStore((state) => state.propagateMatchChanges);
+  const [isOpen, setIsOpen] = useState(true);
+
+  if (!matchedAnchorIds) return null;
+
+  const matchNodes = matchedAnchorIds
+    .map((id) => findNodeInComboTrees(comboTrees, id)?.node)
+    .filter((node): node is MoveNode => node !== undefined);
+
+  const isEditingAMatch =
+    selectedNodeId !== null && matchedAnchorIds.includes(selectedNodeId) && matchEditBeforeSnapshot !== null;
+  const currentSourceNode = isEditingAMatch
+    ? findNodeInComboTrees(comboTrees, selectedNodeId as string)?.node ?? null
+    : null;
+  const targetCount = matchedAnchorIds.length - 1; // 自分以外の一致箇所
+
+  return (
+    <AccordionSection
+      title="一致箇所への一括反映"
+      icon="🔍"
+      count={matchedAnchorIds.length}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        <p style={styles.hint}>
+          {matchedAnchorIds.length <= 1
+            ? '他に一致する枝は見つかりませんでした。'
+            : '一覧から1つ選んで普通に編集してください。編集後、他の一致箇所へも反映できます。'}
+        </p>
+
+        <div style={{ display: 'grid', gap: 6 }}>
+          {matchNodes.map((node) => (
+            <button
+              key={node.id}
+              type="button"
+              onClick={() => startEditingMatch(node.id)}
+              style={{
+                ...styles.matchRow,
+                borderColor: node.id === selectedNodeId ? 'var(--accent)' : 'var(--border)',
+              }}
+            >
+              <ChainPreviewRow root={node} />
+            </button>
+          ))}
+        </div>
+
+        {isEditingAMatch && currentSourceNode && matchEditBeforeSnapshot && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <p style={styles.previewLabel}>変更前</p>
+              <ChainPreviewRow root={matchEditBeforeSnapshot} />
+            </div>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <p style={styles.previewLabel}>変更後</p>
+              <ChainPreviewRow root={currentSourceNode} />
+            </div>
+
+            <button
+              type="button"
+              className="btn-primary justify-center"
+              disabled={targetCount === 0}
+              onClick={() => propagateMatchChanges(characterId)}
+            >
+              他の一致箇所に反映（対象{targetCount}件）
+            </button>
+          </div>
+        )}
+
+        <button type="button" style={styles.dangerButton} onClick={clearMatchResults}>
+          一覧を閉じる
+        </button>
+      </div>
+    </AccordionSection>
+  );
+}
+
 function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -122,10 +429,9 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
     );
   }
 
-  const showStats = selectedNode.attributes.some(
-    (attribute) =>
-      attribute.type === 'comboEnder' || attribute.type === 'guard' || attribute.type === 'whiff',
-  );
+  const showStats =
+    selectedNode.children.length === 0 ||
+    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
   return (
     <AccordionSection
@@ -224,6 +530,14 @@ function NodeEditor({
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
   const startCopyMode = useAppStore((state) => state.startCopyMode);
+  const startGroupMode = useAppStore((state) => state.startGroupMode);
+  const startMatchMode = useAppStore((state) => state.startMatchMode);
+  const ungroupNode = useAppStore((state) => state.ungroupNode);
+  const groupName = useAppStore((state) => {
+    if (!selectedNode.groupId) return null;
+    const character = state.characters.find((item) => item.id === characterId);
+    return character?.namedComboGroups.find((group) => group.id === selectedNode.groupId)?.name ?? null;
+  });
 
   const [newMoveName, setNewMoveName] = useState('');
   const [newDisplayName, setNewDisplayName] = useState<string | undefined>(undefined);
@@ -240,10 +554,10 @@ function NodeEditor({
   const [isEditorOpen, setIsEditorOpen] = useState(true);
   const [isAddFormOpen, setIsAddFormOpen] = useState(true);
 
-  // 統計入力欄は「コンボ締め」「ガード」「空振り」のいずれかを選んだノードにのみ表示する
-  const showStatsEditor = selectedNode.attributes.some((attribute) =>
-    attribute.type === 'comboEnder' || attribute.type === 'guard' || attribute.type === 'whiff',
-  );
+  // 統計入力欄は「葉ノード（子を持たない）」または「ガード」「空振り」を選んだノードに表示する
+  const showStatsEditor =
+    selectedNode.children.length === 0 ||
+    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -332,6 +646,40 @@ function NodeEditor({
           >
             📋 ここからコピー開始
           </button>
+
+          <button
+            type="button"
+            className="btn-ghost justify-center"
+            style={{ width: '100%' }}
+            onClick={() => startMatchMode(selectedNode.id)}
+          >
+            🔍 ここから一致箇所を探す
+          </button>
+
+          {groupName ? (
+            <div style={{ display: 'grid', gap: 6 }}>
+              <p style={styles.hint}>
+                このノードは名前付きグループ「{groupName}」の一部です。木の表示ではまとめて折りたたまれることがあります。
+              </p>
+              <button
+                type="button"
+                className="btn-ghost justify-center"
+                style={{ width: '100%' }}
+                onClick={() => ungroupNode(characterId, treeId, selectedNode.id)}
+              >
+                🔗 グループ化を解除
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-ghost justify-center"
+              style={{ width: '100%' }}
+              onClick={() => startGroupMode(selectedNode.id)}
+            >
+              🔗 ここからグループ化開始
+            </button>
+          )}
 
           {selectedNode.id !== root.id && (
             <button
@@ -442,6 +790,49 @@ const styles: Record<string, CSSProperties> = {
     padding: '8px 10px',
     fontSize: 12,
     fontWeight: 800,
+    cursor: 'pointer',
+  },
+  runRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    padding: '6px 8px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+  },
+  removeButton: {
+    flex: '0 0 auto',
+    width: 18,
+    height: 18,
+    borderRadius: '50%',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-surface)',
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    lineHeight: 1,
+    cursor: 'pointer',
+  },
+  matchRow: {
+    textAlign: 'left',
+    padding: '8px 10px',
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    cursor: 'pointer',
+  },
+  previewLabel: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    fontSize: 12,
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
   },
 };

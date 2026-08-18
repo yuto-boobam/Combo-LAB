@@ -8,7 +8,7 @@ import { NODE_WIDTH, NODE_DEFAULT_HEIGHT } from '../components/MoveNodeCircle';
 export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
   cardWidth: NODE_WIDTH,
   rootWidth: NODE_WIDTH,
-  gapX: 56,
+  gapX: 36,
   dropZoneHeight: 10,
   defaultNodeHeight: NODE_DEFAULT_HEIGHT,
   defaultRootHeight: NODE_DEFAULT_HEIGHT,
