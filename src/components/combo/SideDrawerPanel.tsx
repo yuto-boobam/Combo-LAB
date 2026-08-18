@@ -25,6 +25,7 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
+  const groupModeAnchorId = useAppStore((state) => state.groupModeAnchorId);
   const clipboard = useAppStore((state) => state.clipboard);
 
   const selectedInfo = findNodeInComboTrees(comboTrees, selectedNodeId);
@@ -36,6 +37,8 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
           <ReadOnlyNodeView selectedNode={selectedInfo?.node ?? null} />
         ) : copyModeAnchorId ? (
           <CopyModePanel characterId={characterId} comboTrees={comboTrees} anchorId={copyModeAnchorId} />
+        ) : groupModeAnchorId ? (
+          <GroupModePanel characterId={characterId} comboTrees={comboTrees} anchorId={groupModeAnchorId} />
         ) : selectedInfo ? (
           // selectedNode.id をkeyにすることで、ノードを切り替えるたびに
           // NodeEditor をマウントし直し、新規追加フォームの入力状態を自然にリセットする
@@ -111,6 +114,103 @@ function CopyModePanel({
   );
 }
 
+function GroupModePanel({
+  characterId,
+  comboTrees,
+  anchorId,
+}: {
+  characterId: string;
+  comboTrees: ComboTree[];
+  anchorId: string;
+}) {
+  const groupSelectedIds = useAppStore((state) => state.groupSelectedIds);
+  const cancelGroupMode = useAppStore((state) => state.cancelGroupMode);
+  const confirmGroupSelection = useAppStore((state) => state.confirmGroupSelection);
+  const namedComboGroups = useAppStore(
+    (state) => state.characters.find((item) => item.id === characterId)?.namedComboGroups ?? [],
+  );
+  const [isOpen, setIsOpen] = useState(true);
+  const [name, setName] = useState('');
+
+  const anchorNode = findNodeInComboTrees(comboTrees, anchorId)?.node ?? null;
+  const memberCount = groupSelectedIds.length + 1;
+
+  const handleConfirm = () => {
+    if (!name.trim()) return;
+    confirmGroupSelection(characterId, name);
+    setName('');
+  };
+
+  return (
+    <AccordionSection
+      title={`グループ化モード：${anchorNode?.moveName ?? ''}`}
+      icon="🔗"
+      count={memberCount}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        <p style={styles.hint}>
+          「{anchorNode?.moveName}」から続く一本道の技をクリックして、まとめる範囲を選んでください
+          （分岐がある技より先は選べません）。
+        </p>
+
+        <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
+          {memberCount}個の技を選択中
+        </p>
+
+        {namedComboGroups.length > 0 && (
+          <label style={styles.fieldLabel}>
+            既存のグループ名から選ぶ
+            <select
+              className="input-field"
+              style={styles.textInput}
+              value=""
+              onChange={(event) => {
+                if (event.target.value) setName(event.target.value);
+              }}
+            >
+              <option value="">（選択してください）</option>
+              {namedComboGroups.map((group) => (
+                <option key={group.id} value={group.name}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        <label style={styles.fieldLabel}>
+          グループ名（新規作成、または上で選んだ名前を使う）
+          <input
+            type="text"
+            className="input-field"
+            style={styles.textInput}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="例: コンボA"
+          />
+        </label>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn-primary justify-center"
+            style={{ flex: 1 }}
+            disabled={!name.trim()}
+            onClick={handleConfirm}
+          >
+            グループ化を確定
+          </button>
+          <button type="button" style={styles.dangerButton} onClick={cancelGroupMode}>
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </AccordionSection>
+  );
+}
+
 function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -122,10 +222,9 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
     );
   }
 
-  const showStats = selectedNode.attributes.some(
-    (attribute) =>
-      attribute.type === 'comboEnder' || attribute.type === 'guard' || attribute.type === 'whiff',
-  );
+  const showStats =
+    selectedNode.children.length === 0 ||
+    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
   return (
     <AccordionSection
@@ -224,6 +323,13 @@ function NodeEditor({
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
   const startCopyMode = useAppStore((state) => state.startCopyMode);
+  const startGroupMode = useAppStore((state) => state.startGroupMode);
+  const ungroupNode = useAppStore((state) => state.ungroupNode);
+  const groupName = useAppStore((state) => {
+    if (!selectedNode.groupId) return null;
+    const character = state.characters.find((item) => item.id === characterId);
+    return character?.namedComboGroups.find((group) => group.id === selectedNode.groupId)?.name ?? null;
+  });
 
   const [newMoveName, setNewMoveName] = useState('');
   const [newDisplayName, setNewDisplayName] = useState<string | undefined>(undefined);
@@ -240,10 +346,10 @@ function NodeEditor({
   const [isEditorOpen, setIsEditorOpen] = useState(true);
   const [isAddFormOpen, setIsAddFormOpen] = useState(true);
 
-  // 統計入力欄は「コンボ締め」「ガード」「空振り」のいずれかを選んだノードにのみ表示する
-  const showStatsEditor = selectedNode.attributes.some((attribute) =>
-    attribute.type === 'comboEnder' || attribute.type === 'guard' || attribute.type === 'whiff',
-  );
+  // 統計入力欄は「葉ノード（子を持たない）」または「ガード」「空振り」を選んだノードに表示する
+  const showStatsEditor =
+    selectedNode.children.length === 0 ||
+    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -332,6 +438,31 @@ function NodeEditor({
           >
             📋 ここからコピー開始
           </button>
+
+          {groupName ? (
+            <div style={{ display: 'grid', gap: 6 }}>
+              <p style={styles.hint}>
+                このノードは名前付きグループ「{groupName}」の一部です。木の表示ではまとめて折りたたまれることがあります。
+              </p>
+              <button
+                type="button"
+                className="btn-ghost justify-center"
+                style={{ width: '100%' }}
+                onClick={() => ungroupNode(characterId, treeId, selectedNode.id)}
+              >
+                🔗 グループ化を解除
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-ghost justify-center"
+              style={{ width: '100%' }}
+              onClick={() => startGroupMode(selectedNode.id)}
+            >
+              🔗 ここからグループ化開始
+            </button>
+          )}
 
           {selectedNode.id !== root.id && (
             <button
