@@ -140,6 +140,54 @@ describe('restoreCharacters', () => {
     expect(normalMove?.hasSpecialVariant).toBeUndefined();
     expect(normalMove?.specialVariantOptions).toBeUndefined();
   });
+
+  it('ノードのgroupIdとキャラのnamedComboGroupsがインポート時に消えない', () => {
+    const target = useAppStore.getState().characters[4];
+
+    useAppStore.getState().restoreCharacters([
+      {
+        id: target.id,
+        moveList: [],
+        namedComboGroups: [{ id: 'g1', name: 'コンボA' }],
+        comboTrees: [
+          {
+            id: 't1',
+            label: '小P始動',
+            root: {
+              id: 'root1',
+              moveName: '小P',
+              attributes: [],
+              specialNote: '',
+              branchStats: null,
+              createdBy: '',
+              createdAt: '2026-01-01T00:00:00.000Z',
+              groupId: 'g1',
+              children: [
+                {
+                  id: 'child1',
+                  moveName: '中K',
+                  attributes: [],
+                  specialNote: '',
+                  branchStats: null,
+                  createdBy: '',
+                  createdAt: '2026-01-01T00:00:00.000Z',
+                  groupId: 'g1',
+                  children: [],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    const updated = getCharacter(target.id);
+    expect(updated.namedComboGroups).toEqual([{ id: 'g1', name: 'コンボA' }]);
+
+    const tree = updated.comboTrees.find((t) => t.id === 't1')!;
+    expect(tree.root.groupId).toBe('g1');
+    expect(tree.root.children[0].groupId).toBe('g1');
+  });
 });
 
 describe('共通区間を名前付きグループとして折りたたむ機能', () => {
