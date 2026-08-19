@@ -442,14 +442,13 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
       onToggle={() => setIsOpen((open) => !open)}
     >
       <div style={{ display: 'grid', gap: 10 }}>
-        {selectedNode.specialNote && (
-          <div style={styles.fieldLabel}>
-            特殊記入
-            <div style={styles.readOnlyText}>{selectedNode.specialNote}</div>
-          </div>
-        )}
-
-        <AttributeEditor value={selectedNode.attributes} onChange={() => {}} readOnly />
+        <AttributeEditor
+          value={selectedNode.attributes}
+          onChange={() => {}}
+          readOnly
+          specialNote={selectedNode.specialNote}
+          onSpecialNoteChange={() => {}}
+        />
 
         {showStats && (
           <div style={{ marginTop: 4 }}>
@@ -610,22 +609,13 @@ function NodeEditor({
             この技名に変更する
           </button>
 
-          <label style={styles.fieldLabel}>
-            特殊記入（「ディレイ〜F」など。基本は空欄でOK）
-            <input
-              type="text"
-              className="input-field"
-              style={styles.textInput}
-              value={selectedNode.specialNote}
-              onChange={(event) =>
-                updateNodeSpecialNote(characterId, treeId, selectedNode.id, event.target.value)
-              }
-            />
-          </label>
-
           <AttributeEditor
             value={selectedNode.attributes}
             onChange={(next) => setNodeAttributes(characterId, treeId, selectedNode.id, next)}
+            specialNote={selectedNode.specialNote}
+            onSpecialNoteChange={(note) =>
+              updateNodeSpecialNote(characterId, treeId, selectedNode.id, note)
+            }
           />
 
           {showStatsEditor && (
@@ -757,14 +747,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.7,
     color: 'var(--text-muted)',
-  },
-  readOnlyText: {
-    fontSize: 12,
-    padding: '8px 10px',
-    borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--bg-elevated)',
-    color: 'var(--text-primary)',
   },
   sectionTitle: {
     fontSize: 12,
