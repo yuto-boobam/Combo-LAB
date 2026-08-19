@@ -48,6 +48,7 @@ export type NodeAttributeType =
   | 'hit'              // ヒット
   | 'guard'            // ガード
   | 'whiff'            // 空振り
+  | 'situational'      // 状況限（本体色グループのクイック切替用。キャラ限定/位置限定でも同じ本体色になる）
   | 'characterLimited' // キャラ限定
   | 'positionLimited'  // 位置限定
   | 'counter'          // カウンター(CH)

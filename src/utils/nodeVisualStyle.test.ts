@@ -16,7 +16,7 @@ describe('resolveNodeVisualStyle', () => {
       borderColorKind: 'default',
       borderWidth: 'normal',
       borderStyle: 'solid',
-      isSituational: false,
+      hasDelay: false,
     });
   });
 
@@ -78,10 +78,35 @@ describe('resolveNodeVisualStyle', () => {
     expect(result.borderColorKind).toBe('counter');
   });
 
-  it('キャラ限定属性は状況限定マークを立てるが、色には影響しない', () => {
+  it('キャラ限定属性は本体色を状況限定（紫）にする', () => {
     const result = style('技', [{ type: 'characterLimited', note: 'ザンギエフ限定' }]);
-    expect(result.isSituational).toBe(true);
-    expect(result.bodyColorKind).toBe('default');
+    expect(result.bodyColorKind).toBe('situational');
     expect(result.borderColorKind).toBe('default');
+  });
+
+  it('位置限定属性は本体色を状況限定（紫）にする', () => {
+    const result = style('技', [{ type: 'positionLimited', note: '画面端限定' }]);
+    expect(result.bodyColorKind).toBe('situational');
+  });
+
+  it('situational属性単体でも本体色が状況限定（紫）になる', () => {
+    const result = style('技', [attr('situational')]);
+    expect(result.bodyColorKind).toBe('situational');
+  });
+
+  it('ガード かつ 状況限定の場合はガードを優先する', () => {
+    const result = style('技', [attr('guard'), { type: 'characterLimited', note: 'メモ' }]);
+    expect(result.bodyColorKind).toBe('guard');
+  });
+
+  it('空振り かつ 状況限定の場合は空振りを優先する', () => {
+    const result = style('技', [attr('whiff'), { type: 'positionLimited', note: 'メモ' }]);
+    expect(result.bodyColorKind).toBe('whiff');
+  });
+
+  it('ディレイ属性はhasDelayを立てるが、色には影響しない', () => {
+    const result = style('技', [attr('delay')]);
+    expect(result.hasDelay).toBe(true);
+    expect(result.bodyColorKind).toBe('default');
   });
 });
