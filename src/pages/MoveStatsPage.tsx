@@ -41,6 +41,7 @@ const EMPTY_HIT: MoveHitStats = {
   saGaugeGain: null,
   dGaugeChip: null,
   dGaugeChipPunishCounter: null,
+  minDamageGuaranteePercent: null,
 };
 const EMPTY_STATS: MoveStats = { isMultiHit: false, hits: [EMPTY_HIT] };
 
@@ -162,6 +163,7 @@ export function MoveStatsPage() {
               moveStats={moveStats}
               readOnly={readOnly}
               lastChipColumnLabel="ヒット"
+              showMinGuaranteeColumn
             />
           </AccordionSection>
 
@@ -191,6 +193,7 @@ function MoveStatsTable({
   moveStats,
   readOnly,
   lastChipColumnLabel = 'パニカン',
+  showMinGuaranteeColumn = false,
 }: {
   characterId: string;
   moveNames: string[];
@@ -199,6 +202,9 @@ function MoveStatsTable({
   // SAはパニッシュカウンターで数値が変わらず「ヒット時」の削り値の方が意味を持つため、
   // 最後の削り列のラベルだけ呼び出し元(superArtセクション)で差し替えられるようにする
   lastChipColumnLabel?: string;
+  // 「最低保証値」列はコンボ補正で減っても割合を下回らないSA特有の値のため、
+  // superArtセクションだけ表示する
+  showMinGuaranteeColumn?: boolean;
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
@@ -241,16 +247,23 @@ function MoveStatsTable({
     });
   };
 
+  const rowGridStyle = showMinGuaranteeColumn
+    ? { ...styles.hitRow, gridTemplateColumns: '54px 84px minmax(120px, 1fr) repeat(5, 84px) 20px' }
+    : styles.hitRow;
+
   return (
     <div style={styles.moveList}>
-      <div style={{ ...styles.hitRow, ...styles.headerRow }}>
+      <div style={{ ...rowGridStyle, ...styles.headerRow }}>
         <span style={styles.hitLabelCell} />
         <span style={styles.numHeaderCell}>ダメージ</span>
         <span style={styles.modHeaderCell}>補正</span>
-        <span style={styles.numHeaderCell}>Dゲージ回収</span>
+        <span style={styles.numHeaderCell}>Dゲージ回復量</span>
         <span style={styles.numHeaderCell}>SAゲージ回収</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（ガード）</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（{lastChipColumnLabel}）</span>
+        {showMinGuaranteeColumn && (
+          <span style={styles.numHeaderCell}>最低保証値<br />（%）</span>
+        )}
         <span style={styles.hitRemoveCell} />
       </div>
 
@@ -275,11 +288,12 @@ function MoveStatsTable({
             {stats.isMultiHit ? (
               <div style={styles.hitsBlock}>
                 {stats.hits.map((hit, index) => (
-                  <div key={index} style={styles.hitRow}>
+                  <div key={index} style={rowGridStyle}>
                     <span style={styles.hitLabelCell}>{index + 1}段目</span>
                     <HitFields
                       hit={hit}
                       readOnly={readOnly}
+                      showMinGuaranteeColumn={showMinGuaranteeColumn}
                       onChange={(field, value) => updateHitField(moveName, index, field, value)}
                     />
                     <span style={styles.hitRemoveCell}>
@@ -307,11 +321,12 @@ function MoveStatsTable({
                 </button>
               </div>
             ) : (
-              <div style={styles.hitRow}>
+              <div style={rowGridStyle}>
                 <span style={styles.hitLabelCell} />
                 <HitFields
                   hit={stats.hits[0] ?? EMPTY_HIT}
                   readOnly={readOnly}
+                  showMinGuaranteeColumn={showMinGuaranteeColumn}
                   onChange={(field, value) => updateHitField(moveName, 0, field, value)}
                 />
                 <span style={styles.hitRemoveCell} />
@@ -327,10 +342,12 @@ function MoveStatsTable({
 function HitFields({
   hit,
   readOnly,
+  showMinGuaranteeColumn = false,
   onChange,
 }: {
   hit: MoveHitStats;
   readOnly: boolean;
+  showMinGuaranteeColumn?: boolean;
   onChange: (field: keyof MoveHitStats, rawValue: string) => void;
 }) {
   const numberFields: { key: keyof MoveHitStats }[] = [
@@ -338,6 +355,7 @@ function HitFields({
     { key: 'saGaugeGain' },
     { key: 'dGaugeChip' },
     { key: 'dGaugeChipPunishCounter' },
+    ...(showMinGuaranteeColumn ? [{ key: 'minDamageGuaranteePercent' as const }] : []),
   ];
 
   return (

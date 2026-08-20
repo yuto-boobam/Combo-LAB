@@ -26,6 +26,7 @@ const HIT_STATS_NUMBER_KEYS = [
   'saGaugeGain',
   'dGaugeChip',
   'dGaugeChipPunishCounter',
+  'minDamageGuaranteePercent',
 ] as const;
 
 export function comboLabLocalApiPlugin(): Plugin {
