@@ -1,0 +1,696 @@
+{
+  "id": "ingrid",
+  "name": "イングリッド",
+  "imageUrl": null,
+  "moveList": [
+    {
+      "id": "sa-460",
+      "name": "SA1",
+      "category": "superArt",
+      "hasSpecialVariant": true,
+      "specialVariantOptions": [
+        "SA1|Lv. 1",
+        "SA1|Lv. 2",
+        "SA1|Lv. 3"
+      ]
+    },
+    {
+      "id": "sa-461",
+      "name": "SA2",
+      "category": "superArt",
+      "hasSpecialVariant": true,
+      "specialVariantOptions": [
+        "SA2|LV. 1",
+        "SA2|Lv. 2",
+        "SA2|Lv. 3"
+      ]
+    },
+    {
+      "id": "sa-462",
+      "name": "SA3",
+      "category": "superArt"
+    },
+    {
+      "id": "mswyltw5o0d6jso3gz",
+      "name": "中P → 中K",
+      "category": "unique"
+    },
+    {
+      "id": "mswzaqbwlrqhriwcrg9",
+      "name": "サンシュート",
+      "category": "special",
+      "shortName": "弾"
+    },
+    {
+      "id": "mswzb1cnvhkb30oisci",
+      "name": "サンライズ",
+      "category": "special",
+      "shortName": "ライズ"
+    },
+    {
+      "id": "mswzb7owzpfm050wnl9",
+      "name": "サンフレア",
+      "category": "special",
+      "shortName": "ビーム",
+      "hasSpecialVariant": true,
+      "specialVariantOptions": [
+        "チャージ",
+        "ビーム|Lv. 0",
+        "ビーム|Lv. 1",
+        "ビーム|Lv. 2",
+        "ビーム|Lv. 3"
+      ],
+      "specialVariantsByStrength": {
+        "弱": [
+          "チャージ"
+        ],
+        "中": [
+          "ビーム|Lv. 0"
+        ],
+        "強": [
+          "ビーム|Lv. 1",
+          "ビーム|Lv. 2"
+        ],
+        "OD": [
+          "ODビーム|Lv. 1",
+          "ODビーム|Lv. 2",
+          "ODビーム|Lv. 3"
+        ]
+      }
+    },
+    {
+      "id": "msyfvk39bcqo5stx8oc",
+      "name": "ソーラーフレア",
+      "category": "special",
+      "hasSpecialVariant": true,
+      "specialVariantOptions": [
+        "チャージ",
+        "Jビーム|Lv.. 0",
+        "Jビーム|Lv.. 1",
+        "Jビーム|Lv.. 2",
+        "Jビーム|Lv.. 3"
+      ],
+      "specialVariantsByStrength": {
+        "弱": [
+          "空中|チャージ"
+        ],
+        "中": [
+          "空中ビーム|Lv. 0"
+        ],
+        "強": [
+          "空中ビーム|LV. 1",
+          "空中ビーム|Lv. 2"
+        ],
+        "OD": [
+          "OD空中ビーム|Lv. 1",
+          "OD空中ビーム|Lv. 2",
+          "OD空中ビーム|Lv. 3"
+        ]
+      }
+    },
+    {
+      "id": "mt13q4phs0qbwcgcbio",
+      "name": "4中K->強P",
+      "category": "unique"
+    },
+    {
+      "id": "mt13qzmojrmabygmohs",
+      "name": "4強P->強P",
+      "category": "unique"
+    },
+    {
+      "id": "mt13ri0hm841j1ytqpj",
+      "name": "J強K->強K",
+      "category": "unique"
+    },
+    {
+      "id": "mt13roo2vjznquvj9yg",
+      "name": "6中P",
+      "category": "unique"
+    },
+    {
+      "id": "mt13rv1t3crb7wzybrj",
+      "name": "6強P",
+      "category": "unique"
+    },
+    {
+      "id": "mt13s41za9axzzi8jx",
+      "name": "4中K",
+      "category": "unique"
+    },
+    {
+      "id": "mt13sadvq8jtnu5six",
+      "name": "4強P",
+      "category": "unique"
+    },
+    {
+      "id": "mt147uktyp8j8hssi3j",
+      "name": "サンバニッシュ",
+      "category": "special",
+      "shortName": "ワープ",
+      "hasSpecialVariant": true,
+      "specialVariantOptions": [
+        "後ろワープ",
+        "上ワープ",
+        "前ワープ"
+      ],
+      "specialVariantsByStrength": {
+        "弱": [
+          "後方ワープ"
+        ],
+        "中": [
+          "上方ワープ"
+        ],
+        "強": [
+          "前方ワープ"
+        ]
+      }
+    },
+    {
+      "id": "mt14d2m8amrodd00qq4",
+      "name": "サンヴェール",
+      "category": "special",
+      "shortName": "当て身"
+    }
+  ],
+  "comboTrees": [
+    {
+      "id": "msmx4wthp1p5tdj1rws",
+      "label": "小P",
+      "root": {
+        "id": "msmx4wthxxtikchfp2f",
+        "moveName": "小P",
+        "attributes": [],
+        "specialNote": "",
+        "branchStats": null,
+        "createdBy": "ローカル",
+        "createdAt": "2026-08-10T07:37:07.877Z",
+        "children": [
+          {
+            "id": "msmxlbju9bxefoajr69",
+            "moveName": "弱K",
+            "attributes": [],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "ローカル",
+            "createdAt": "2026-08-10T07:49:53.466Z",
+            "children": [
+              {
+                "id": "mstu7ltl8ggipi8mwc",
+                "moveName": "中サンライズ",
+                "displayName": "中ライズ",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-15T03:49:37.977Z",
+                "children": []
+              },
+              {
+                "id": "mstuag2lf93s7n82z2",
+                "moveName": "ODサンライズ",
+                "displayName": "ODライズ",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-15T03:51:50.493Z",
+                "children": [
+                  {
+                    "id": "mswxrqf2bwzg82mmums",
+                    "moveName": "SA3",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-17T07:52:34.430Z",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "msvav2mbj0pj4tzzjb",
+      "label": "2中P",
+      "root": {
+        "id": "msvav2mbhao5i36sscl",
+        "moveName": "2中P",
+        "attributes": [],
+        "specialNote": "",
+        "branchStats": null,
+        "createdBy": "ローカル",
+        "createdAt": "2026-08-16T04:23:32.867Z",
+        "children": [
+          {
+            "id": "msvcv3jmmuhtogkudtg",
+            "moveName": "弱K",
+            "attributes": [],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "",
+            "createdAt": "2026-08-16T05:19:33.298Z",
+            "children": [
+              {
+                "id": "mswsk0a5m86wo85m8j",
+                "moveName": "ODサンライズ",
+                "displayName": "ODライズ",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-17T05:26:35.885Z",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "msvcur7se809v68iquq",
+            "moveName": "2中K",
+            "attributes": [
+              {
+                "type": "counter"
+              }
+            ],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "",
+            "createdAt": "2026-08-16T05:19:17.320Z",
+            "children": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "mswyiqpo1xdzj9na8km",
+      "label": "2中K",
+      "root": {
+        "id": "mswyiqpohh4zojhjse",
+        "moveName": "2中K",
+        "attributes": [],
+        "specialNote": "",
+        "branchStats": null,
+        "createdBy": "ローカル",
+        "createdAt": "2026-08-17T08:13:34.524Z",
+        "children": [
+          {
+            "id": "msyebrjvfm5qdavl89m",
+            "moveName": "中サンフレア(ビーム|Lv. 0)",
+            "displayName": "ビーム|Lv. 0",
+            "attributes": [
+              {
+                "type": "counter"
+              }
+            ],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "ローカル",
+            "createdAt": "2026-08-18T08:23:49.051Z",
+            "children": [
+              {
+                "id": "msyeepygj7kxpmocya",
+                "moveName": "SA3",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-18T08:26:06.952Z",
+                "children": []
+              },
+              {
+                "id": "msyg38ogew5p0clmwkg",
+                "moveName": "弱サンフレア(チャージ)",
+                "displayName": "チャージ",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-18T09:13:10.576Z",
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "mswys7tdq4af1dn7hxo",
+            "moveName": "キャンセルラッシュ",
+            "attributes": [],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "ローカル",
+            "createdAt": "2026-08-17T08:20:56.593Z",
+            "children": [
+              {
+                "id": "mswysazqtq6ndhd7v0i",
+                "moveName": "強K",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-17T08:21:00.710Z",
+                "children": [
+                  {
+                    "id": "mswysazq9skkhrjtv15",
+                    "moveName": "中P → 中K",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-17T08:21:00.710Z",
+                    "children": [
+                      {
+                        "id": "mswysazqqdmh1uukpt",
+                        "moveName": "中サンフレア(ビーム|Lv. 0)",
+                        "displayName": "ビーム|Lv. 0",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-17T08:21:00.710Z",
+                        "children": [
+                          {
+                            "id": "mswysazqt4cpno6aks",
+                            "moveName": "弱サンフレア(チャージ)",
+                            "displayName": "チャージ",
+                            "attributes": [],
+                            "specialNote": "",
+                            "branchStats": null,
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-17T08:21:00.710Z",
+                            "children": []
+                          },
+                          {
+                            "id": "mswysazq9xx0xkocg5g",
+                            "moveName": "SA3",
+                            "attributes": [],
+                            "specialNote": "",
+                            "branchStats": null,
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-17T08:21:00.710Z",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "msydckjc36pd3r5ls5b",
+                "moveName": "2強P",
+                "attributes": [
+                  {
+                    "type": "counter"
+                  }
+                ],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-18T07:56:27.000Z",
+                "children": [
+                  {
+                    "id": "msyfl6rxvga93j8ddys",
+                    "moveName": "強サンライズ",
+                    "displayName": "強ライズ",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-18T08:59:08.301Z",
+                    "children": [
+                      {
+                        "id": "msyjjqp5mrg6l1hpbeh",
+                        "moveName": "弱ソーラーフレア(チャージ)",
+                        "displayName": "チャージ",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-18T10:49:59.273Z",
+                        "children": []
+                      },
+                      {
+                        "id": "msyjk8ldog41wgaemd",
+                        "moveName": "中ソーラーフレア(空中ビーム|Lv. 0)",
+                        "displayName": "空中ビーム|Lv. 0",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-18T10:50:22.465Z",
+                        "children": []
+                      },
+                      {
+                        "id": "msyjl1nfsvifxlheoda",
+                        "moveName": "強ソーラーフレア(空中ビーム|LV. 1)",
+                        "displayName": "空中ビーム|LV. 1",
+                        "attributes": [
+                          {
+                            "type": "delay"
+                          },
+                          {
+                            "type": "situational"
+                          }
+                        ],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-18T10:51:00.123Z",
+                        "children": [
+                          {
+                            "id": "msyjla2s5osi69wo63d",
+                            "moveName": "SA1",
+                            "attributes": [],
+                            "specialNote": "",
+                            "branchStats": null,
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-18T10:51:11.044Z",
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "id": "msyjkou5fq3217b7k7t",
+                        "moveName": "強ソーラーフレア(空中ビーム|Lv. 2)",
+                        "displayName": "空中ビーム|Lv. 2",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-18T10:50:43.517Z",
+                        "children": [
+                          {
+                            "id": "msyjmkotm71909tgei",
+                            "moveName": "生ラッシュ",
+                            "attributes": [],
+                            "specialNote": "",
+                            "branchStats": null,
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-18T10:52:11.453Z",
+                            "children": [
+                              {
+                                "id": "msyjmqlzkvuhr4bflbs",
+                                "moveName": "4中K->強P",
+                                "attributes": [
+                                  {
+                                    "type": "rush"
+                                  },
+                                  {
+                                    "type": "delay"
+                                  }
+                                ],
+                                "specialNote": "",
+                                "branchStats": null,
+                                "createdBy": "ローカル",
+                                "createdAt": "2026-08-18T10:52:19.127Z",
+                                "children": [
+                                  {
+                                    "id": "msyjmxad5qibqrbixhv",
+                                    "moveName": "中サンライズ",
+                                    "displayName": "中ライズ",
+                                    "attributes": [],
+                                    "specialNote": "",
+                                    "branchStats": null,
+                                    "createdBy": "ローカル",
+                                    "createdAt": "2026-08-18T10:52:27.781Z",
+                                    "children": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "msyjxzn5abw89vdr2uk",
+                        "moveName": "ODソーラーフレア(OD空中ビーム|Lv. 2)",
+                        "displayName": "OD空中ビーム|Lv. 2",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-18T11:01:04.050Z",
+                        "children": [
+                          {
+                            "id": "msyjziqv77c3dqp82zh",
+                            "moveName": "生ラッシュ",
+                            "attributes": [],
+                            "specialNote": "",
+                            "branchStats": null,
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-18T11:02:15.463Z",
+                            "children": [
+                              {
+                                "id": "msyjziqv25tdpwk20xy",
+                                "moveName": "4中K->強P",
+                                "attributes": [
+                                  {
+                                    "type": "rush"
+                                  }
+                                ],
+                                "specialNote": "",
+                                "branchStats": null,
+                                "createdBy": "ローカル",
+                                "createdAt": "2026-08-18T11:02:15.463Z",
+                                "children": [
+                                  {
+                                    "id": "msyjziqvgpefjtle2lm",
+                                    "moveName": "中サンライズ",
+                                    "displayName": "中ライズ",
+                                    "attributes": [],
+                                    "specialNote": "",
+                                    "branchStats": null,
+                                    "createdBy": "ローカル",
+                                    "createdAt": "2026-08-18T11:02:15.463Z",
+                                    "children": []
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "id": "msziv287omeq39vqzk",
+                        "moveName": "J中P",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-19T03:18:33.991Z",
+                        "children": [
+                          {
+                            "id": "mszivcst5fuzaemtbjh",
+                            "moveName": "SA3",
+                            "attributes": [],
+                            "specialNote": "",
+                            "branchStats": null,
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-19T03:18:47.693Z",
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "mswsnauaxv9cpvrr2",
+      "label": "強K",
+      "root": {
+        "id": "mswsnauaedu4enbjad8",
+        "moveName": "強K",
+        "attributes": [],
+        "specialNote": "",
+        "branchStats": null,
+        "createdBy": "ローカル",
+        "createdAt": "2026-08-17T05:29:09.538Z",
+        "children": [
+          {
+            "id": "mswsnpeoyasbhx7i73b",
+            "moveName": "弱P",
+            "attributes": [],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "ローカル",
+            "createdAt": "2026-08-17T05:29:28.416Z",
+            "children": [
+              {
+                "id": "mswsnr9my8ymli0oves",
+                "moveName": "弱K",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-17T05:29:30.826Z",
+                "children": [
+                  {
+                    "id": "mswsnr9mvfapqy6oehk",
+                    "moveName": "中サンライズ",
+                    "displayName": "中ライズ",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-17T05:29:30.826Z",
+                    "children": []
+                  },
+                  {
+                    "id": "mswsnr9mpiqn21dc72",
+                    "moveName": "ODサンライズ",
+                    "displayName": "ODライズ",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-17T05:29:30.826Z",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "msx55ok3gdputplciv",
+            "moveName": "中P → 中K",
+            "attributes": [
+              {
+                "type": "counter"
+              }
+            ],
+            "specialNote": "",
+            "branchStats": null,
+            "createdBy": "ローカル",
+            "createdAt": "2026-08-17T11:19:22.515Z",
+            "children": [
+              {
+                "id": "msx55z2vu2mveygv8j",
+                "moveName": "ODサンフレア(ODビーム|Lv. 2)",
+                "displayName": "ODビーム|Lv. 2",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-17T11:19:36.151Z",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "namedComboGroups": [],
+  "createdBy": "",
+  "createdAt": "2026-08-10T04:58:33.711Z",
+  "updatedAt": "2026-08-20T11:56:15.632Z",
+  "moveStats": {}
+}
