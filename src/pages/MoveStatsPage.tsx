@@ -30,7 +30,7 @@ import AccordionSection from '../components/AccordionSection';
 import type { MoveHitStats, MoveStats, MoveStrength } from '../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../data/commonMoves';
 import { canEditMoveStatsLocally } from '../utils/localEditAccess';
-import { isSpecialVariantAppliedTo } from '../utils/specialVariant';
+import { getSpecialVariantOptions } from '../utils/specialVariant';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
@@ -77,18 +77,16 @@ export function MoveStatsPage() {
   const superArtMoves = character.moveList.filter((move) => move.category === 'superArt');
 
   const normalMoveNames = [...NORMAL_MOVE_NAMES, ...uniqueMoves.map((move) => move.name)];
-  // 特殊性能あり（hasSpecialVariant）の技は、実際にノードで確定する名前
-  // （`${強度}${技名}(${特殊性能})`）ごとに1行ずつ並べる。specialVariantStrengthsで対象外の
-  // 強度は特殊性能なしのプレーンな1行のまま（MoveNamePicker.tsx・isSpecialVariantAppliedTo参照）
+  // 特殊性能あり（hasSpecialVariant）の技は、強度ごとに登録された選択肢を持つ場合だけ
+  // 実際にノードで確定する名前（`${強度}${技名}(${特殊性能})`）ごとに1行ずつ並べる。
+  // 選択肢がない強度は特殊性能なしのプレーンな1行のまま（src/utils/specialVariant.ts参照）
   const specialMoveNames = specialMoves.flatMap((move) =>
-    SPECIAL_MOVE_STRENGTHS.flatMap((strength) =>
-      move.hasSpecialVariant &&
-      move.specialVariantOptions &&
-      move.specialVariantOptions.length > 0 &&
-      isSpecialVariantAppliedTo(move, strength)
-        ? move.specialVariantOptions.map((variant) => `${strength}${move.name}(${variant})`)
-        : [`${strength}${move.name}`],
-    ),
+    SPECIAL_MOVE_STRENGTHS.flatMap((strength) => {
+      const options = move.hasSpecialVariant ? getSpecialVariantOptions(move, strength) : [];
+      return options.length > 0
+        ? options.map((variant) => `${strength}${move.name}(${variant})`)
+        : [`${strength}${move.name}`];
+    }),
   );
   const superArtMoveNames = superArtMoves.flatMap((move) =>
     move.hasSpecialVariant && move.specialVariantOptions && move.specialVariantOptions.length > 0

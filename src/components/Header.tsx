@@ -17,6 +17,10 @@ import { NicknameDisplay } from './NicknameDisplay';
 const isFileSystemAccessSupported =
   typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
 
+// 技データは全キャラ共通の1ファイルなので、キャラのバックアップとは別の固定キーで
+// ファイルハンドルを覚える（src/utils/fileHandleStore.ts参照）
+const MOVE_STATS_FILE_HANDLE_KEY = 'combo-lab-move-stats-backup';
+
 function isCharacter(value: unknown): value is Character {
   return Boolean(value) && typeof value === 'object' && 'id' in (value as object);
 }
@@ -83,6 +87,8 @@ export default function Header({
   // キャラごとにファイルハンドルをキャッシュする（単一のrefだと、Headerを
   // 再マウントせずにキャラを切り替えた時に前のキャラのハンドルを使い回してしまう）
   const saveFileHandleCacheRef = useRef<Map<string, FileSystemFileHandle>>(new Map());
+  // 技データは全キャラ共通の1ファイルなので、キャラ単位のキャッシュとは別に単一のrefで持つ
+  const moveStatsFileHandleRef = useRef<FileSystemFileHandle | null>(null);
 
   const handleBackupButtonClick = () => {
     const rect = backupButtonRef.current?.getBoundingClientRect();
@@ -162,6 +168,48 @@ export default function Header({
     if (!confirmed) return;
 
     restoreMoveStatsDatabase(parsed);
+  };
+
+  const handleSaveOverwriteMoveStats = async () => {
+    setIsBackupMenuOpen(false);
+
+    if (!isFileSystemAccessSupported || !window.showSaveFilePicker) {
+      handleExportMoveStats();
+      return;
+    }
+
+    try {
+      let handle =
+        moveStatsFileHandleRef.current ??
+        (await getStoredFileHandle(MOVE_STATS_FILE_HANDLE_KEY)) ??
+        undefined;
+
+      if (!handle) {
+        handle = await window.showSaveFilePicker({
+          suggestedName: 'combo-lab-move-stats.json',
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        });
+        await setStoredFileHandle(MOVE_STATS_FILE_HANDLE_KEY, handle);
+      }
+
+      moveStatsFileHandleRef.current = handle;
+
+      const permission = await handle.queryPermission({ mode: 'readwrite' });
+      if (permission !== 'granted') {
+        const requested = await handle.requestPermission({ mode: 'readwrite' });
+        if (requested !== 'granted') {
+          window.alert('ファイルへの書き込み権限が許可されませんでした。');
+          return;
+        }
+      }
+
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(moveStatsDatabase, null, 2));
+      await writable.close();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      window.alert('上書き保存に失敗しました。');
+    }
   };
 
   const handleSaveOverwrite = async () => {
@@ -345,15 +393,34 @@ export default function Header({
                       </button>
 
                       {canEditMoveStats && (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          style={styles.backupMenuItem}
-                          onClick={handleImportMoveStatsButtonClick}
-                        >
-                          <span>⬆️</span>
-                          <span>技データを読み込む</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            style={styles.backupMenuItem}
+                            onClick={handleSaveOverwriteMoveStats}
+                            title={
+                              isFileSystemAccessSupported
+                                ? undefined
+                                : 'このブラウザは上書き保存に非対応のため、新規ダウンロードになります'
+                            }
+                          >
+                            <span>💽</span>
+                            <span>
+                              技データを上書き保存{isFileSystemAccessSupported ? '' : '（新規DL）'}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            role="menuitem"
+                            style={styles.backupMenuItem}
+                            onClick={handleImportMoveStatsButtonClick}
+                          >
+                            <span>⬆️</span>
+                            <span>技データを読み込む</span>
+                          </button>
+                        </>
                       )}
                     </div>
                   </>

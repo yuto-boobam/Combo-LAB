@@ -93,11 +93,15 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     ? move.specialVariantOptions.filter((option): option is string => typeof option === 'string')
     : [];
 
-  const specialVariantStrengths = Array.isArray(move.specialVariantStrengths)
-    ? move.specialVariantStrengths.filter((strength): strength is MoveStrength =>
-        VALID_MOVE_STRENGTHS.includes(strength as MoveStrength),
-      )
-    : [];
+  const specialVariantsByStrength: Partial<Record<MoveStrength, string[]>> = {};
+  if (move.specialVariantsByStrength && typeof move.specialVariantsByStrength === 'object') {
+    for (const strength of VALID_MOVE_STRENGTHS) {
+      const options = (move.specialVariantsByStrength as Record<string, unknown>)[strength];
+      if (!Array.isArray(options)) continue;
+      const filtered = options.filter((option): option is string => typeof option === 'string');
+      if (filtered.length > 0) specialVariantsByStrength[strength] = filtered;
+    }
+  }
 
   return {
     id: typeof move.id === 'string' && move.id ? move.id : makeId(),
@@ -106,7 +110,8 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     shortName: typeof move.shortName === 'string' && move.shortName ? move.shortName : undefined,
     hasSpecialVariant: move.hasSpecialVariant === true ? true : undefined,
     specialVariantOptions: specialVariantOptions.length > 0 ? specialVariantOptions : undefined,
-    specialVariantStrengths: specialVariantStrengths.length > 0 ? specialVariantStrengths : undefined,
+    specialVariantsByStrength:
+      Object.keys(specialVariantsByStrength).length > 0 ? specialVariantsByStrength : undefined,
   };
 }
 
@@ -332,17 +337,18 @@ export type AppState = {
     moveId: string,
     hasSpecialVariant: boolean,
   ) => void;
-  /** 必殺技の特殊性能の選択肢一覧を編集する（空なら特殊性能の選択肢なしに戻す） */
+  /** SAの特殊性能の選択肢一覧を編集する（空なら特殊性能の選択肢なしに戻す） */
   setMoveDefinitionSpecialVariantOptions: (
     characterId: string,
     moveId: string,
     options: string[],
   ) => void;
-  /** 特殊性能が適用される強度を編集する（空＝全強度に適用、従来通り） */
-  setMoveDefinitionSpecialVariantStrengths: (
+  /** 必殺技の、指定した強度で使える特殊性能の選択肢一覧を編集する（空ならその強度は特殊性能なしに戻す） */
+  setMoveDefinitionSpecialVariantsForStrength: (
     characterId: string,
     moveId: string,
-    strengths: MoveStrength[],
+    strength: MoveStrength,
+    options: string[],
   ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
@@ -719,17 +725,28 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      setMoveDefinitionSpecialVariantStrengths: (characterId, moveId, strengths) => {
+      setMoveDefinitionSpecialVariantsForStrength: (characterId, moveId, strength, options) => {
         set((state) => ({
           characters: state.characters.map((character) =>
             character.id === characterId
               ? {
                   ...character,
-                  moveList: character.moveList.map((move) =>
-                    move.id === moveId
-                      ? { ...move, specialVariantStrengths: strengths.length > 0 ? strengths : undefined }
-                      : move,
-                  ),
+                  moveList: character.moveList.map((move) => {
+                    if (move.id !== moveId) return move;
+
+                    const nextByStrength = { ...move.specialVariantsByStrength };
+                    if (options.length > 0) {
+                      nextByStrength[strength] = options;
+                    } else {
+                      delete nextByStrength[strength];
+                    }
+
+                    return {
+                      ...move,
+                      specialVariantsByStrength:
+                        Object.keys(nextByStrength).length > 0 ? nextByStrength : undefined,
+                    };
+                  }),
                   updatedAt: new Date().toISOString(),
                 }
               : character,
