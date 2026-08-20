@@ -161,6 +161,7 @@ export function MoveStatsPage() {
               moveNames={superArtMoveNames}
               moveStats={moveStats}
               readOnly={readOnly}
+              lastChipColumnLabel="ヒット"
             />
           </AccordionSection>
 
@@ -189,11 +190,15 @@ function MoveStatsTable({
   moveNames,
   moveStats,
   readOnly,
+  lastChipColumnLabel = 'パニカン',
 }: {
   characterId: string;
   moveNames: string[];
   moveStats: Record<string, MoveStats>;
   readOnly: boolean;
+  // SAはパニッシュカウンターで数値が変わらず「ヒット時」の削り値の方が意味を持つため、
+  // 最後の削り列のラベルだけ呼び出し元(superArtセクション)で差し替えられるようにする
+  lastChipColumnLabel?: string;
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
@@ -245,7 +250,7 @@ function MoveStatsTable({
         <span style={styles.numHeaderCell}>Dゲージ回収</span>
         <span style={styles.numHeaderCell}>SAゲージ回収</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（ガード）</span>
-        <span style={styles.numHeaderCell}>Dゲージ削り<br />（パニカン）</span>
+        <span style={styles.numHeaderCell}>Dゲージ削り<br />（{lastChipColumnLabel}）</span>
         <span style={styles.hitRemoveCell} />
       </div>
 
