@@ -5,32 +5,79 @@
 // キャラクター画像はまだ用意されていないため、imageUrl が未設定の間は
 // キャラ名をアイコン代わりに表示する。コンボの木が1本も作られていないキャラは
 // 可視性のためにグレーアウト（画像はグレースケール、名前表示は控えめな色）にする。
+//
+// カード数（列数×行数）に対して正方形のカードサイズが最大になる列数を毎回計算し、
+// ウィンドウサイズが変わっても（半分程度に縮めても）スクロールなしで全枠が
+// 収まるようにする（useSquareGridFit）。
 
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import type { Character } from '../types';
+import { computeSquareGridFit } from '../utils/squareGridFit';
 
-const GRID_COLUMNS = 8;
+const GRID_GAP = 10;
+// containerRefを付けた要素自身のpadding。clientWidth/clientHeightにはこのpaddingが
+// 含まれてしまう（子要素が実際に使える幅・高さではない）ため、計算時に差し引く
+const CONTAINER_PADDING = 24;
+
+/** count個の正方形カードを、gap込みでコンテナぴったりに収める列数・1辺のサイズを求める */
+function useSquareGridFit(count: number, gap: number) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState({ columns: 1, cellSize: 0 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || count === 0) return;
+
+    const recompute = () => {
+      const availableWidth = el.clientWidth - CONTAINER_PADDING * 2;
+      const availableHeight = el.clientHeight - CONTAINER_PADDING * 2;
+      if (availableWidth <= 0 || availableHeight <= 0) return;
+      setLayout(computeSquareGridFit(availableWidth, availableHeight, count, gap));
+    };
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [count, gap]);
+
+  return { containerRef, ...layout };
+}
 
 export function CharacterSelectPage() {
   const characters = useVisibleCharacters();
   const selectCharacter = useAppStore((state) => state.selectCharacter);
+  const openMoveStatsEditor = useAppStore((state) => state.openMoveStatsEditor);
+  const { containerRef, columns, cellSize } = useSquareGridFit(characters.length, GRID_GAP);
+  const rows = Math.ceil(characters.length / columns);
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       <Header title="キャラクター選択" />
 
-      <main style={styles.main}>
-        <div style={styles.grid}>
-          {characters.map((character) => (
-            <CharacterTile
-              key={character.id}
-              character={character}
-              onClick={() => selectCharacter(character.id)}
-            />
-          ))}
-        </div>
+      <main ref={containerRef} style={styles.main}>
+        {cellSize > 0 && (
+          <div
+            style={{
+              ...styles.grid,
+              gridTemplateColumns: `repeat(${columns}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
+            }}
+          >
+            {characters.map((character) => (
+              <CharacterTile
+                key={character.id}
+                character={character}
+                cellSize={cellSize}
+                onClick={() => selectCharacter(character.id)}
+                onOpenMoveStats={() => openMoveStatsEditor(character.id)}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
@@ -38,74 +85,126 @@ export function CharacterSelectPage() {
 
 function CharacterTile({
   character,
+  cellSize,
   onClick,
+  onOpenMoveStats,
 }: {
   character: Character;
+  cellSize: number;
   onClick: () => void;
+  onOpenMoveStats: () => void;
 }) {
   const hasTree = character.comboTrees.length > 0;
+  // アイコンやフォントサイズはカードのサイズに比例させる（極端に小さい/大きいカードでも見合う大きさにする）
+  const iconSize = clamp(cellSize * 0.28, 18, 30);
+  const nameFontSize = clamp(cellSize * 0.13, 9, 13);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={character.name}
-      style={{
-        ...styles.tile,
-        borderColor: hasTree ? 'var(--accent)' : 'var(--border)',
-        boxShadow: hasTree ? '0 0 0 1px var(--accent-glow)' : 'none',
-      }}
-    >
-      {character.imageUrl ? (
-        <img
-          src={character.imageUrl}
-          alt={character.name}
-          style={{
-            ...styles.image,
-            filter: hasTree ? 'none' : 'grayscale(1)',
-            opacity: hasTree ? 1 : 0.6,
-          }}
-        />
-      ) : (
-        <span
-          style={{
-            ...styles.namePlaceholder,
-            color: hasTree ? 'var(--text-primary)' : 'var(--text-muted)',
-          }}
-        >
-          {character.name}
-        </span>
-      )}
-    </button>
+    <div style={styles.tileWrapper}>
+      <button
+        type="button"
+        onClick={onClick}
+        title={character.name}
+        style={{
+          ...styles.tile,
+          borderRadius: clamp(cellSize * 0.14, 6, 14),
+          borderColor: hasTree ? 'var(--accent)' : 'var(--border)',
+          boxShadow: hasTree ? '0 0 0 1px var(--accent-glow)' : 'none',
+        }}
+      >
+        {character.imageUrl ? (
+          <img
+            src={character.imageUrl}
+            alt={character.name}
+            style={{
+              ...styles.image,
+              filter: hasTree ? 'none' : 'grayscale(1)',
+              opacity: hasTree ? 1 : 0.6,
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              ...styles.namePlaceholder,
+              fontSize: nameFontSize,
+              color: hasTree ? 'var(--text-primary)' : 'var(--text-muted)',
+            }}
+          >
+            {character.name}
+          </span>
+        )}
+      </button>
+
+      <button
+        type="button"
+        title={`${character.name}の技データを編集`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenMoveStats();
+        }}
+        style={{
+          ...styles.moveStatsButton,
+          width: iconSize,
+          height: iconSize,
+          fontSize: iconSize * 0.5,
+        }}
+      >
+        📊
+      </button>
+    </div>
   );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 const styles: Record<string, CSSProperties> = {
   main: {
     flex: '1 1 auto',
     minHeight: 0,
+    minWidth: 0,
     display: 'flex',
-    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: CONTAINER_PADDING,
+    overflow: 'hidden',
   },
   grid: {
-    flex: '1 1 auto',
     display: 'grid',
-    gridTemplateColumns: `repeat(${GRID_COLUMNS}, 1fr)`,
-    gridAutoRows: '1fr',
-    gap: 10,
+    gap: GRID_GAP,
+  },
+  tileWrapper: {
+    position: 'relative',
+    minWidth: 0,
+    minHeight: 0,
   },
   tile: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    aspectRatio: '1 / 1',
-    borderRadius: 14,
+    width: '100%',
+    height: '100%',
     border: '2px solid var(--border)',
     background: 'var(--bg-surface)',
     overflow: 'hidden',
     cursor: 'pointer',
     padding: 6,
     transition: 'border-color 0.15s, box-shadow 0.15s, transform 0.15s',
+  },
+  moveStatsButton: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    borderRadius: '50%',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    color: 'var(--text-secondary)',
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
   },
   image: {
     width: '100%',
@@ -114,7 +213,6 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 10,
   },
   namePlaceholder: {
-    fontSize: 12,
     fontWeight: 700,
     textAlign: 'center',
     lineHeight: 1.3,

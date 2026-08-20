@@ -1,5 +1,25 @@
 [
   {
+    "id": "2026-08-20-df7a234c",
+    "date": "2026-08-20",
+    "buildNumber": 14,
+    "type": "feature",
+    "title": "技データの記入を可能に",
+    "description": "技ごとのダメージや削り量などを登録しておく。最終的に、このあたりの計算は自動化させる。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260820-build14-after.png?v=1787200467374"
+  },
+  {
+    "id": "2026-08-19-8e48f03a",
+    "date": "2026-08-19",
+    "buildNumber": 13,
+    "type": "other",
+    "title": "ディレイ、状況限の記入ができるように変更",
+    "description": "ディレイと状況限の記入を可能にし、ディレイの時はマークが出るようにした。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260819-build13-after.png?v=1787125139543"
+  },
+  {
     "id": "2026-08-17-12e0a0b2",
     "date": "2026-08-17",
     "buildNumber": 12,

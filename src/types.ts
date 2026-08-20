@@ -120,6 +120,21 @@ export type MoveNode = {
   groupId?: string;
 };
 
+// ── 技ごとの基礎数値 ──────────────────────────────────────────────────────
+
+/**
+ * 技1つぶんの基礎数値（キャラごとに異なる）。将来的な自動ダメージ・ゲージ計算の
+ * 足掛かりとして、まずは技マスタとは別に手入力させる。
+ * Character.moveStats のキーは、木のノード上で使われるのと同じ技名文字列
+ * （必殺技は「弱波動拳」のように強度込みの文字列。src/components/combo/MoveNamePicker.tsx 参照）。
+ */
+export type MoveStats = {
+  damage: number | null;
+  dGaugeGain: number | null;  // ヒット時のDゲージ回収量
+  saGaugeGain: number | null; // SAゲージ回収量
+  dGaugeChip: number | null;  // ガードされた時に相手のDゲージを削る量
+};
+
 // ── コンボ木・キャラクター ──────────────────────────────────────────────────
 
 /** 1本のコンボ木（森の中の1本） */
@@ -143,6 +158,8 @@ export type Character = {
   moveList: MoveDefinition[];
   comboTrees: ComboTree[];
   namedComboGroups: NamedComboGroup[];
+  // 技名文字列をキーにした、技ごとの基礎数値（詳細は MoveStats 参照）
+  moveStats: Record<string, MoveStats>;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
