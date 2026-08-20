@@ -30,10 +30,18 @@ import AccordionSection from '../components/AccordionSection';
 import type { MoveHitStats, MoveStats, MoveStrength } from '../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../data/commonMoves';
 import { canEditMoveStatsLocally } from '../utils/localEditAccess';
+import { isSpecialVariantAppliedTo } from '../utils/specialVariant';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
-const EMPTY_HIT: MoveHitStats = { damage: null, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null };
+const EMPTY_HIT: MoveHitStats = {
+  damage: null,
+  modifier: '',
+  dGaugeGain: null,
+  saGaugeGain: null,
+  dGaugeChip: null,
+  dGaugeChipPunishCounter: null,
+};
 const EMPTY_STATS: MoveStats = { isMultiHit: false, hits: [EMPTY_HIT] };
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
@@ -69,10 +77,24 @@ export function MoveStatsPage() {
   const superArtMoves = character.moveList.filter((move) => move.category === 'superArt');
 
   const normalMoveNames = [...NORMAL_MOVE_NAMES, ...uniqueMoves.map((move) => move.name)];
+  // 特殊性能あり（hasSpecialVariant）の技は、実際にノードで確定する名前
+  // （`${強度}${技名}(${特殊性能})`）ごとに1行ずつ並べる。specialVariantStrengthsで対象外の
+  // 強度は特殊性能なしのプレーンな1行のまま（MoveNamePicker.tsx・isSpecialVariantAppliedTo参照）
   const specialMoveNames = specialMoves.flatMap((move) =>
-    SPECIAL_MOVE_STRENGTHS.map((strength) => `${strength}${move.name}`),
+    SPECIAL_MOVE_STRENGTHS.flatMap((strength) =>
+      move.hasSpecialVariant &&
+      move.specialVariantOptions &&
+      move.specialVariantOptions.length > 0 &&
+      isSpecialVariantAppliedTo(move, strength)
+        ? move.specialVariantOptions.map((variant) => `${strength}${move.name}(${variant})`)
+        : [`${strength}${move.name}`],
+    ),
   );
-  const superArtMoveNames = superArtMoves.map((move) => move.name);
+  const superArtMoveNames = superArtMoves.flatMap((move) =>
+    move.hasSpecialVariant && move.specialVariantOptions && move.specialVariantOptions.length > 0
+      ? move.specialVariantOptions.map((variant) => `${move.name}(${variant})`)
+      : [move.name],
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -195,7 +217,7 @@ function MoveStatsTable({
     rawValue: string,
   ) => {
     const current = moveStats[moveName] ?? EMPTY_STATS;
-    const value = rawValue === '' ? null : Number(rawValue);
+    const value = field === 'modifier' ? rawValue : rawValue === '' ? null : Number(rawValue);
     setMoveStats(characterId, moveName, {
       ...current,
       hits: current.hits.map((hit, index) => (index === hitIndex ? { ...hit, [field]: value } : hit)),
@@ -221,9 +243,11 @@ function MoveStatsTable({
       <div style={{ ...styles.hitRow, ...styles.headerRow }}>
         <span style={styles.hitLabelCell} />
         <span style={styles.numHeaderCell}>ダメージ</span>
+        <span style={styles.modHeaderCell}>補正</span>
         <span style={styles.numHeaderCell}>Dゲージ回収</span>
         <span style={styles.numHeaderCell}>SAゲージ回収</span>
-        <span style={styles.numHeaderCell}>Dゲージ削り</span>
+        <span style={styles.numHeaderCell}>Dゲージ削り<br />（ガード）</span>
+        <span style={styles.numHeaderCell}>Dゲージ削り<br />（パニカン）</span>
         <span style={styles.hitRemoveCell} />
       </div>
 
@@ -306,16 +330,33 @@ function HitFields({
   readOnly: boolean;
   onChange: (field: keyof MoveHitStats, rawValue: string) => void;
 }) {
-  const fields: { key: keyof MoveHitStats }[] = [
-    { key: 'damage' },
+  const numberFields: { key: keyof MoveHitStats }[] = [
     { key: 'dGaugeGain' },
     { key: 'saGaugeGain' },
     { key: 'dGaugeChip' },
+    { key: 'dGaugeChipPunishCounter' },
   ];
 
   return (
     <>
-      {fields.map(({ key }) => (
+      <input
+        type="number"
+        className="input-field"
+        style={styles.numInput}
+        value={hit.damage ?? ''}
+        readOnly={readOnly}
+        onChange={(event) => onChange('damage', event.target.value)}
+      />
+      <input
+        type="text"
+        className="input-field"
+        style={styles.modInput}
+        placeholder="始動補正20% など"
+        value={hit.modifier}
+        readOnly={readOnly}
+        onChange={(event) => onChange('modifier', event.target.value)}
+      />
+      {numberFields.map(({ key }) => (
         <input
           key={key}
           type="number"
@@ -403,7 +444,7 @@ const styles: Record<string, CSSProperties> = {
   },
   hitRow: {
     display: 'grid',
-    gridTemplateColumns: '54px repeat(4, 84px) 20px',
+    gridTemplateColumns: '54px 84px minmax(120px, 1fr) repeat(4, 84px) 20px',
     gap: 6,
     alignItems: 'center',
   },
@@ -440,6 +481,18 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 800,
     color: 'var(--text-muted)',
     textAlign: 'center',
+  },
+  modHeaderCell: {
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    textAlign: 'left',
+  },
+  modInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    fontSize: 12,
+    padding: '5px 6px',
   },
   numInput: {
     width: '100%',

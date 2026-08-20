@@ -20,6 +20,7 @@ import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import type { MoveDefinition, MoveStrength } from '../../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../../data/commonMoves';
+import { isSpecialVariantAppliedTo } from '../../utils/specialVariant';
 import AccordionSection from '../AccordionSection';
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
@@ -261,6 +262,9 @@ function SpecialMoveGroupBody({
   const setMoveDefinitionHasSpecialVariant = useAppStore(
     (state) => state.setMoveDefinitionHasSpecialVariant,
   );
+  const setMoveDefinitionSpecialVariantStrengths = useAppStore(
+    (state) => state.setMoveDefinitionSpecialVariantStrengths,
+  );
   const [draftName, setDraftName] = useState('');
   const [draftShortName, setDraftShortName] = useState('');
 
@@ -393,15 +397,47 @@ function SpecialMoveGroupBody({
             </label>
 
             {pickingMove.hasSpecialVariant && (
-              <SpecialVariantRegistration
-                characterId={characterId}
-                move={pickingMove}
-                activeVariant={pickingMoveMatch?.subLevel ?? null}
-                onSelectVariant={(variant) => {
-                  if (!pickingMoveMatch) return;
-                  onChange(`${pickingMoveMatch.strength}${pickingMove.name}(${variant})`, variant);
-                }}
-              />
+              <>
+                <div style={{ ...styles.buttonRow, marginTop: 8 }}>
+                  {SPECIAL_MOVE_STRENGTHS.map((strength) => {
+                    const currentStrengths = pickingMove.specialVariantStrengths;
+                    const active =
+                      !currentStrengths || currentStrengths.length === 0 || currentStrengths.includes(strength);
+                    return (
+                      <MovePill
+                        key={strength}
+                        label={strength}
+                        active={active}
+                        onClick={() => {
+                          const base =
+                            currentStrengths && currentStrengths.length > 0
+                              ? currentStrengths
+                              : SPECIAL_MOVE_STRENGTHS;
+                          const next = base.includes(strength)
+                            ? base.filter((item) => item !== strength)
+                            : [...base, strength];
+                          setMoveDefinitionSpecialVariantStrengths(characterId, pickingMove.id, next);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <p style={styles.emptyHint}>
+                  チェックした強度だけ特殊性能の選択肢を使う（すべて選択中＝全強度に適用、従来通り）
+                </p>
+
+                {isSpecialVariantAppliedTo(pickingMove, pickingMoveMatch?.strength ?? null) && (
+                  <SpecialVariantRegistration
+                    characterId={characterId}
+                    move={pickingMove}
+                    activeVariant={pickingMoveMatch?.subLevel ?? null}
+                    onSelectVariant={(variant) => {
+                      if (!pickingMoveMatch) return;
+                      onChange(`${pickingMoveMatch.strength}${pickingMove.name}(${variant})`, variant);
+                    }}
+                  />
+                )}
+              </>
             )}
           </fieldset>
         </>
@@ -550,21 +586,54 @@ function SuperArtGroupBody({
   onChange: (name: string) => void;
 }) {
   const renameMoveDefinition = useAppStore((state) => state.renameMoveDefinition);
+  const setMoveDefinitionHasSpecialVariant = useAppStore(
+    (state) => state.setMoveDefinitionHasSpecialVariant,
+  );
 
   return (
-    <div style={{ display: 'grid', gap: 6 }}>
-      {moves.map((move) => (
-        <div key={move.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <MovePill label="選択" active={value === move.name} onClick={() => onChange(move.name)} />
-          <input
-            type="text"
-            className="input-field"
-            style={styles.superArtNameInput}
-            value={move.name}
-            onChange={(event) => renameMoveDefinition(characterId, move.id, event.target.value)}
-          />
-        </div>
-      ))}
+    <div style={{ display: 'grid', gap: 10 }}>
+      {moves.map((move) => {
+        // 特殊性能ありのSAは `${SA名}(${Lv等})` の形で確定する（必殺技のstock/同時押しと同じ考え方）
+        const activeVariant =
+          move.hasSpecialVariant && value.startsWith(`${move.name}(`) && value.endsWith(')')
+            ? value.slice(move.name.length + 1, -1)
+            : null;
+
+        return (
+          <div key={move.id} style={{ display: 'grid', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <MovePill label="選択" active={value === move.name} onClick={() => onChange(move.name)} />
+              <input
+                type="text"
+                className="input-field"
+                style={styles.superArtNameInput}
+                value={move.name}
+                onChange={(event) => renameMoveDefinition(characterId, move.id, event.target.value)}
+              />
+            </div>
+
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={move.hasSpecialVariant ?? false}
+                onChange={(event) =>
+                  setMoveDefinitionHasSpecialVariant(characterId, move.id, event.target.checked)
+                }
+              />
+              特殊性能あり（ホールドでLv.が変わる等）
+            </label>
+
+            {move.hasSpecialVariant && (
+              <SpecialVariantRegistration
+                characterId={characterId}
+                move={move}
+                activeVariant={activeVariant}
+                onSelectVariant={(variant) => onChange(`${move.name}(${variant})`)}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
