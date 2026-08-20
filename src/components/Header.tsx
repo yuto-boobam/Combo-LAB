@@ -10,6 +10,7 @@ import { useAppStore } from '../store';
 import type { Character } from '../types';
 import { getStoredFileHandle, setStoredFileHandle } from '../utils/fileHandleStore';
 import { downloadJson } from '../utils/downloadJson';
+import { canEditComboShowcaseLocally, canEditMoveStatsLocally } from '../utils/localEditAccess';
 import PatchNotesModal from './patchNotes/PatchNotesModal';
 import { NicknameDisplay } from './NicknameDisplay';
 
@@ -70,11 +71,16 @@ export default function Header({
   const closePatchNotesModal = useAppStore((state) => state.closePatchNotesModal);
 
   const restoreCharacters = useAppStore((state) => state.restoreCharacters);
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
+  const restoreMoveStatsDatabase = useAppStore((state) => state.restoreMoveStatsDatabase);
+  const canEditMoveStats = !isGuest && canEditMoveStatsLocally();
+  const canEditComboShowcase = !isGuest && canEditComboShowcaseLocally();
 
   const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
   const [backupMenuPosition, setBackupMenuPosition] = useState({ top: 0, right: 0 });
   const backupButtonRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const moveStatsFileInputRef = useRef<HTMLInputElement>(null);
   // キャラごとにファイルハンドルをキャッシュする（単一のrefだと、Headerを
   // 再マウントせずにキャラを切り替えた時に前のキャラのハンドルを使い回してしまう）
   const saveFileHandleCacheRef = useRef<Map<string, FileSystemFileHandle>>(new Map());
@@ -128,6 +134,65 @@ export default function Header({
     restoreCharacters(importedCharacters);
   };
 
+  const handleExportMoveStats = () => {
+    downloadJson('combo-lab-move-stats.json', moveStatsDatabase);
+    setIsBackupMenuOpen(false);
+  };
+
+  const handleImportMoveStatsButtonClick = () => {
+    setIsBackupMenuOpen(false);
+    moveStatsFileInputRef.current?.click();
+  };
+
+  const handleImportMoveStatsFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {
+      window.alert('読み込みに失敗しました。技データのJSONファイルを選択してください。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      '技データ（全キャラぶん）を読み込みます。現在の技データは上書きされます。よろしいですか？',
+    );
+    if (!confirmed) return;
+
+    restoreMoveStatsDatabase(parsed);
+  };
+
+  // File System Access APIでの「上書き保存」だと、Windows側ブラウザからWSL内の
+  // プロジェクトパスへ辿り着けない環境があり不安定なため、開発サーバー自身に
+  // ファイルシステムへ直接書き込んでもらう方式にしている（vite-plugins/moveStatsApiPlugin.ts）。
+  // git commit → pushのイメージ（ローカルの技データを、プロジェクトのファイルへ反映する）
+  const handleSaveToProjectMoveStats = async () => {
+    setIsBackupMenuOpen(false);
+
+    try {
+      const response = await fetch('/__combo-lab-api/move-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(moveStatsDatabase),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        window.alert(`プロジェクトへの保存に失敗しました。${message}`);
+        return;
+      }
+
+      window.alert('技データをプロジェクトに保存しました。');
+    } catch {
+      window.alert(
+        'プロジェクトへの保存に失敗しました。npm run devで起動しているか確認してください。',
+      );
+    }
+  };
+
   const handleSaveOverwrite = async () => {
     setIsBackupMenuOpen(false);
     if (!character) return;
@@ -174,6 +239,34 @@ export default function Header({
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       window.alert('上書き保存に失敗しました。');
+    }
+  };
+
+  // ゲストモード（閲覧専用）向けのショーケースデータ（src/data/comboShowcaseSources/）を
+  // 更新する。「上書き保存」（パソコン内の任意のファイル）とは別に、プロジェクトの
+  // 決まった場所へ開発サーバー経由で直接書き込む（技データの「プロジェクトへ保存」と同じ考え方）
+  const handleSaveToProjectCombo = async () => {
+    setIsBackupMenuOpen(false);
+    if (!character) return;
+
+    try {
+      const response = await fetch('/__combo-lab-api/combo-showcase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(character),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        window.alert(`プロジェクトへの保存に失敗しました。${message}`);
+        return;
+      }
+
+      window.alert(`「${character.name}」のコンボをプロジェクトに保存しました。`);
+    } catch {
+      window.alert(
+        'プロジェクトへの保存に失敗しました。npm run devで起動しているか確認してください。',
+      );
     }
   };
 
@@ -295,6 +388,56 @@ export default function Header({
                           </span>
                         </button>
                       )}
+
+                      {character && canEditComboShowcase && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          style={styles.backupMenuItem}
+                          onClick={handleSaveToProjectCombo}
+                          title="開発サーバーを経由して、ゲスト用ショーケースデータへ直接保存します"
+                        >
+                          <span>💽</span>
+                          <span>コンボをプロジェクトへ保存（{character.name}）</span>
+                        </button>
+                      )}
+
+                      <div style={styles.backupMenuDivider} />
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        style={styles.backupMenuItem}
+                        onClick={handleExportMoveStats}
+                      >
+                        <span>⬇️</span>
+                        <span>技データをエクスポート（全キャラぶん）</span>
+                      </button>
+
+                      {canEditMoveStats && (
+                        <>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            style={styles.backupMenuItem}
+                            onClick={handleSaveToProjectMoveStats}
+                            title="開発サーバーを経由して、プロジェクト内のJSONファイルへ直接保存します"
+                          >
+                            <span>💽</span>
+                            <span>技データをプロジェクトへ保存</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            role="menuitem"
+                            style={styles.backupMenuItem}
+                            onClick={handleImportMoveStatsButtonClick}
+                          >
+                            <span>⬆️</span>
+                            <span>技データを読み込む</span>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
@@ -305,6 +448,13 @@ export default function Header({
                   accept="application/json"
                   style={styles.hiddenFileInput}
                   onChange={handleImportFileChange}
+                />
+                <input
+                  ref={moveStatsFileInputRef}
+                  type="file"
+                  accept="application/json"
+                  style={styles.hiddenFileInput}
+                  onChange={handleImportMoveStatsFileChange}
                 />
               </div>
             )}
@@ -529,6 +679,11 @@ const styles: Record<string, CSSProperties> = {
     textAlign: 'left',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
+  },
+  backupMenuDivider: {
+    height: 1,
+    margin: '4px 2px',
+    background: 'var(--border)',
   },
   hiddenFileInput: {
     display: 'none',

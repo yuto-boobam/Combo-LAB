@@ -1,0 +1,1081 @@
+{
+  "ingrid": {
+    "弱P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "弱K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 700,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 3500,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "2弱P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "2中P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "2強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "2弱K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "2中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "2強K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "J弱P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "",
+          "dGaugeGain": 500,
+          "saGaugeGain": 300,
+          "dGaugeChip": -1500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "J中P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "J強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "J弱K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "",
+          "dGaugeGain": 500,
+          "saGaugeGain": 300,
+          "dGaugeChip": -1500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "J中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "J強K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "6中P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 700,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "6強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中P → 中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 700,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "4中K->強P": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 700,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null
+        },
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "4強P": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        },
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2500,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "J強K->強K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "弱サンシュート": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 700,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 600,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -3000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中サンシュート": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 700,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 600,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -3000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強サンシュート": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 700,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 600,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -3000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODサンシュート": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 600,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "弱サンライズ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中サンライズ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1200,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1400,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強サンライズ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1300,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": 2250,
+          "saGaugeGain": 800,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODサンライズ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1600,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -1500,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODサンヴェール": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1200,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -3500,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "サンシャイン(Lv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1900,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "サンシャイン(Lv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "サンシャイン(Lv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "サンオーダー(Lv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1600,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7200,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "サンオーダー(Lv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -9600,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "サンオーダー(Lv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -10000,
+          "dGaugeChipPunishCounter": -12000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "コズミックレイ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 4000,
+          "modifier": "※即時補正10%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -7500,
+          "dGaugeChipPunishCounter": -15000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "投げ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1200,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "前ステップ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "バックステップ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "インパクト": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -15000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "パリィ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強サンヴェール": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -3500,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中サンヴェール": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -3500,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "弱サンヴェール": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -3500,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "弱サンフレア(チャージ)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中サンフレア(ビーム|Lv. 0)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 700,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強サンフレア(ビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強サンフレア(ビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -9000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODサンフレア(ODビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODサンフレア(ODビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -9000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODサンフレア(ODビーム|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1800,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1600,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -12000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "弱ソーラーフレア(空中|チャージ)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中ソーラーフレア(空中ビーム|Lv. 0)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 600,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強ソーラーフレア(空中ビーム|LV. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強ソーラーフレア(空中ビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7500,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODソーラーフレア(OD空中ビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODソーラーフレア(OD空中ビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7500,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "ODソーラーフレア(OD空中ビーム|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1800,
+          "modifier": "始動補正30%＋コンボ補正15%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1600,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "弱サンバニッシュ(後方ワープ)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "中サンバニッシュ(上方ワープ)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強サンバニッシュ(前方ワープ)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "強ソーラーフレア(空中ビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "SA1(SA1|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 19000,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": 30
+        }
+      ]
+    },
+    "SA1(SA1|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": 30
+        }
+      ]
+    },
+    "SA1(SA1|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": 30
+        }
+      ]
+    },
+    "SA3": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 4000,
+          "modifier": "即時補正10%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -7500,
+          "dGaugeChipPunishCounter": -15000,
+          "minDamageGuaranteePercent": 50
+        }
+      ]
+    },
+    "SA2(SA2|LV. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1600,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7200,
+          "minDamageGuaranteePercent": 40
+        }
+      ]
+    },
+    "SA2(SA2|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -9600,
+          "minDamageGuaranteePercent": 40
+        }
+      ]
+    },
+    "SA2(SA2|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -10000,
+          "dGaugeChipPunishCounter": -12000,
+          "minDamageGuaranteePercent": 40
+        }
+      ]
+    },
+    "CA": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 4500,
+          "modifier": "即時補正10%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -10000,
+          "dGaugeChipPunishCounter": -20000,
+          "minDamageGuaranteePercent": 50
+        }
+      ]
+    },
+    "4強P->強P": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        },
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2500,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    }
+  }
+}

@@ -13,13 +13,20 @@ function nextSeedId(prefix: string): string {
   return `${prefix}-${seedIdCounter}`;
 }
 
-/** SA1〜SA3の初期枠（名前はキャラごとに後から編集する）。
+/** CA（クリティカルアーツ）の初期枠（名前はキャラごとに後から編集する）。
+ * SA1〜3とは別に、既存キャラでCA枠だけが欠けている場合の補完にも単独で使う */
+export function createDefaultCriticalArtMove(): MoveDefinition {
+  return { id: nextSeedId('sa'), name: 'CA', category: 'superArt' };
+}
+
+/** SA1〜SA3+CAの初期枠（名前はキャラごとに後から編集する）。
  * 新規キャラの初期化と、既存キャラでSA枠が欠けている場合の補完の両方で使う */
 export function createDefaultSuperArtMoves(): MoveDefinition[] {
   return [
     { id: nextSeedId('sa'), name: 'SA1', category: 'superArt' },
     { id: nextSeedId('sa'), name: 'SA2', category: 'superArt' },
     { id: nextSeedId('sa'), name: 'SA3', category: 'superArt' },
+    createDefaultCriticalArtMove(),
   ];
 }
 

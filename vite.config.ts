@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { patchNotesLocalApiPlugin } from './vite-plugins/patchNotesLocalApiPlugin.ts'
+import { comboLabLocalApiPlugin } from './vite-plugins/comboLabLocalApiPlugin.ts'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -9,6 +10,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     patchNotesLocalApiPlugin(),
+    comboLabLocalApiPlugin(),
   ],
   server: {
     // Rootedと同じ既定ポート(5173)を使うと、どちらかが先に起動している時に
