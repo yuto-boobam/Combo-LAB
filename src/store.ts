@@ -13,6 +13,7 @@ import type {
   MoveNode,
   MoveStats,
   MoveStatsDatabase,
+  MoveStrength,
   NamedComboGroup,
   NodeAttribute,
 } from './types';
@@ -50,6 +51,8 @@ const VALID_MOVE_CATEGORIES: MoveCategory[] = [
   'superArt',
   'system',
 ];
+
+const VALID_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
 /** インポートしたJSONの1ノード分を、現行スキーマに合わせて正規化する（壊れたファイルでも落ちないようにする） */
 function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
@@ -90,6 +93,12 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     ? move.specialVariantOptions.filter((option): option is string => typeof option === 'string')
     : [];
 
+  const specialVariantStrengths = Array.isArray(move.specialVariantStrengths)
+    ? move.specialVariantStrengths.filter((strength): strength is MoveStrength =>
+        VALID_MOVE_STRENGTHS.includes(strength as MoveStrength),
+      )
+    : [];
+
   return {
     id: typeof move.id === 'string' && move.id ? move.id : makeId(),
     name: move.name,
@@ -97,6 +106,7 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     shortName: typeof move.shortName === 'string' && move.shortName ? move.shortName : undefined,
     hasSpecialVariant: move.hasSpecialVariant === true ? true : undefined,
     specialVariantOptions: specialVariantOptions.length > 0 ? specialVariantOptions : undefined,
+    specialVariantStrengths: specialVariantStrengths.length > 0 ? specialVariantStrengths : undefined,
   };
 }
 
@@ -115,9 +125,11 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
   const s = (value && typeof value === 'object' ? value : {}) as Partial<MoveHitStats>;
   return {
     damage: toNullableNumber(s.damage),
+    modifier: typeof s.modifier === 'string' ? s.modifier : '',
     dGaugeGain: toNullableNumber(s.dGaugeGain),
     saGaugeGain: toNullableNumber(s.saGaugeGain),
     dGaugeChip: toNullableNumber(s.dGaugeChip),
+    dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
   };
 }
 
@@ -325,6 +337,12 @@ export type AppState = {
     characterId: string,
     moveId: string,
     options: string[],
+  ) => void;
+  /** 特殊性能が適用される強度を編集する（空＝全強度に適用、従来通り） */
+  setMoveDefinitionSpecialVariantStrengths: (
+    characterId: string,
+    moveId: string,
+    strengths: MoveStrength[],
   ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
@@ -692,6 +710,24 @@ export const useAppStore = create<AppState>()(
                   moveList: character.moveList.map((move) =>
                     move.id === moveId
                       ? { ...move, specialVariantOptions: options.length > 0 ? options : undefined }
+                      : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      setMoveDefinitionSpecialVariantStrengths: (characterId, moveId, strengths) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId
+                      ? { ...move, specialVariantStrengths: strengths.length > 0 ? strengths : undefined }
                       : move,
                   ),
                   updatedAt: new Date().toISOString(),

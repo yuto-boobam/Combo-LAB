@@ -30,16 +30,24 @@ export type MoveDefinition = {
   // 必殺技(special)のみで使う、木のノード上に表示する短い呼び名。未設定なら name をそのまま使う
   shortName?: string;
   /**
-   * 必殺技(special)のみで使う。ストック・同時押しなど、強度だけでは技の状態を表現しきれない
-   * 技かどうか。falsyな技は強度選択だけで従来通り確定する（デフォルトの見た目・手数は変わらない）
+   * 必殺技(special)・SA(superArt)で使う。ストック・同時押し・ホールドLvなど、強度（必殺技）や
+   * 名前選択（SA）だけでは技の状態を表現しきれない技かどうか。falsyな技は従来通り確定する
+   * （デフォルトの見た目・手数は変わらない）
    */
   hasSpecialVariant?: boolean;
   /**
-   * hasSpecialVariantがtrueの技のみで使う。強度を選んだ後にさらに選ばせる特殊性能の選択肢一覧
-   * （例: イングリッドの「ビーム」で["ビームレベル2","ビームレベル3","ビームレベル4"]、
-   * 同時押し系の技で["AB同時押し","BC同時押し","AC同時押し"]）
+   * hasSpecialVariantがtrueの技のみで使う。（必殺技は強度を選んだ後に）さらに選ばせる特殊性能の
+   * 選択肢一覧（例: イングリッドの「ビーム」で["ビームレベル2","ビームレベル3","ビームレベル4"]、
+   * 同時押し系の技で["AB同時押し","BC同時押し","AC同時押し"]、SAのホールドLvで["Lv2","Lv3"]）
    */
   specialVariantOptions?: string[];
+  /**
+   * 必殺技(special)のみで使う。hasSpecialVariantがtrueの技のうち、実際に特殊性能が
+   * 適用される強度の一覧（未設定＝全強度に適用、従来通り）。イングリッドのサンフレアのように
+   * 「強とODだけストック段階で性能が変わり、弱・中は常に基本形のまま」という技のために用意した。
+   * 対象外の強度は特殊性能の選択肢を出さず、`${強度}${技名}` のまま確定する
+   */
+  specialVariantStrengths?: MoveStrength[];
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
@@ -125,9 +133,11 @@ export type MoveNode = {
 /** 技1ヒットぶんの基礎数値 */
 export type MoveHitStats = {
   damage: number | null;
+  modifier: string; // 補正の自由記述（例:「始動補正20%＋コンボ補正20%」）。基本は空文字
   dGaugeGain: number | null;  // ヒット時のDゲージ回収量
   saGaugeGain: number | null; // SAゲージ回収量
   dGaugeChip: number | null;  // ガードされた時に相手のDゲージを削る量
+  dGaugeChipPunishCounter: number | null; // パニッシュカウンターでガードされた時に相手のDゲージを削る量
 };
 
 /**

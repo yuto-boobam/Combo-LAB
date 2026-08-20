@@ -489,7 +489,7 @@ describe('技データベース（moveStatsDatabase）', () => {
 
     useAppStore.getState().setMoveStats(charA.id, '弱P', {
       isMultiHit: false,
-      hits: [{ damage: 300, dGaugeGain: 10, saGaugeGain: 5, dGaugeChip: 20 }],
+      hits: [{ damage: 300, modifier: '', dGaugeGain: 10, saGaugeGain: 5, dGaugeChip: 20, dGaugeChipPunishCounter: -50 }],
     });
 
     expect(useAppStore.getState().moveStatsDatabase[charA.id]['弱P'].hits[0].damage).toBe(300);
@@ -503,9 +503,9 @@ describe('技データベース（moveStatsDatabase）', () => {
     useAppStore.getState().setMoveStats(char.id, '中K', {
       isMultiHit: true,
       hits: [
-        { damage: 200, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null },
-        { damage: 200, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null },
-        { damage: 400, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null },
+        { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null },
       ],
     });
 
@@ -522,7 +522,10 @@ describe('技データベース（moveStatsDatabase）', () => {
 
     useAppStore.getState().restoreMoveStatsDatabase({
       [char.id]: {
-        '強P': { isMultiHit: false, hits: [{ damage: 'oops', dGaugeGain: 5, saGaugeGain: null, dGaugeChip: undefined }] },
+        '強P': {
+          isMultiHit: false,
+          hits: [{ damage: 'oops', modifier: '始動補正20%', dGaugeGain: 5, saGaugeGain: null, dGaugeChip: undefined }],
+        },
         '2強K': { isMultiHit: true, hits: [] },
       },
       '存在しないキャラ扱いでもそのまま保持': { x: { isMultiHit: false, hits: [{ damage: 1, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null }] } },
@@ -531,7 +534,16 @@ describe('技データベース（moveStatsDatabase）', () => {
     const db = useAppStore.getState().moveStatsDatabase;
     expect(db[char.id]['強P']).toEqual({
       isMultiHit: false,
-      hits: [{ damage: null, dGaugeGain: 5, saGaugeGain: null, dGaugeChip: null }],
+      hits: [
+        {
+          damage: null,
+          modifier: '始動補正20%',
+          dGaugeGain: 5,
+          saGaugeGain: null,
+          dGaugeChip: null,
+          dGaugeChipPunishCounter: null,
+        },
+      ],
     });
     // hitsが空配列で保存されていても、読み込み後は最低1要素に補完される
     expect(db[char.id]['2強K'].hits).toHaveLength(1);
@@ -540,7 +552,7 @@ describe('技データベース（moveStatsDatabase）', () => {
   it('壊れたJSON（配列やnull）を読み込んでも空のデータベースにフォールバックする', () => {
     useAppStore.getState().setMoveStats(useAppStore.getState().characters[0].id, '弱P', {
       isMultiHit: false,
-      hits: [{ damage: 999, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null }],
+      hits: [{ damage: 999, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null }],
     });
 
     useAppStore.getState().restoreMoveStatsDatabase(null);
