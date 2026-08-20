@@ -71,6 +71,7 @@ export function createInitialCharacterRoster(): Character[] {
     moveList: createDefaultMoveList(),
     comboTrees: [],
     namedComboGroups: [],
+    moveStats: {},
     createdBy: '',
     createdAt: now,
     updatedAt: now,

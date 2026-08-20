@@ -10,6 +10,7 @@ import type {
   MoveCategory,
   MoveDefinition,
   MoveNode,
+  MoveStats,
   NamedComboGroup,
   NodeAttribute,
 } from './types';
@@ -32,6 +33,7 @@ function migrateLegacyCharacter(character: Character): Character {
     ...character,
     moveList: hasSuperArtMove ? character.moveList : [...character.moveList, ...createDefaultSuperArtMoves()],
     namedComboGroups: Array.isArray(character.namedComboGroups) ? character.namedComboGroups : [],
+    moveStats: character.moveStats && typeof character.moveStats === 'object' ? character.moveStats : {},
   };
 }
 
@@ -104,6 +106,26 @@ function normalizeNamedComboGroup(group: Partial<NamedComboGroup>): NamedComboGr
   };
 }
 
+/** インポートしたJSONのmoveStatsを正規化する（壊れた値はnullに落とし、それ以外は捨てる） */
+function normalizeMoveStats(value: unknown): Record<string, MoveStats> {
+  if (!value || typeof value !== 'object') return {};
+
+  const toNullableNumber = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) ? n : null);
+
+  const result: Record<string, MoveStats> = {};
+  for (const [moveName, stats] of Object.entries(value as Record<string, unknown>)) {
+    if (!stats || typeof stats !== 'object') continue;
+    const s = stats as Partial<MoveStats>;
+    result[moveName] = {
+      damage: toNullableNumber(s.damage),
+      dGaugeGain: toNullableNumber(s.dGaugeGain),
+      saGaugeGain: toNullableNumber(s.saGaugeGain),
+      dGaugeChip: toNullableNumber(s.dGaugeChip),
+    };
+  }
+  return result;
+}
+
 /** インポートしたキャラ1人分を正規化する。壊れている項目は現在の値（fallback）を維持する */
 function normalizeImportedCharacter(imported: Partial<Character>, fallback: Character): Character {
   return {
@@ -125,6 +147,7 @@ function normalizeImportedCharacter(imported: Partial<Character>, fallback: Char
           .map((group) => normalizeNamedComboGroup(group as Partial<NamedComboGroup>))
           .filter((group): group is NamedComboGroup => group !== null)
       : fallback.namedComboGroups,
+    moveStats: imported.moveStats ? normalizeMoveStats(imported.moveStats) : fallback.moveStats,
     createdBy: typeof imported.createdBy === 'string' ? imported.createdBy : fallback.createdBy,
     createdAt: typeof imported.createdAt === 'string' ? imported.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),
@@ -245,6 +268,13 @@ export type AppState = {
 
   /** バックアップJSONからのインポート。id一致するキャラのみ上書きし、固定31枠の構造は保つ */
   restoreCharacters: (imported: Partial<Character>[]) => void;
+
+  // 技データ編集画面（技ごとのダメージ・ゲージ数値。頻繁に変える想定がないため、
+  // メインのコンボ編集画面とは別に、キャラ選択カードの小さなボタンからのみ入る）
+  moveStatsCharacterId: string | null;
+  openMoveStatsEditor: (characterId: string) => void;
+  closeMoveStatsEditor: () => void;
+  setMoveStats: (characterId: string, moveName: string, stats: MoveStats) => void;
 
   // 技マスタ（特殊技・必殺技・SAはキャラ固有。ユーザーが登録したものを再利用できる）
   addMoveDefinition: (
@@ -505,6 +535,32 @@ export const useAppStore = create<AppState>()(
             const match = imported.find((item) => item.id === current.id);
             return match ? normalizeImportedCharacter(match, current) : current;
           }),
+        }));
+      },
+
+      // ──── 技データ編集画面 ───────────────────────────────────────────
+
+      moveStatsCharacterId: null,
+
+      openMoveStatsEditor: (characterId) => {
+        set({ moveStatsCharacterId: characterId });
+      },
+
+      closeMoveStatsEditor: () => {
+        set({ moveStatsCharacterId: null });
+      },
+
+      setMoveStats: (characterId, moveName, stats) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveStats: { ...character.moveStats, [moveName]: stats },
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
         }));
       },
 
