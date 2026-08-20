@@ -36,18 +36,18 @@ export type MoveDefinition = {
    */
   hasSpecialVariant?: boolean;
   /**
-   * hasSpecialVariantがtrueの技のみで使う。（必殺技は強度を選んだ後に）さらに選ばせる特殊性能の
-   * 選択肢一覧（例: イングリッドの「ビーム」で["ビームレベル2","ビームレベル3","ビームレベル4"]、
-   * 同時押し系の技で["AB同時押し","BC同時押し","AC同時押し"]、SAのホールドLvで["Lv2","Lv3"]）
+   * SA(superArt)のみで使う。技名選択時にさらに選ばせる特殊性能の選択肢一覧
+   * （例: SAのホールドLvで["Lv2","Lv3"]）。必殺技(special)は強度ごとに選択肢が異なりうる
+   * ため、代わりに specialVariantsByStrength を使う
    */
   specialVariantOptions?: string[];
   /**
-   * 必殺技(special)のみで使う。hasSpecialVariantがtrueの技のうち、実際に特殊性能が
-   * 適用される強度の一覧（未設定＝全強度に適用、従来通り）。イングリッドのサンフレアのように
-   * 「強とODだけストック段階で性能が変わり、弱・中は常に基本形のまま」という技のために用意した。
-   * 対象外の強度は特殊性能の選択肢を出さず、`${強度}${技名}` のまま確定する
+   * 必殺技(special)のみで使う。強度ごとに使える特殊性能の選択肢一覧
+   * （例: イングリッドのサンフレアで { 弱: ["チャージ"], 中: ["Lv.0"], 強: ["Lv.1","Lv.2"],
+   * OD: ["Lv.1","Lv.2"] }）。キーが存在しない・空配列の強度は特殊性能なしの
+   * プレーンな `${強度}${技名}` のまま確定する
    */
-  specialVariantStrengths?: MoveStrength[];
+  specialVariantsByStrength?: Partial<Record<MoveStrength, string[]>>;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────

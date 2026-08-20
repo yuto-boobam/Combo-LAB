@@ -20,7 +20,6 @@ import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import type { MoveDefinition, MoveStrength } from '../../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../../data/commonMoves';
-import { isSpecialVariantAppliedTo } from '../../utils/specialVariant';
 import AccordionSection from '../AccordionSection';
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
@@ -262,8 +261,8 @@ function SpecialMoveGroupBody({
   const setMoveDefinitionHasSpecialVariant = useAppStore(
     (state) => state.setMoveDefinitionHasSpecialVariant,
   );
-  const setMoveDefinitionSpecialVariantStrengths = useAppStore(
-    (state) => state.setMoveDefinitionSpecialVariantStrengths,
+  const setMoveDefinitionSpecialVariantsForStrength = useAppStore(
+    (state) => state.setMoveDefinitionSpecialVariantsForStrength,
   );
   const [draftName, setDraftName] = useState('');
   const [draftShortName, setDraftShortName] = useState('');
@@ -398,44 +397,26 @@ function SpecialMoveGroupBody({
 
             {pickingMove.hasSpecialVariant && (
               <>
-                <div style={{ ...styles.buttonRow, marginTop: 8 }}>
-                  {SPECIAL_MOVE_STRENGTHS.map((strength) => {
-                    const currentStrengths = pickingMove.specialVariantStrengths;
-                    const active =
-                      !currentStrengths || currentStrengths.length === 0 || currentStrengths.includes(strength);
-                    return (
-                      <MovePill
-                        key={strength}
-                        label={strength}
-                        active={active}
-                        onClick={() => {
-                          const base =
-                            currentStrengths && currentStrengths.length > 0
-                              ? currentStrengths
-                              : SPECIAL_MOVE_STRENGTHS;
-                          const next = base.includes(strength)
-                            ? base.filter((item) => item !== strength)
-                            : [...base, strength];
-                          setMoveDefinitionSpecialVariantStrengths(characterId, pickingMove.id, next);
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-                <p style={styles.emptyHint}>
-                  チェックした強度だけ特殊性能の選択肢を使う（すべて選択中＝全強度に適用、従来通り）
-                </p>
-
-                {isSpecialVariantAppliedTo(pickingMove, pickingMoveMatch?.strength ?? null) && (
+                {pickingMoveMatch ? (
                   <SpecialVariantRegistration
-                    characterId={characterId}
-                    move={pickingMove}
-                    activeVariant={pickingMoveMatch?.subLevel ?? null}
-                    onSelectVariant={(variant) => {
-                      if (!pickingMoveMatch) return;
-                      onChange(`${pickingMoveMatch.strength}${pickingMove.name}(${variant})`, variant);
-                    }}
+                    options={pickingMove.specialVariantsByStrength?.[pickingMoveMatch.strength] ?? []}
+                    activeVariant={pickingMoveMatch.subLevel}
+                    onSelectVariant={(variant) =>
+                      onChange(`${pickingMoveMatch.strength}${pickingMove.name}(${variant})`, variant)
+                    }
+                    onOptionsChange={(next) =>
+                      setMoveDefinitionSpecialVariantsForStrength(
+                        characterId,
+                        pickingMove.id,
+                        pickingMoveMatch.strength,
+                        next,
+                      )
+                    }
                   />
+                ) : (
+                  <p style={styles.emptyHint}>
+                    上の「強度選択」で強度を選ぶと、その強度で使う特殊性能を登録できます（強度ごとに個別に登録します）
+                  </p>
                 )}
               </>
             )}
@@ -488,40 +469,32 @@ function SpecialMoveGroupBody({
 /**
  * 特殊性能（ストック・同時押しなど）の選択肢を、必殺技の登録と同じ感覚で1件ずつ登録・削除する。
  * ピル自体をクリックすると選択（呼び名として採用）でき、×で削除できる
- * （「特殊性能を選択」欄を別立てにせず、登録欄がそのまま選択欄を兼ねることで省スペース化している）
+ * （「特殊性能を選択」欄を別立てにせず、登録欄がそのまま選択欄を兼ねることで省スペース化している）。
+ * 選択肢一覧の保存先（SAは技全体で1つ、必殺技は強度ごとに個別）は呼び出し元に任せる
  */
 function SpecialVariantRegistration({
-  characterId,
-  move,
+  options,
   activeVariant,
   onSelectVariant,
+  onOptionsChange,
 }: {
-  characterId: string;
-  move: MoveDefinition;
+  options: string[];
   activeVariant: string | null;
   onSelectVariant: (variant: string) => void;
+  onOptionsChange: (next: string[]) => void;
 }) {
-  const setMoveDefinitionSpecialVariantOptions = useAppStore(
-    (state) => state.setMoveDefinitionSpecialVariantOptions,
-  );
   const [draftVariant, setDraftVariant] = useState('');
-
-  const options = move.specialVariantOptions ?? [];
 
   const handleAdd = () => {
     const trimmed = draftVariant.trim();
     if (!trimmed || options.includes(trimmed)) return;
 
-    setMoveDefinitionSpecialVariantOptions(characterId, move.id, [...options, trimmed]);
+    onOptionsChange([...options, trimmed]);
     setDraftVariant('');
   };
 
   const handleRemove = (variant: string) => {
-    setMoveDefinitionSpecialVariantOptions(
-      characterId,
-      move.id,
-      options.filter((option) => option !== variant),
-    );
+    onOptionsChange(options.filter((option) => option !== variant));
   };
 
   return (
@@ -589,6 +562,9 @@ function SuperArtGroupBody({
   const setMoveDefinitionHasSpecialVariant = useAppStore(
     (state) => state.setMoveDefinitionHasSpecialVariant,
   );
+  const setMoveDefinitionSpecialVariantOptions = useAppStore(
+    (state) => state.setMoveDefinitionSpecialVariantOptions,
+  );
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -625,10 +601,10 @@ function SuperArtGroupBody({
 
             {move.hasSpecialVariant && (
               <SpecialVariantRegistration
-                characterId={characterId}
-                move={move}
+                options={move.specialVariantOptions ?? []}
                 activeVariant={activeVariant}
                 onSelectVariant={(variant) => onChange(`${move.name}(${variant})`)}
+                onOptionsChange={(next) => setMoveDefinitionSpecialVariantOptions(characterId, move.id, next)}
               />
             )}
           </div>
