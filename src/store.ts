@@ -18,7 +18,11 @@ import type {
   NodeAttribute,
 } from './types';
 import { supabase } from './utils/supabaseClient';
-import { createInitialCharacterRoster, createDefaultSuperArtMoves } from './data/characterRoster';
+import {
+  createInitialCharacterRoster,
+  createDefaultSuperArtMoves,
+  createDefaultCriticalArtMove,
+} from './data/characterRoster';
 import { MOVE_STATS_SEED } from './data/moveStatsSeed';
 import { canEditMoveStatsLocally } from './utils/localEditAccess';
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
@@ -33,10 +37,22 @@ import { collectChain, findMatchingChains } from './utils/chainMatch';
  */
 function migrateLegacyCharacter(character: Character): Character {
   const hasSuperArtMove = character.moveList.some((move) => move.category === 'superArt');
+  // CAは既存キャラのSA1〜3が揃った後に追加された枠なので、SA自体は揃っていても
+  // CAだけ欠けているケースを別途補完する
+  const hasCriticalArtMove = character.moveList.some(
+    (move) => move.category === 'superArt' && move.name === 'CA',
+  );
+
+  let moveList = character.moveList;
+  if (!hasSuperArtMove) {
+    moveList = [...moveList, ...createDefaultSuperArtMoves()];
+  } else if (!hasCriticalArtMove) {
+    moveList = [...moveList, createDefaultCriticalArtMove()];
+  }
 
   return {
     ...character,
-    moveList: hasSuperArtMove ? character.moveList : [...character.moveList, ...createDefaultSuperArtMoves()],
+    moveList,
     namedComboGroups: Array.isArray(character.namedComboGroups) ? character.namedComboGroups : [],
   };
 }

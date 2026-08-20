@@ -234,7 +234,7 @@
         }
       ]
     },
-    "サンブライト": {
+    "6中P": {
       "isMultiHit": false,
       "hits": [
         {
@@ -247,7 +247,7 @@
         }
       ]
     },
-    "ヘイローステップ": {
+    "6強P": {
       "isMultiHit": false,
       "hits": [
         {
@@ -260,7 +260,7 @@
         }
       ]
     },
-    "エアリートス": {
+    "中P → 中K": {
       "isMultiHit": false,
       "hits": [
         {
@@ -273,7 +273,7 @@
         }
       ]
     },
-    "グロータッチ": {
+    "4中K->強P": {
       "isMultiHit": true,
       "hits": [
         {
@@ -294,7 +294,7 @@
         }
       ]
     },
-    "ルミナスアッパー": {
+    "4強P": {
       "isMultiHit": true,
       "hits": [
         {
@@ -315,7 +315,7 @@
         }
       ]
     },
-    "サテライトリープ": {
+    "J強K->強K": {
       "isMultiHit": false,
       "hits": [
         {
@@ -658,7 +658,7 @@
       "hits": [
         {
           "damage": 900,
-          "modifier": "",
+          "modifier": "始動補正30%＋コンボ補正20%",
           "dGaugeGain": 2000,
           "saGaugeGain": 700,
           "dGaugeChip": -2500,
@@ -671,7 +671,7 @@
       "hits": [
         {
           "damage": 1100,
-          "modifier": "",
+          "modifier": "始動補正30%＋コンボ補正20%",
           "dGaugeGain": 2000,
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
@@ -684,7 +684,7 @@
       "hits": [
         {
           "damage": 1350,
-          "modifier": "",
+          "modifier": "始動補正30%＋コンボ補正20%",
           "dGaugeGain": 3000,
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
@@ -697,7 +697,7 @@
       "hits": [
         {
           "damage": 1100,
-          "modifier": "",
+          "modifier": "始動補正30%＋コンボ補正20%",
           "dGaugeGain": 0,
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
@@ -710,7 +710,7 @@
       "hits": [
         {
           "damage": 1350,
-          "modifier": "",
+          "modifier": "始動補正30%＋コンボ補正20%",
           "dGaugeGain": 0,
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
@@ -723,7 +723,7 @@
       "hits": [
         {
           "damage": 1800,
-          "modifier": "",
+          "modifier": "始動補正30%＋コンボ補正20%",
           "dGaugeGain": 0,
           "saGaugeGain": 1600,
           "dGaugeChip": -8000,
@@ -749,7 +749,7 @@
       "hits": [
         {
           "damage": 900,
-          "modifier": "",
+          "modifier": "始動補正20%",
           "dGaugeGain": 2000,
           "saGaugeGain": 600,
           "dGaugeChip": -2500,
@@ -762,7 +762,7 @@
       "hits": [
         {
           "damage": 1100,
-          "modifier": "",
+          "modifier": "始動補正20%",
           "dGaugeGain": 2000,
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
@@ -775,7 +775,7 @@
       "hits": [
         {
           "damage": 1350,
-          "modifier": "",
+          "modifier": "始動補正30%",
           "dGaugeGain": 3000,
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
@@ -788,7 +788,7 @@
       "hits": [
         {
           "damage": 1100,
-          "modifier": "",
+          "modifier": "始動補正20%",
           "dGaugeGain": 0,
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
@@ -801,7 +801,7 @@
       "hits": [
         {
           "damage": 1350,
-          "modifier": "",
+          "modifier": "始動補正30%",
           "dGaugeGain": 0,
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
@@ -814,7 +814,7 @@
       "hits": [
         {
           "damage": 1800,
-          "modifier": "",
+          "modifier": "始動補正30%＋コンボ補正15%",
           "dGaugeGain": 0,
           "saGaugeGain": 1600,
           "dGaugeChip": -8000,
@@ -840,7 +840,7 @@
       "hits": [
         {
           "damage": 1100,
-          "modifier": "",
+          "modifier": "始動補正20%＋コンボ補正20%",
           "dGaugeGain": 2000,
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
@@ -858,6 +858,110 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -5000
+        }
+      ]
+    },
+    "強ソーラーフレア(空中ビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000
+        }
+      ]
+    },
+    "SA1(SA1|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 19000,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000
+        }
+      ]
+    },
+    "SA1(SA1|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000
+        }
+      ]
+    },
+    "SA1(SA1|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000
+        }
+      ]
+    },
+    "SA3": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 4000,
+          "modifier": "即時補正10%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -7500,
+          "dGaugeChipPunishCounter": -15000
+        }
+      ]
+    },
+    "SA2(SA2|LV. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1600,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7200
+        }
+      ]
+    },
+    "SA2(SA2|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -9600
+        }
+      ]
+    },
+    "SA2(SA2|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -10000,
+          "dGaugeChipPunishCounter": -12000
         }
       ]
     }

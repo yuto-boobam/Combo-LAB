@@ -98,7 +98,7 @@
           "空中ビーム|Lv. 0"
         ],
         "強": [
-          "空中ビーム|LV. 1",
+          "空中ビーム|Lv. 1",
           "空中ビーム|Lv. 2"
         ],
         "OD": [
@@ -444,8 +444,8 @@
                       },
                       {
                         "id": "msyjl1nfsvifxlheoda",
-                        "moveName": "強ソーラーフレア(空中ビーム|LV. 1)",
-                        "displayName": "空中ビーム|LV. 1",
+                        "moveName": "強ソーラーフレア(空中ビーム|Lv. 1)",
+                        "displayName": "空中ビーム|Lv. 1",
                         "attributes": [
                           {
                             "type": "delay"
@@ -691,6 +691,6 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-20T11:56:15.632Z",
+  "updatedAt": "2026-08-20T13:44:37.089Z",
   "moveStats": {}
 }
