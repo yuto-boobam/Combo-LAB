@@ -3,6 +3,7 @@ import { useAppStore } from './store';
 import { AuthPage } from './pages/AuthPage';
 import { CharacterSelectPage } from './pages/CharacterSelectPage';
 import { ComboTreePage } from './pages/ComboTreePage';
+import { MoveStatsPage } from './pages/MoveStatsPage';
 import { supabase } from './utils/supabaseClient';
 
 /**
@@ -17,6 +18,7 @@ function App() {
   const isGuest = useAppStore((s) => s.isGuest);
   const theme = useAppStore((s) => s.theme);
   const selectedCharacterId = useAppStore((s) => s.selectedCharacterId);
+  const moveStatsCharacterId = useAppStore((s) => s.moveStatsCharacterId);
 
   // 配色テーマをHTMLルート要素に反映（CSS変数の切り替えに使う）
   useEffect(() => {
@@ -64,7 +66,13 @@ function App() {
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden' }}>
-      {!selectedCharacterId ? <CharacterSelectPage /> : <ComboTreePage />}
+      {moveStatsCharacterId ? (
+        <MoveStatsPage />
+      ) : !selectedCharacterId ? (
+        <CharacterSelectPage />
+      ) : (
+        <ComboTreePage />
+      )}
     </div>
   );
 }

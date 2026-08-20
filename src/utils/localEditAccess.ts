@@ -9,3 +9,16 @@ export function isLoopbackHostname(hostname: string = window.location.hostname):
 export function canEditPatchNotesLocally(): boolean {
   return import.meta.env.DEV && isLoopbackHostname();
 }
+
+// 技データ（moveStatsSeed.ts）はビルドに同梱してゲスト含む全ユーザーが最初から
+// 見られるようにする一方、編集はメンテナが手元でnpm run devした時だけ行える
+// ようにする（編集結果をエクスポート→moveStatsSeed.tsに反映してコミットする運用）
+export function canEditMoveStatsLocally(): boolean {
+  return import.meta.env.DEV && isLoopbackHostname();
+}
+
+// ゲストモードのショーケースデータ（comboShowcaseSources/）の更新も、
+// メンテナが手元でnpm run devした時だけ行えるようにする
+export function canEditComboShowcaseLocally(): boolean {
+  return import.meta.env.DEV && isLoopbackHostname();
+}

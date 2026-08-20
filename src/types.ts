@@ -30,16 +30,24 @@ export type MoveDefinition = {
   // 必殺技(special)のみで使う、木のノード上に表示する短い呼び名。未設定なら name をそのまま使う
   shortName?: string;
   /**
-   * 必殺技(special)のみで使う。ストック・同時押しなど、強度だけでは技の状態を表現しきれない
-   * 技かどうか。falsyな技は強度選択だけで従来通り確定する（デフォルトの見た目・手数は変わらない）
+   * 必殺技(special)・SA(superArt)で使う。ストック・同時押し・ホールドLvなど、強度（必殺技）や
+   * 名前選択（SA）だけでは技の状態を表現しきれない技かどうか。falsyな技は従来通り確定する
+   * （デフォルトの見た目・手数は変わらない）
    */
   hasSpecialVariant?: boolean;
   /**
-   * hasSpecialVariantがtrueの技のみで使う。強度を選んだ後にさらに選ばせる特殊性能の選択肢一覧
-   * （例: イングリッドの「ビーム」で["ビームレベル2","ビームレベル3","ビームレベル4"]、
-   * 同時押し系の技で["AB同時押し","BC同時押し","AC同時押し"]）
+   * SA(superArt)のみで使う。技名選択時にさらに選ばせる特殊性能の選択肢一覧
+   * （例: SAのホールドLvで["Lv2","Lv3"]）。必殺技(special)は強度ごとに選択肢が異なりうる
+   * ため、代わりに specialVariantsByStrength を使う
    */
   specialVariantOptions?: string[];
+  /**
+   * 必殺技(special)のみで使う。強度ごとに使える特殊性能の選択肢一覧
+   * （例: イングリッドのサンフレアで { 弱: ["チャージ"], 中: ["Lv.0"], 強: ["Lv.1","Lv.2"],
+   * OD: ["Lv.1","Lv.2"] }）。キーが存在しない・空配列の強度は特殊性能なしの
+   * プレーンな `${強度}${技名}` のまま確定する
+   */
+  specialVariantsByStrength?: Partial<Record<MoveStrength, string[]>>;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
@@ -48,6 +56,7 @@ export type NodeAttributeType =
   | 'hit'              // ヒット
   | 'guard'            // ガード
   | 'whiff'            // 空振り
+  | 'situational'      // 状況限（本体色グループのクイック切替用。キャラ限定/位置限定でも同じ本体色になる）
   | 'characterLimited' // キャラ限定
   | 'positionLimited'  // 位置限定
   | 'counter'          // カウンター(CH)
@@ -118,6 +127,43 @@ export type MoveNode = {
    */
   groupId?: string;
 };
+
+// ── 技ごとの基礎数値 ──────────────────────────────────────────────────────
+
+/** 技1ヒットぶんの基礎数値 */
+export type MoveHitStats = {
+  damage: number | null;
+  modifier: string; // 補正の自由記述（例:「始動補正20%＋コンボ補正20%」）。基本は空文字
+  dGaugeGain: number | null;  // ヒット時のDゲージ回復量
+  saGaugeGain: number | null; // SAゲージ回収量
+  dGaugeChip: number | null;  // ガードされた時に相手のDゲージを削る量
+  dGaugeChipPunishCounter: number | null; // パニッシュカウンターでガードされた時に相手のDゲージを削る量（SAだけ「ヒット時」の削り量として扱う。MoveStatsPage参照）
+  // コンボ補正で減っても、ダメージがこの割合(%)を下回らないという最低保証(SA3は50%等)。
+  // 主にSA用だが型自体は全カテゴリ共通のMoveHitStatsに置く
+  minDamageGuaranteePercent: number | null;
+};
+
+/**
+ * 技1つぶんの基礎数値（キャラごとに異なる）。将来的な自動ダメージ・ゲージ計算の
+ * 足掛かりとして、まずは技マスタとは別に手入力させる。
+ *
+ * hitsは常に「1段目から順」の配列。isMultiHitがfalseの技は必ず1要素（技全体の数値）。
+ * trueの技はヒット数ぶんの要素を持ち、コンボのノード側で「何段目から何段目まで当たったか」
+ * を選ぶことで、そのノードのダメージ・ゲージ回収量を hits の該当区間の合計から自動計算できる
+ * （ノード側の選択UIは別途実装。技が同じでも当たった段数はコンボごとに変わるため）。
+ */
+export type MoveStats = {
+  isMultiHit: boolean;
+  hits: MoveHitStats[];
+};
+
+/**
+ * 技データベース。Characterからは独立させ、全キャラぶんを1つのオブジェクトとして
+ * 個別にエクスポート・インポートできるようにする（コンボの保存とは別ファイル運用）。
+ * キーはキャラID→技名。技名は木のノード上で使われるのと同じ文字列
+ * （必殺技は「弱波動拳」のように強度込みの文字列。src/components/combo/MoveNamePicker.tsx 参照）。
+ */
+export type MoveStatsDatabase = Record<string, Record<string, MoveStats>>;
 
 // ── コンボ木・キャラクター ──────────────────────────────────────────────────
 

@@ -9,12 +9,22 @@ import type {
   ComboTree,
   MoveCategory,
   MoveDefinition,
+  MoveHitStats,
   MoveNode,
+  MoveStats,
+  MoveStatsDatabase,
+  MoveStrength,
   NamedComboGroup,
   NodeAttribute,
 } from './types';
 import { supabase } from './utils/supabaseClient';
-import { createInitialCharacterRoster, createDefaultSuperArtMoves } from './data/characterRoster';
+import {
+  createInitialCharacterRoster,
+  createDefaultSuperArtMoves,
+  createDefaultCriticalArtMove,
+} from './data/characterRoster';
+import { MOVE_STATS_SEED } from './data/moveStatsSeed';
+import { canEditMoveStatsLocally } from './utils/localEditAccess';
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode, buildParentMap } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
@@ -27,10 +37,22 @@ import { collectChain, findMatchingChains } from './utils/chainMatch';
  */
 function migrateLegacyCharacter(character: Character): Character {
   const hasSuperArtMove = character.moveList.some((move) => move.category === 'superArt');
+  // CAは既存キャラのSA1〜3が揃った後に追加された枠なので、SA自体は揃っていても
+  // CAだけ欠けているケースを別途補完する
+  const hasCriticalArtMove = character.moveList.some(
+    (move) => move.category === 'superArt' && move.name === 'CA',
+  );
+
+  let moveList = character.moveList;
+  if (!hasSuperArtMove) {
+    moveList = [...moveList, ...createDefaultSuperArtMoves()];
+  } else if (!hasCriticalArtMove) {
+    moveList = [...moveList, createDefaultCriticalArtMove()];
+  }
 
   return {
     ...character,
-    moveList: hasSuperArtMove ? character.moveList : [...character.moveList, ...createDefaultSuperArtMoves()],
+    moveList,
     namedComboGroups: Array.isArray(character.namedComboGroups) ? character.namedComboGroups : [],
   };
 }
@@ -45,6 +67,8 @@ const VALID_MOVE_CATEGORIES: MoveCategory[] = [
   'superArt',
   'system',
 ];
+
+const VALID_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
 /** インポートしたJSONの1ノード分を、現行スキーマに合わせて正規化する（壊れたファイルでも落ちないようにする） */
 function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
@@ -85,6 +109,16 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     ? move.specialVariantOptions.filter((option): option is string => typeof option === 'string')
     : [];
 
+  const specialVariantsByStrength: Partial<Record<MoveStrength, string[]>> = {};
+  if (move.specialVariantsByStrength && typeof move.specialVariantsByStrength === 'object') {
+    for (const strength of VALID_MOVE_STRENGTHS) {
+      const options = (move.specialVariantsByStrength as Record<string, unknown>)[strength];
+      if (!Array.isArray(options)) continue;
+      const filtered = options.filter((option): option is string => typeof option === 'string');
+      if (filtered.length > 0) specialVariantsByStrength[strength] = filtered;
+    }
+  }
+
   return {
     id: typeof move.id === 'string' && move.id ? move.id : makeId(),
     name: move.name,
@@ -92,6 +126,8 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     shortName: typeof move.shortName === 'string' && move.shortName ? move.shortName : undefined,
     hasSpecialVariant: move.hasSpecialVariant === true ? true : undefined,
     specialVariantOptions: specialVariantOptions.length > 0 ? specialVariantOptions : undefined,
+    specialVariantsByStrength:
+      Object.keys(specialVariantsByStrength).length > 0 ? specialVariantsByStrength : undefined,
   };
 }
 
@@ -102,6 +138,47 @@ function normalizeNamedComboGroup(group: Partial<NamedComboGroup>): NamedComboGr
     id: typeof group.id === 'string' && group.id ? group.id : makeId(),
     name: group.name,
   };
+}
+
+const toNullableNumber = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) ? n : null);
+
+function normalizeMoveHitStats(value: unknown): MoveHitStats {
+  const s = (value && typeof value === 'object' ? value : {}) as Partial<MoveHitStats>;
+  return {
+    damage: toNullableNumber(s.damage),
+    modifier: typeof s.modifier === 'string' ? s.modifier : '',
+    dGaugeGain: toNullableNumber(s.dGaugeGain),
+    saGaugeGain: toNullableNumber(s.saGaugeGain),
+    dGaugeChip: toNullableNumber(s.dGaugeChip),
+    dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
+    minDamageGuaranteePercent: toNullableNumber(s.minDamageGuaranteePercent),
+  };
+}
+
+function normalizeMoveStatsEntry(value: unknown): MoveStats {
+  const s = (value && typeof value === 'object' ? value : {}) as Partial<MoveStats>;
+  const hits = Array.isArray(s.hits) ? s.hits.map(normalizeMoveHitStats) : [];
+  return {
+    isMultiHit: s.isMultiHit === true,
+    hits: hits.length > 0 ? hits : [normalizeMoveHitStats(undefined)],
+  };
+}
+
+/** インポートしたJSONの技データベース全体（キャラID→技名→技データ）を正規化する */
+function normalizeMoveStatsDatabase(value: unknown): MoveStatsDatabase {
+  if (!value || typeof value !== 'object') return {};
+
+  const result: MoveStatsDatabase = {};
+  for (const [characterId, moves] of Object.entries(value as Record<string, unknown>)) {
+    if (!moves || typeof moves !== 'object') continue;
+
+    const moveEntries: Record<string, MoveStats> = {};
+    for (const [moveName, stats] of Object.entries(moves as Record<string, unknown>)) {
+      moveEntries[moveName] = normalizeMoveStatsEntry(stats);
+    }
+    result[characterId] = moveEntries;
+  }
+  return result;
 }
 
 /** インポートしたキャラ1人分を正規化する。壊れている項目は現在の値（fallback）を維持する */
@@ -246,6 +323,19 @@ export type AppState = {
   /** バックアップJSONからのインポート。id一致するキャラのみ上書きし、固定31枠の構造は保つ */
   restoreCharacters: (imported: Partial<Character>[]) => void;
 
+  // 技データ編集画面（技ごとのダメージ・ゲージ数値。頻繁に変える想定がないため、
+  // メインのコンボ編集画面とは別に、キャラ選択カードの小さなボタンからのみ入る）。
+  // Characterとは独立した技データベース（moveStatsDatabase）として持ち、コンボの
+  // 保存とは別に「全キャラぶんまとめて1ファイル」でエクスポート・インポートできるようにする
+  moveStatsCharacterId: string | null;
+  openMoveStatsEditor: (characterId: string) => void;
+  closeMoveStatsEditor: () => void;
+
+  moveStatsDatabase: MoveStatsDatabase;
+  setMoveStats: (characterId: string, moveName: string, stats: MoveStats) => void;
+  /** 技データベース全体をJSONから読み込み、丸ごと置き換える */
+  restoreMoveStatsDatabase: (imported: unknown) => void;
+
   // 技マスタ（特殊技・必殺技・SAはキャラ固有。ユーザーが登録したものを再利用できる）
   addMoveDefinition: (
     characterId: string,
@@ -264,10 +354,17 @@ export type AppState = {
     moveId: string,
     hasSpecialVariant: boolean,
   ) => void;
-  /** 必殺技の特殊性能の選択肢一覧を編集する（空なら特殊性能の選択肢なしに戻す） */
+  /** SAの特殊性能の選択肢一覧を編集する（空なら特殊性能の選択肢なしに戻す） */
   setMoveDefinitionSpecialVariantOptions: (
     characterId: string,
     moveId: string,
+    options: string[],
+  ) => void;
+  /** 必殺技の、指定した強度で使える特殊性能の選択肢一覧を編集する（空ならその強度は特殊性能なしに戻す） */
+  setMoveDefinitionSpecialVariantsForStrength: (
+    characterId: string,
+    moveId: string,
+    strength: MoveStrength,
     options: string[],
   ) => void;
 
@@ -508,6 +605,36 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      // ──── 技データ編集画面 ───────────────────────────────────────────
+
+      moveStatsCharacterId: null,
+
+      openMoveStatsEditor: (characterId) => {
+        set({ moveStatsCharacterId: characterId });
+      },
+
+      closeMoveStatsEditor: () => {
+        set({ moveStatsCharacterId: null });
+      },
+
+      moveStatsDatabase: MOVE_STATS_SEED,
+
+      setMoveStats: (characterId, moveName, stats) => {
+        set((state) => ({
+          moveStatsDatabase: {
+            ...state.moveStatsDatabase,
+            [characterId]: {
+              ...state.moveStatsDatabase[characterId],
+              [moveName]: stats,
+            },
+          },
+        }));
+      },
+
+      restoreMoveStatsDatabase: (imported) => {
+        set({ moveStatsDatabase: normalizeMoveStatsDatabase(imported) });
+      },
+
       // ──── 技マスタ ───────────────────────────────────────────────────
 
       addMoveDefinition: (characterId, category, name, shortName) => {
@@ -608,6 +735,35 @@ export const useAppStore = create<AppState>()(
                       ? { ...move, specialVariantOptions: options.length > 0 ? options : undefined }
                       : move,
                   ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      setMoveDefinitionSpecialVariantsForStrength: (characterId, moveId, strength, options) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) => {
+                    if (move.id !== moveId) return move;
+
+                    const nextByStrength = { ...move.specialVariantsByStrength };
+                    if (options.length > 0) {
+                      nextByStrength[strength] = options;
+                    } else {
+                      delete nextByStrength[strength];
+                    }
+
+                    return {
+                      ...move,
+                      specialVariantsByStrength:
+                        Object.keys(nextByStrength).length > 0 ? nextByStrength : undefined,
+                    };
+                  }),
                   updatedAt: new Date().toISOString(),
                 }
               : character,
@@ -1256,6 +1412,7 @@ export const useAppStore = create<AppState>()(
         selectedCharacterId: state.selectedCharacterId,
         collapsedNodeIds: state.collapsedNodeIds,
         expandedGroupIds: state.expandedGroupIds,
+        moveStatsDatabase: state.moveStatsDatabase,
       }),
 
       merge: (persistedState, currentState) => {
@@ -1271,6 +1428,13 @@ export const useAppStore = create<AppState>()(
             Array.isArray(persisted?.characters) && persisted.characters.length > 0
               ? persisted.characters.map(migrateLegacyCharacter)
               : currentState.characters,
+          // 技データは「ローカル環境でのみ編集できる」運用のため、それ以外では常に
+          // ビルド同梱の正本（MOVE_STATS_SEED）を使う。ローカル編集中の下書きだけ
+          // localStorageの内容を採用する
+          moveStatsDatabase:
+            canEditMoveStatsLocally() && persisted?.moveStatsDatabase
+              ? normalizeMoveStatsDatabase(persisted.moveStatsDatabase)
+              : MOVE_STATS_SEED,
           user: currentState.user,
           nickname: persisted?.isGuest ? 'ゲスト' : currentState.nickname,
           isPatchNotesModalOpen: false,

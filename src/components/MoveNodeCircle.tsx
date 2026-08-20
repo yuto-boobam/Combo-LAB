@@ -209,13 +209,20 @@ export function MoveNodeCircle({
         </button>
       )}
 
-      {visual.isSituational && (
+      {visual.hasDelay && (
         <span
-          title="状況限定"
-          style={{ position: 'absolute', top: -3, right: -2, fontSize: 12, lineHeight: 1 }}
-        >
-          📍
-        </span>
+          title={node.specialNote || 'ディレイ'}
+          style={{
+            position: 'absolute',
+            top: -2,
+            right: -2,
+            width: 11,
+            height: 11,
+            borderRadius: '50%',
+            background: 'var(--node-delay-badge)',
+            border: '1.5px solid var(--bg-surface)',
+          }}
+        />
       )}
 
       <span
