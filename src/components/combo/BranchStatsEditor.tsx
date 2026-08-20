@@ -3,7 +3,7 @@
 // （表示するかどうかの判断は呼び出し側で行う。src/components/combo/SideDrawerPanel.tsx を参照）。
 
 import type { CSSProperties } from 'react';
-import type { ComboBranchStats, Rating5 } from '../../types';
+import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 
 type Props = {
   value: ComboBranchStats | null;
@@ -22,7 +22,13 @@ const DEFAULT_STATS: ComboBranchStats = {
   plusFrame: null,
   isThrowRange: false,
   canOkizeme: false,
+  startHitCondition: null,
+  isJustParryStart: false,
+  isRushStart: false,
+  usesCA: false,
 };
+
+const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
 
 export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) {
   const stats = value ?? DEFAULT_STATS;
@@ -101,6 +107,62 @@ export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) 
           onChange={(event) => update({ canOkizeme: event.target.checked })}
         />
         起き攻め可能
+      </label>
+
+      <div style={styles.fieldLabel}>
+        始動条件
+        <div style={{ display: 'flex', gap: 4 }}>
+          {START_HIT_CONDITIONS.map((condition) => {
+            const active = (stats.startHitCondition ?? null) === condition;
+            return (
+              <button
+                key={condition}
+                type="button"
+                onClick={() => update({ startHitCondition: active ? null : condition })}
+                disabled={readOnly}
+                style={{
+                  ...styles.conditionButton,
+                  borderColor: active ? 'var(--accent)' : 'var(--border)',
+                  background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                  color: active ? '#fff' : 'var(--text-secondary)',
+                  cursor: readOnly ? 'default' : 'pointer',
+                }}
+              >
+                {condition}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.isJustParryStart ?? false}
+          disabled={readOnly}
+          onChange={(event) => update({ isJustParryStart: event.target.checked })}
+        />
+        ジャストパリィ始動
+      </label>
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.isRushStart ?? false}
+          disabled={readOnly}
+          onChange={(event) => update({ isRushStart: event.target.checked })}
+        />
+        ラッシュ始動
+      </label>
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.usesCA ?? false}
+          disabled={readOnly}
+          onChange={(event) => update({ usesCA: event.target.checked })}
+        />
+        CA使用
       </label>
     </div>
   );
@@ -186,6 +248,14 @@ const styles: Record<string, CSSProperties> = {
   ratingButton: {
     width: 26,
     height: 26,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    fontSize: 11,
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  conditionButton: {
+    padding: '4px 10px',
     borderRadius: 8,
     border: '1px solid var(--border)',
     fontSize: 11,

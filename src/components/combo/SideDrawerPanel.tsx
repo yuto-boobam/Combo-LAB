@@ -7,7 +7,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
-import type { ComboTree, MoveNode, NodeAttribute } from '../../types';
+import type { ComboBranchStats, ComboTree, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { MoveNamePicker } from './MoveNamePicker';
@@ -418,8 +418,31 @@ function MatchResultsPanel({
   );
 }
 
+// 「コンボの情報」バッジに表示する件数。記入済みの項目がひと目で分かるよう、
+// 未入力(null/false/初期値)を除いた項目数を数える
+function countFilledBranchStats(stats: ComboBranchStats | null): number {
+  if (!stats) return 0;
+  return [
+    stats.damage !== null,
+    stats.dGaugeChange !== null,
+    stats.saGaugeGain !== null,
+    stats.damageRating !== null,
+    stats.dGaugeRating !== null,
+    stats.saGaugeRating !== null,
+    stats.overallRating !== null,
+    stats.plusFrame !== null,
+    stats.isThrowRange,
+    stats.canOkizeme,
+    stats.startHitCondition !== null,
+    stats.isJustParryStart,
+    stats.isRushStart,
+    stats.usesCA,
+  ].filter(Boolean).length;
+}
+
 function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
   const [isOpen, setIsOpen] = useState(true);
+  const [isStatsOpen, setIsStatsOpen] = useState(true);
 
   if (!selectedNode) {
     return (
@@ -434,30 +457,37 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
   return (
-    <AccordionSection
-      title={`選択中のノード：${selectedNode.moveName}`}
-      icon="👁️"
-      count={selectedNode.attributes.length}
-      isOpen={isOpen}
-      onToggle={() => setIsOpen((open) => !open)}
-    >
-      <div style={{ display: 'grid', gap: 10 }}>
-        <AttributeEditor
-          value={selectedNode.attributes}
-          onChange={() => {}}
-          readOnly
-          specialNote={selectedNode.specialNote}
-          onSpecialNoteChange={() => {}}
-        />
+    <>
+      {showStats && (
+        <AccordionSection
+          title="コンボの情報"
+          icon="📊"
+          count={countFilledBranchStats(selectedNode.branchStats)}
+          isOpen={isStatsOpen}
+          onToggle={() => setIsStatsOpen((open) => !open)}
+        >
+          <BranchStatsEditor value={selectedNode.branchStats} onChange={() => {}} readOnly />
+        </AccordionSection>
+      )}
 
-        {showStats && (
-          <div style={{ marginTop: 4 }}>
-            <div style={styles.sectionTitle}>この枝の統計</div>
-            <BranchStatsEditor value={selectedNode.branchStats} onChange={() => {}} readOnly />
-          </div>
-        )}
-      </div>
-    </AccordionSection>
+      <AccordionSection
+        title={`選択中のノード：${selectedNode.moveName}`}
+        icon="👁️"
+        count={selectedNode.attributes.length}
+        isOpen={isOpen}
+        onToggle={() => setIsOpen((open) => !open)}
+      >
+        <div style={{ display: 'grid', gap: 10 }}>
+          <AttributeEditor
+            value={selectedNode.attributes}
+            onChange={() => {}}
+            readOnly
+            specialNote={selectedNode.specialNote}
+            onSpecialNoteChange={() => {}}
+          />
+        </div>
+      </AccordionSection>
+    </>
   );
 }
 
@@ -548,8 +578,9 @@ function NodeEditor({
   const [editedMoveName, setEditedMoveName] = useState(selectedNode.moveName);
   const [editedDisplayName, setEditedDisplayName] = useState(selectedNode.displayName);
 
-  // 「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
-  // ノードを切り替えるたびに（keyでの再マウントにより）両方とも開いた状態に戻る
+  // 「コンボの情報」「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
+  // ノードを切り替えるたびに（keyでの再マウントにより）すべて開いた状態に戻る
+  const [isStatsOpen, setIsStatsOpen] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(true);
   const [isAddFormOpen, setIsAddFormOpen] = useState(true);
 
@@ -577,6 +608,21 @@ function NodeEditor({
 
   return (
     <>
+      {showStatsEditor && (
+        <AccordionSection
+          title="コンボの情報"
+          icon="📊"
+          count={countFilledBranchStats(selectedNode.branchStats)}
+          isOpen={isStatsOpen}
+          onToggle={() => setIsStatsOpen((open) => !open)}
+        >
+          <BranchStatsEditor
+            value={selectedNode.branchStats}
+            onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
+          />
+        </AccordionSection>
+      )}
+
       <AccordionSection
         title={`選択中のノード：${selectedNode.moveName}`}
         icon="✏️"
@@ -617,16 +663,6 @@ function NodeEditor({
               updateNodeSpecialNote(characterId, treeId, selectedNode.id, note)
             }
           />
-
-          {showStatsEditor && (
-            <div style={{ marginTop: 4 }}>
-              <div style={styles.sectionTitle}>この枝の統計</div>
-              <BranchStatsEditor
-                value={selectedNode.branchStats}
-                onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
-              />
-            </div>
-          )}
 
           <button
             type="button"
@@ -747,11 +783,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.7,
     color: 'var(--text-muted)',
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 900,
-    color: 'var(--text-primary)',
   },
   fieldLabel: {
     display: 'grid',

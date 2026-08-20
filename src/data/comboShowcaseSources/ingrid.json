@@ -570,7 +570,11 @@
                       {
                         "id": "msziv287omeq39vqzk",
                         "moveName": "J中P",
-                        "attributes": [],
+                        "attributes": [
+                          {
+                            "type": "delay"
+                          }
+                        ],
                         "specialNote": "",
                         "branchStats": null,
                         "createdBy": "ローカル",
@@ -686,6 +690,6 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-20T14:38:50.267Z",
+  "updatedAt": "2026-08-20T15:03:49.207Z",
   "moveStats": {}
 }
