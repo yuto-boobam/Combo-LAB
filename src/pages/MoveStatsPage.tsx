@@ -8,19 +8,33 @@
 // 一覧に並べる技は、通常技（commonMoves.ts）＋キャラ固有技（Character.moveList）の全部。
 // 必殺技は強度（弱/中/強/OD）ごとにダメージ等が変わるため、MoveNamePicker で実際に
 // 選べる「弱波動拳」のような強度込みの文字列に展開して1行ずつ表示する
-// （Character.moveStats のキーもこの文字列と揃える）。
+// （moveStatsDatabase のキーもこの文字列と揃える）。
+//
+// 複数ヒット技（例: 三段技で200/200/400ダメージ）は「複数ヒット」にチェックを入れると
+// 段ごとの数値を個別入力できる。コンボ中に何段目から何段目まで当たったかを選んで
+// 該当区間の合計を自動計算する機能は別途（ノード側）実装する。
+//
+// 技データはComboTree等とは別に moveStatsDatabase（キャラID→技名→技データ）として持ち、
+// キャラのコンボ保存とは独立して「全キャラぶんまとめて1ファイル」でバックアップできるように
+// している（エクスポート/インポートはキャラ選択画面のHeaderの「バックアップ」メニューから行う）。
+//
+// この技データはビルドに同梱される共有の参照情報（src/data/moveStatsSeed.ts）で、
+// ゲスト含む全ユーザーが最初から閲覧できる。編集はメンテナがローカル環境で
+// npm run devした時だけ行える（詳細は src/utils/localEditAccess.ts 参照）。
 
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import AccordionSection from '../components/AccordionSection';
-import type { MoveStats, MoveStrength } from '../types';
+import type { MoveHitStats, MoveStats, MoveStrength } from '../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../data/commonMoves';
+import { canEditMoveStatsLocally } from '../utils/localEditAccess';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
-const EMPTY_STATS: MoveStats = { damage: null, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null };
+const EMPTY_HIT: MoveHitStats = { damage: null, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null };
+const EMPTY_STATS: MoveStats = { isMultiHit: false, hits: [EMPTY_HIT] };
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
 
@@ -28,8 +42,10 @@ export function MoveStatsPage() {
   const isGuest = useAppStore((state) => state.isGuest);
   const characterId = useAppStore((state) => state.moveStatsCharacterId);
   const closeMoveStatsEditor = useAppStore((state) => state.closeMoveStatsEditor);
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const characters = useVisibleCharacters();
   const character = characters.find((item) => item.id === characterId);
+  const readOnly = isGuest || !canEditMoveStatsLocally();
 
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     normal: true,
@@ -45,6 +61,8 @@ export function MoveStatsPage() {
     closeMoveStatsEditor();
     return null;
   }
+
+  const moveStats = moveStatsDatabase[character.id] ?? {};
 
   const uniqueMoves = character.moveList.filter((move) => move.category === 'unique');
   const specialMoves = character.moveList.filter((move) => move.category === 'special');
@@ -64,6 +82,15 @@ export function MoveStatsPage() {
         <div style={styles.list}>
           <p style={styles.hint}>
             コンボのダメージ・ゲージ回収量を将来自動計算するための、技ごとの基礎数値です。空欄のままでも他の機能には影響しません。
+            エクスポート・インポートはキャラ選択画面の「バックアップ」から行えます。
+            {!readOnly ? null : (
+              <>
+                {' '}
+                {isGuest
+                  ? '閲覧専用モードのため編集はできません。'
+                  : 'この数値はローカル環境（npm run dev）でのみ編集できます。'}
+              </>
+            )}
           </p>
 
           <AccordionSection
@@ -76,8 +103,8 @@ export function MoveStatsPage() {
             <MoveStatsTable
               characterId={character.id}
               moveNames={normalMoveNames}
-              moveStats={character.moveStats}
-              readOnly={isGuest}
+              moveStats={moveStats}
+              readOnly={readOnly}
             />
           </AccordionSection>
 
@@ -92,8 +119,8 @@ export function MoveStatsPage() {
               <MoveStatsTable
                 characterId={character.id}
                 moveNames={specialMoveNames}
-                moveStats={character.moveStats}
-                readOnly={isGuest}
+                moveStats={moveStats}
+                readOnly={readOnly}
               />
             ) : (
               <p style={styles.emptyHint}>
@@ -112,8 +139,8 @@ export function MoveStatsPage() {
             <MoveStatsTable
               characterId={character.id}
               moveNames={superArtMoveNames}
-              moveStats={character.moveStats}
-              readOnly={isGuest}
+              moveStats={moveStats}
+              readOnly={readOnly}
             />
           </AccordionSection>
 
@@ -127,8 +154,8 @@ export function MoveStatsPage() {
             <MoveStatsTable
               characterId={character.id}
               moveNames={SYSTEM_MOVE_NAMES}
-              moveStats={character.moveStats}
-              readOnly={isGuest}
+              moveStats={moveStats}
+              readOnly={readOnly}
             />
           </AccordionSection>
         </div>
@@ -150,65 +177,156 @@ function MoveStatsTable({
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
-  const updateField = (moveName: string, field: keyof MoveStats, rawValue: string) => {
+  const toggleMultiHit = (moveName: string) => {
     const current = moveStats[moveName] ?? EMPTY_STATS;
+    setMoveStats(
+      characterId,
+      moveName,
+      current.isMultiHit
+        ? { isMultiHit: false, hits: [current.hits[0] ?? EMPTY_HIT] }
+        : { isMultiHit: true, hits: [current.hits[0] ?? EMPTY_HIT, EMPTY_HIT] },
+    );
+  };
+
+  const updateHitField = (
+    moveName: string,
+    hitIndex: number,
+    field: keyof MoveHitStats,
+    rawValue: string,
+  ) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    const value = rawValue === '' ? null : Number(rawValue);
     setMoveStats(characterId, moveName, {
       ...current,
-      [field]: rawValue === '' ? null : Number(rawValue),
+      hits: current.hits.map((hit, index) => (index === hitIndex ? { ...hit, [field]: value } : hit)),
+    });
+  };
+
+  const addHit = (moveName: string) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    setMoveStats(characterId, moveName, { ...current, hits: [...current.hits, EMPTY_HIT] });
+  };
+
+  const removeHit = (moveName: string, hitIndex: number) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    if (current.hits.length <= 1) return; // 最低1段は残す
+    setMoveStats(characterId, moveName, {
+      ...current,
+      hits: current.hits.filter((_, index) => index !== hitIndex),
     });
   };
 
   return (
-    <div style={styles.table}>
-      <div style={{ ...styles.row, ...styles.headerRow }}>
-        <span style={styles.nameCell}>技名</span>
+    <div style={styles.moveList}>
+      <div style={{ ...styles.hitRow, ...styles.headerRow }}>
+        <span style={styles.hitLabelCell} />
         <span style={styles.numHeaderCell}>ダメージ</span>
         <span style={styles.numHeaderCell}>Dゲージ回収</span>
         <span style={styles.numHeaderCell}>SAゲージ回収</span>
         <span style={styles.numHeaderCell}>Dゲージ削り</span>
+        <span style={styles.hitRemoveCell} />
       </div>
 
       {moveNames.map((moveName) => {
         const stats = moveStats[moveName] ?? EMPTY_STATS;
+
         return (
-          <div key={moveName} style={styles.row}>
-            <span style={styles.nameCell}>{moveName}</span>
-            <input
-              type="number"
-              className="input-field"
-              style={styles.numInput}
-              value={stats.damage ?? ''}
-              readOnly={readOnly}
-              onChange={(event) => updateField(moveName, 'damage', event.target.value)}
-            />
-            <input
-              type="number"
-              className="input-field"
-              style={styles.numInput}
-              value={stats.dGaugeGain ?? ''}
-              readOnly={readOnly}
-              onChange={(event) => updateField(moveName, 'dGaugeGain', event.target.value)}
-            />
-            <input
-              type="number"
-              className="input-field"
-              style={styles.numInput}
-              value={stats.saGaugeGain ?? ''}
-              readOnly={readOnly}
-              onChange={(event) => updateField(moveName, 'saGaugeGain', event.target.value)}
-            />
-            <input
-              type="number"
-              className="input-field"
-              style={styles.numInput}
-              value={stats.dGaugeChip ?? ''}
-              readOnly={readOnly}
-              onChange={(event) => updateField(moveName, 'dGaugeChip', event.target.value)}
-            />
+          <div key={moveName} style={styles.moveBlock}>
+            <div style={styles.moveHeaderRow}>
+              <span style={styles.nameCell}>{moveName}</span>
+              <label style={styles.multiHitLabel}>
+                <input
+                  type="checkbox"
+                  checked={stats.isMultiHit}
+                  disabled={readOnly}
+                  onChange={() => toggleMultiHit(moveName)}
+                />
+                複数ヒット
+              </label>
+            </div>
+
+            {stats.isMultiHit ? (
+              <div style={styles.hitsBlock}>
+                {stats.hits.map((hit, index) => (
+                  <div key={index} style={styles.hitRow}>
+                    <span style={styles.hitLabelCell}>{index + 1}段目</span>
+                    <HitFields
+                      hit={hit}
+                      readOnly={readOnly}
+                      onChange={(field, value) => updateHitField(moveName, index, field, value)}
+                    />
+                    <span style={styles.hitRemoveCell}>
+                      <button
+                        type="button"
+                        title="この段を削除"
+                        style={styles.hitRemoveButton}
+                        disabled={readOnly || stats.hits.length <= 1}
+                        onClick={() => removeHit(moveName, index)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={styles.addHitButton}
+                  disabled={readOnly}
+                  onClick={() => addHit(moveName)}
+                >
+                  ＋ 段を追加
+                </button>
+              </div>
+            ) : (
+              <div style={styles.hitRow}>
+                <span style={styles.hitLabelCell} />
+                <HitFields
+                  hit={stats.hits[0] ?? EMPTY_HIT}
+                  readOnly={readOnly}
+                  onChange={(field, value) => updateHitField(moveName, 0, field, value)}
+                />
+                <span style={styles.hitRemoveCell} />
+              </div>
+            )}
           </div>
         );
       })}
     </div>
+  );
+}
+
+function HitFields({
+  hit,
+  readOnly,
+  onChange,
+}: {
+  hit: MoveHitStats;
+  readOnly: boolean;
+  onChange: (field: keyof MoveHitStats, rawValue: string) => void;
+}) {
+  const fields: { key: keyof MoveHitStats }[] = [
+    { key: 'damage' },
+    { key: 'dGaugeGain' },
+    { key: 'saGaugeGain' },
+    { key: 'dGaugeChip' },
+  ];
+
+  return (
+    <>
+      {fields.map(({ key }) => (
+        <input
+          key={key}
+          type="number"
+          className="input-field"
+          style={styles.numInput}
+          value={hit[key] ?? ''}
+          readOnly={readOnly}
+          onChange={(event) => onChange(key, event.target.value)}
+        />
+      ))}
+    </>
   );
 }
 
@@ -223,7 +341,7 @@ const styles: Record<string, CSSProperties> = {
   },
   list: {
     width: '100%',
-    maxWidth: 760,
+    maxWidth: 780,
     display: 'grid',
     gap: 10,
     alignContent: 'start',
@@ -234,22 +352,31 @@ const styles: Record<string, CSSProperties> = {
     color: 'var(--text-muted)',
     margin: 0,
   },
+  toolbar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  toolbarButton: {
+    fontSize: 12,
+  },
   emptyHint: {
     fontSize: 12,
     color: 'var(--text-muted)',
   },
-  table: {
+  moveList: {
+    display: 'grid',
+    gap: 10,
+  },
+  moveBlock: {
     display: 'grid',
     gap: 4,
   },
-  row: {
-    display: 'grid',
-    gridTemplateColumns: '1fr repeat(4, 84px)',
-    gap: 6,
+  moveHeaderRow: {
+    display: 'flex',
     alignItems: 'center',
-  },
-  headerRow: {
-    paddingBottom: 2,
+    justifyContent: 'space-between',
+    gap: 8,
   },
   nameCell: {
     fontSize: 12,
@@ -258,6 +385,55 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+  },
+  multiHitLabel: {
+    flex: '0 0 auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+  },
+  hitsBlock: {
+    display: 'grid',
+    gap: 4,
+    paddingLeft: 10,
+    borderLeft: '2px solid var(--border)',
+  },
+  hitRow: {
+    display: 'grid',
+    gridTemplateColumns: '54px repeat(4, 84px) 20px',
+    gap: 6,
+    alignItems: 'center',
+  },
+  headerRow: {
+    paddingBottom: 2,
+  },
+  hitLabelCell: {
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+  },
+  hitRemoveCell: {
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  hitRemoveButton: {
+    width: 18,
+    height: 18,
+    borderRadius: '50%',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    color: 'var(--text-muted)',
+    fontSize: 10,
+    lineHeight: 1,
+    cursor: 'pointer',
+  },
+  addHitButton: {
+    justifySelf: 'start',
+    fontSize: 11,
+    padding: '4px 10px',
   },
   numHeaderCell: {
     fontSize: 10,

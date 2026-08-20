@@ -10,6 +10,7 @@ import { useAppStore } from '../store';
 import type { Character } from '../types';
 import { getStoredFileHandle, setStoredFileHandle } from '../utils/fileHandleStore';
 import { downloadJson } from '../utils/downloadJson';
+import { canEditMoveStatsLocally } from '../utils/localEditAccess';
 import PatchNotesModal from './patchNotes/PatchNotesModal';
 import { NicknameDisplay } from './NicknameDisplay';
 
@@ -70,11 +71,15 @@ export default function Header({
   const closePatchNotesModal = useAppStore((state) => state.closePatchNotesModal);
 
   const restoreCharacters = useAppStore((state) => state.restoreCharacters);
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
+  const restoreMoveStatsDatabase = useAppStore((state) => state.restoreMoveStatsDatabase);
+  const canEditMoveStats = !isGuest && canEditMoveStatsLocally();
 
   const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
   const [backupMenuPosition, setBackupMenuPosition] = useState({ top: 0, right: 0 });
   const backupButtonRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const moveStatsFileInputRef = useRef<HTMLInputElement>(null);
   // キャラごとにファイルハンドルをキャッシュする（単一のrefだと、Headerを
   // 再マウントせずにキャラを切り替えた時に前のキャラのハンドルを使い回してしまう）
   const saveFileHandleCacheRef = useRef<Map<string, FileSystemFileHandle>>(new Map());
@@ -126,6 +131,37 @@ export default function Header({
     if (!confirmed) return;
 
     restoreCharacters(importedCharacters);
+  };
+
+  const handleExportMoveStats = () => {
+    downloadJson('combo-lab-move-stats.json', moveStatsDatabase);
+    setIsBackupMenuOpen(false);
+  };
+
+  const handleImportMoveStatsButtonClick = () => {
+    setIsBackupMenuOpen(false);
+    moveStatsFileInputRef.current?.click();
+  };
+
+  const handleImportMoveStatsFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {
+      window.alert('読み込みに失敗しました。技データのJSONファイルを選択してください。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      '技データ（全キャラぶん）を読み込みます。現在の技データは上書きされます。よろしいですか？',
+    );
+    if (!confirmed) return;
+
+    restoreMoveStatsDatabase(parsed);
   };
 
   const handleSaveOverwrite = async () => {
@@ -295,6 +331,30 @@ export default function Header({
                           </span>
                         </button>
                       )}
+
+                      <div style={styles.backupMenuDivider} />
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        style={styles.backupMenuItem}
+                        onClick={handleExportMoveStats}
+                      >
+                        <span>⬇️</span>
+                        <span>技データをエクスポート（全キャラぶん）</span>
+                      </button>
+
+                      {canEditMoveStats && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          style={styles.backupMenuItem}
+                          onClick={handleImportMoveStatsButtonClick}
+                        >
+                          <span>⬆️</span>
+                          <span>技データを読み込む</span>
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -305,6 +365,13 @@ export default function Header({
                   accept="application/json"
                   style={styles.hiddenFileInput}
                   onChange={handleImportFileChange}
+                />
+                <input
+                  ref={moveStatsFileInputRef}
+                  type="file"
+                  accept="application/json"
+                  style={styles.hiddenFileInput}
+                  onChange={handleImportMoveStatsFileChange}
                 />
               </div>
             )}
@@ -529,6 +596,11 @@ const styles: Record<string, CSSProperties> = {
     textAlign: 'left',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
+  },
+  backupMenuDivider: {
+    height: 1,
+    margin: '4px 2px',
+    background: 'var(--border)',
   },
   hiddenFileInput: {
     display: 'none',
