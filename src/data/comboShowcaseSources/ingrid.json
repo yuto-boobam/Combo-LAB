@@ -134,16 +134,6 @@
       "category": "unique"
     },
     {
-      "id": "mt13s41za9axzzi8jx",
-      "name": "4中K",
-      "category": "unique"
-    },
-    {
-      "id": "mt13sadvq8jtnu5six",
-      "name": "4強P",
-      "category": "unique"
-    },
-    {
       "id": "mt147uktyp8j8hssi3j",
       "name": "サンバニッシュ",
       "category": "special",
@@ -171,6 +161,11 @@
       "name": "サンヴェール",
       "category": "special",
       "shortName": "当て身"
+    },
+    {
+      "id": "sa-526",
+      "name": "CA",
+      "category": "superArt"
     }
   ],
   "comboTrees": [
@@ -691,6 +686,6 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-20T13:44:37.089Z",
+  "updatedAt": "2026-08-20T14:38:50.267Z",
   "moveStats": {}
 }

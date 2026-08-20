@@ -134,10 +134,13 @@ export type MoveNode = {
 export type MoveHitStats = {
   damage: number | null;
   modifier: string; // 補正の自由記述（例:「始動補正20%＋コンボ補正20%」）。基本は空文字
-  dGaugeGain: number | null;  // ヒット時のDゲージ回収量
+  dGaugeGain: number | null;  // ヒット時のDゲージ回復量
   saGaugeGain: number | null; // SAゲージ回収量
   dGaugeChip: number | null;  // ガードされた時に相手のDゲージを削る量
   dGaugeChipPunishCounter: number | null; // パニッシュカウンターでガードされた時に相手のDゲージを削る量（SAだけ「ヒット時」の削り量として扱う。MoveStatsPage参照）
+  // コンボ補正で減っても、ダメージがこの割合(%)を下回らないという最低保証(SA3は50%等)。
+  // 主にSA用だが型自体は全カテゴリ共通のMoveHitStatsに置く
+  minDamageGuaranteePercent: number | null;
 };
 
 /**

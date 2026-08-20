@@ -151,6 +151,7 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     saGaugeGain: toNullableNumber(s.saGaugeGain),
     dGaugeChip: toNullableNumber(s.dGaugeChip),
     dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
+    minDamageGuaranteePercent: toNullableNumber(s.minDamageGuaranteePercent),
   };
 }
 
