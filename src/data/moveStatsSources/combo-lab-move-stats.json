@@ -949,7 +949,7 @@
           "damage": 19000,
           "modifier": "",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -10000,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30
@@ -963,7 +963,7 @@
           "damage": 2300,
           "modifier": "",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -10000,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30
@@ -977,7 +977,7 @@
           "damage": 2700,
           "modifier": "",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -10000,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30
@@ -991,7 +991,7 @@
           "damage": 4000,
           "modifier": "即時補正10%",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -30000,
           "dGaugeChip": -7500,
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": 50
@@ -1005,7 +1005,7 @@
           "damage": 1600,
           "modifier": "即時補正20%",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -20000,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -7200,
           "minDamageGuaranteePercent": 40
@@ -1019,7 +1019,7 @@
           "damage": 2400,
           "modifier": "即時補正20%",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -20000,
           "dGaugeChip": -8000,
           "dGaugeChipPunishCounter": -9600,
           "minDamageGuaranteePercent": 40
@@ -1033,7 +1033,7 @@
           "damage": 3400,
           "modifier": "即時補正20%",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -20000,
           "dGaugeChip": -10000,
           "dGaugeChipPunishCounter": -12000,
           "minDamageGuaranteePercent": 40
@@ -1047,7 +1047,7 @@
           "damage": 4500,
           "modifier": "即時補正10%",
           "dGaugeGain": 0,
-          "saGaugeGain": 0,
+          "saGaugeGain": -30000,
           "dGaugeChip": -10000,
           "dGaugeChipPunishCounter": -20000,
           "minDamageGuaranteePercent": 50

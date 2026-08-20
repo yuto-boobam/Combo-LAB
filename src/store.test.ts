@@ -441,6 +441,10 @@ describe('一致箇所への一括反映機能', () => {
       plusFrame: null,
       isThrowRange: false,
       canOkizeme: false,
+      startHitCondition: null,
+      isJustParryStart: false,
+      isRushStart: false,
+      usesCA: false,
     });
 
     useAppStore.getState().startMatchMode(source.ids[0]);

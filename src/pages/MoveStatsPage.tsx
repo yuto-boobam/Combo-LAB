@@ -164,6 +164,7 @@ export function MoveStatsPage() {
               readOnly={readOnly}
               lastChipColumnLabel="ヒット"
               showMinGuaranteeColumn
+              saGaugeColumnLabel="SAゲージ消費量"
             />
           </AccordionSection>
 
@@ -194,6 +195,7 @@ function MoveStatsTable({
   readOnly,
   lastChipColumnLabel = 'パニカン',
   showMinGuaranteeColumn = false,
+  saGaugeColumnLabel = 'SAゲージ回収',
 }: {
   characterId: string;
   moveNames: string[];
@@ -205,6 +207,9 @@ function MoveStatsTable({
   // 「最低保証値」列はコンボ補正で減っても割合を下回らないSA特有の値のため、
   // superArtセクションだけ表示する
   showMinGuaranteeColumn?: boolean;
+  // SA自身は撃つとSAゲージを「消費」する（他の技のようにヒットで「回収」するわけではない）ため、
+  // superArtセクションだけラベルを差し替えられるようにする
+  saGaugeColumnLabel?: string;
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
@@ -258,7 +263,7 @@ function MoveStatsTable({
         <span style={styles.numHeaderCell}>ダメージ</span>
         <span style={styles.modHeaderCell}>補正</span>
         <span style={styles.numHeaderCell}>Dゲージ回復量</span>
-        <span style={styles.numHeaderCell}>SAゲージ回収</span>
+        <span style={styles.numHeaderCell}>{saGaugeColumnLabel}</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（ガード）</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（{lastChipColumnLabel}）</span>
         {showMinGuaranteeColumn && (
