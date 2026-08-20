@@ -16,3 +16,9 @@ export function canEditPatchNotesLocally(): boolean {
 export function canEditMoveStatsLocally(): boolean {
   return import.meta.env.DEV && isLoopbackHostname();
 }
+
+// ゲストモードのショーケースデータ（comboShowcaseSources/）の更新も、
+// メンテナが手元でnpm run devした時だけ行えるようにする
+export function canEditComboShowcaseLocally(): boolean {
+  return import.meta.env.DEV && isLoopbackHostname();
+}

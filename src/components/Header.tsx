@@ -10,16 +10,12 @@ import { useAppStore } from '../store';
 import type { Character } from '../types';
 import { getStoredFileHandle, setStoredFileHandle } from '../utils/fileHandleStore';
 import { downloadJson } from '../utils/downloadJson';
-import { canEditMoveStatsLocally } from '../utils/localEditAccess';
+import { canEditComboShowcaseLocally, canEditMoveStatsLocally } from '../utils/localEditAccess';
 import PatchNotesModal from './patchNotes/PatchNotesModal';
 import { NicknameDisplay } from './NicknameDisplay';
 
 const isFileSystemAccessSupported =
   typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function';
-
-// 技データは全キャラ共通の1ファイルなので、キャラのバックアップとは別の固定キーで
-// ファイルハンドルを覚える（src/utils/fileHandleStore.ts参照）
-const MOVE_STATS_FILE_HANDLE_KEY = 'combo-lab-move-stats-backup';
 
 function isCharacter(value: unknown): value is Character {
   return Boolean(value) && typeof value === 'object' && 'id' in (value as object);
@@ -78,6 +74,7 @@ export default function Header({
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const restoreMoveStatsDatabase = useAppStore((state) => state.restoreMoveStatsDatabase);
   const canEditMoveStats = !isGuest && canEditMoveStatsLocally();
+  const canEditComboShowcase = !isGuest && canEditComboShowcaseLocally();
 
   const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
   const [backupMenuPosition, setBackupMenuPosition] = useState({ top: 0, right: 0 });
@@ -87,8 +84,6 @@ export default function Header({
   // キャラごとにファイルハンドルをキャッシュする（単一のrefだと、Headerを
   // 再マウントせずにキャラを切り替えた時に前のキャラのハンドルを使い回してしまう）
   const saveFileHandleCacheRef = useRef<Map<string, FileSystemFileHandle>>(new Map());
-  // 技データは全キャラ共通の1ファイルなので、キャラ単位のキャッシュとは別に単一のrefで持つ
-  const moveStatsFileHandleRef = useRef<FileSystemFileHandle | null>(null);
 
   const handleBackupButtonClick = () => {
     const rect = backupButtonRef.current?.getBoundingClientRect();
@@ -170,45 +165,31 @@ export default function Header({
     restoreMoveStatsDatabase(parsed);
   };
 
-  const handleSaveOverwriteMoveStats = async () => {
+  // File System Access APIでの「上書き保存」だと、Windows側ブラウザからWSL内の
+  // プロジェクトパスへ辿り着けない環境があり不安定なため、開発サーバー自身に
+  // ファイルシステムへ直接書き込んでもらう方式にしている（vite-plugins/moveStatsApiPlugin.ts）。
+  // git commit → pushのイメージ（ローカルの技データを、プロジェクトのファイルへ反映する）
+  const handleSaveToProjectMoveStats = async () => {
     setIsBackupMenuOpen(false);
 
-    if (!isFileSystemAccessSupported || !window.showSaveFilePicker) {
-      handleExportMoveStats();
-      return;
-    }
-
     try {
-      let handle =
-        moveStatsFileHandleRef.current ??
-        (await getStoredFileHandle(MOVE_STATS_FILE_HANDLE_KEY)) ??
-        undefined;
+      const response = await fetch('/__combo-lab-api/move-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(moveStatsDatabase),
+      });
 
-      if (!handle) {
-        handle = await window.showSaveFilePicker({
-          suggestedName: 'combo-lab-move-stats.json',
-          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-        });
-        await setStoredFileHandle(MOVE_STATS_FILE_HANDLE_KEY, handle);
+      if (!response.ok) {
+        const message = await response.text();
+        window.alert(`プロジェクトへの保存に失敗しました。${message}`);
+        return;
       }
 
-      moveStatsFileHandleRef.current = handle;
-
-      const permission = await handle.queryPermission({ mode: 'readwrite' });
-      if (permission !== 'granted') {
-        const requested = await handle.requestPermission({ mode: 'readwrite' });
-        if (requested !== 'granted') {
-          window.alert('ファイルへの書き込み権限が許可されませんでした。');
-          return;
-        }
-      }
-
-      const writable = await handle.createWritable();
-      await writable.write(JSON.stringify(moveStatsDatabase, null, 2));
-      await writable.close();
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      window.alert('上書き保存に失敗しました。');
+      window.alert('技データをプロジェクトに保存しました。');
+    } catch {
+      window.alert(
+        'プロジェクトへの保存に失敗しました。npm run devで起動しているか確認してください。',
+      );
     }
   };
 
@@ -258,6 +239,34 @@ export default function Header({
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       window.alert('上書き保存に失敗しました。');
+    }
+  };
+
+  // ゲストモード（閲覧専用）向けのショーケースデータ（src/data/comboShowcaseSources/）を
+  // 更新する。「上書き保存」（パソコン内の任意のファイル）とは別に、プロジェクトの
+  // 決まった場所へ開発サーバー経由で直接書き込む（技データの「プロジェクトへ保存」と同じ考え方）
+  const handleSaveToProjectCombo = async () => {
+    setIsBackupMenuOpen(false);
+    if (!character) return;
+
+    try {
+      const response = await fetch('/__combo-lab-api/combo-showcase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(character),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        window.alert(`プロジェクトへの保存に失敗しました。${message}`);
+        return;
+      }
+
+      window.alert(`「${character.name}」のコンボをプロジェクトに保存しました。`);
+    } catch {
+      window.alert(
+        'プロジェクトへの保存に失敗しました。npm run devで起動しているか確認してください。',
+      );
     }
   };
 
@@ -380,6 +389,19 @@ export default function Header({
                         </button>
                       )}
 
+                      {character && canEditComboShowcase && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          style={styles.backupMenuItem}
+                          onClick={handleSaveToProjectCombo}
+                          title="開発サーバーを経由して、ゲスト用ショーケースデータへ直接保存します"
+                        >
+                          <span>💽</span>
+                          <span>コンボをプロジェクトへ保存（{character.name}）</span>
+                        </button>
+                      )}
+
                       <div style={styles.backupMenuDivider} />
 
                       <button
@@ -398,17 +420,11 @@ export default function Header({
                             type="button"
                             role="menuitem"
                             style={styles.backupMenuItem}
-                            onClick={handleSaveOverwriteMoveStats}
-                            title={
-                              isFileSystemAccessSupported
-                                ? undefined
-                                : 'このブラウザは上書き保存に非対応のため、新規ダウンロードになります'
-                            }
+                            onClick={handleSaveToProjectMoveStats}
+                            title="開発サーバーを経由して、プロジェクト内のJSONファイルへ直接保存します"
                           >
                             <span>💽</span>
-                            <span>
-                              技データを上書き保存{isFileSystemAccessSupported ? '' : '（新規DL）'}
-                            </span>
+                            <span>技データをプロジェクトへ保存</span>
                           </button>
 
                           <button
