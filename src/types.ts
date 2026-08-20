@@ -122,18 +122,35 @@ export type MoveNode = {
 
 // ── 技ごとの基礎数値 ──────────────────────────────────────────────────────
 
-/**
- * 技1つぶんの基礎数値（キャラごとに異なる）。将来的な自動ダメージ・ゲージ計算の
- * 足掛かりとして、まずは技マスタとは別に手入力させる。
- * Character.moveStats のキーは、木のノード上で使われるのと同じ技名文字列
- * （必殺技は「弱波動拳」のように強度込みの文字列。src/components/combo/MoveNamePicker.tsx 参照）。
- */
-export type MoveStats = {
+/** 技1ヒットぶんの基礎数値 */
+export type MoveHitStats = {
   damage: number | null;
   dGaugeGain: number | null;  // ヒット時のDゲージ回収量
   saGaugeGain: number | null; // SAゲージ回収量
   dGaugeChip: number | null;  // ガードされた時に相手のDゲージを削る量
 };
+
+/**
+ * 技1つぶんの基礎数値（キャラごとに異なる）。将来的な自動ダメージ・ゲージ計算の
+ * 足掛かりとして、まずは技マスタとは別に手入力させる。
+ *
+ * hitsは常に「1段目から順」の配列。isMultiHitがfalseの技は必ず1要素（技全体の数値）。
+ * trueの技はヒット数ぶんの要素を持ち、コンボのノード側で「何段目から何段目まで当たったか」
+ * を選ぶことで、そのノードのダメージ・ゲージ回収量を hits の該当区間の合計から自動計算できる
+ * （ノード側の選択UIは別途実装。技が同じでも当たった段数はコンボごとに変わるため）。
+ */
+export type MoveStats = {
+  isMultiHit: boolean;
+  hits: MoveHitStats[];
+};
+
+/**
+ * 技データベース。Characterからは独立させ、全キャラぶんを1つのオブジェクトとして
+ * 個別にエクスポート・インポートできるようにする（コンボの保存とは別ファイル運用）。
+ * キーはキャラID→技名。技名は木のノード上で使われるのと同じ文字列
+ * （必殺技は「弱波動拳」のように強度込みの文字列。src/components/combo/MoveNamePicker.tsx 参照）。
+ */
+export type MoveStatsDatabase = Record<string, Record<string, MoveStats>>;
 
 // ── コンボ木・キャラクター ──────────────────────────────────────────────────
 
@@ -158,8 +175,6 @@ export type Character = {
   moveList: MoveDefinition[];
   comboTrees: ComboTree[];
   namedComboGroups: NamedComboGroup[];
-  // 技名文字列をキーにした、技ごとの基礎数値（詳細は MoveStats 参照）
-  moveStats: Record<string, MoveStats>;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

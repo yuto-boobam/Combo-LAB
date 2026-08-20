@@ -478,3 +478,73 @@ describe('一致箇所への一括反映機能', () => {
     expect(useAppStore.getState().matchEditBeforeSnapshot).toBeNull();
   });
 });
+
+describe('技データベース（moveStatsDatabase）', () => {
+  beforeEach(() => {
+    useAppStore.setState({ characters: createInitialCharacterRoster(), moveStatsDatabase: {} });
+  });
+
+  it('setMoveStatsは指定キャラ・指定技だけを更新し、他キャラのデータには影響しない', () => {
+    const [charA, charB] = useAppStore.getState().characters;
+
+    useAppStore.getState().setMoveStats(charA.id, '弱P', {
+      isMultiHit: false,
+      hits: [{ damage: 300, dGaugeGain: 10, saGaugeGain: 5, dGaugeChip: 20 }],
+    });
+
+    expect(useAppStore.getState().moveStatsDatabase[charA.id]['弱P'].hits[0].damage).toBe(300);
+    expect(useAppStore.getState().moveStatsDatabase[charB.id]).toBeUndefined();
+  });
+
+  it('複数ヒット技はhitsに段数ぶんの数値を持ち、区間合計が手計算通りになる', () => {
+    const [char] = useAppStore.getState().characters;
+
+    // 三段技で200/200/400ダメージの例
+    useAppStore.getState().setMoveStats(char.id, '中K', {
+      isMultiHit: true,
+      hits: [
+        { damage: 200, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null },
+        { damage: 200, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null },
+        { damage: 400, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null },
+      ],
+    });
+
+    const stats = useAppStore.getState().moveStatsDatabase[char.id]['中K'];
+    const allHitsTotal = stats.hits.reduce((sum, hit) => sum + (hit.damage ?? 0), 0);
+    const lastTwoHitsTotal = stats.hits.slice(1, 3).reduce((sum, hit) => sum + (hit.damage ?? 0), 0);
+
+    expect(allHitsTotal).toBe(800);
+    expect(lastTwoHitsTotal).toBe(600);
+  });
+
+  it('restoreMoveStatsDatabaseは壊れた値をnullに落とし、hitsが空なら1要素で補う', () => {
+    const [char] = useAppStore.getState().characters;
+
+    useAppStore.getState().restoreMoveStatsDatabase({
+      [char.id]: {
+        '強P': { isMultiHit: false, hits: [{ damage: 'oops', dGaugeGain: 5, saGaugeGain: null, dGaugeChip: undefined }] },
+        '2強K': { isMultiHit: true, hits: [] },
+      },
+      '存在しないキャラ扱いでもそのまま保持': { x: { isMultiHit: false, hits: [{ damage: 1, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null }] } },
+    });
+
+    const db = useAppStore.getState().moveStatsDatabase;
+    expect(db[char.id]['強P']).toEqual({
+      isMultiHit: false,
+      hits: [{ damage: null, dGaugeGain: 5, saGaugeGain: null, dGaugeChip: null }],
+    });
+    // hitsが空配列で保存されていても、読み込み後は最低1要素に補完される
+    expect(db[char.id]['2強K'].hits).toHaveLength(1);
+  });
+
+  it('壊れたJSON（配列やnull）を読み込んでも空のデータベースにフォールバックする', () => {
+    useAppStore.getState().setMoveStats(useAppStore.getState().characters[0].id, '弱P', {
+      isMultiHit: false,
+      hits: [{ damage: 999, dGaugeGain: null, saGaugeGain: null, dGaugeChip: null }],
+    });
+
+    useAppStore.getState().restoreMoveStatsDatabase(null);
+
+    expect(useAppStore.getState().moveStatsDatabase).toEqual({});
+  });
+});

@@ -9,13 +9,17 @@ import type {
   ComboTree,
   MoveCategory,
   MoveDefinition,
+  MoveHitStats,
   MoveNode,
   MoveStats,
+  MoveStatsDatabase,
   NamedComboGroup,
   NodeAttribute,
 } from './types';
 import { supabase } from './utils/supabaseClient';
 import { createInitialCharacterRoster, createDefaultSuperArtMoves } from './data/characterRoster';
+import { MOVE_STATS_SEED } from './data/moveStatsSeed';
+import { canEditMoveStatsLocally } from './utils/localEditAccess';
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode, buildParentMap } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
@@ -33,7 +37,6 @@ function migrateLegacyCharacter(character: Character): Character {
     ...character,
     moveList: hasSuperArtMove ? character.moveList : [...character.moveList, ...createDefaultSuperArtMoves()],
     namedComboGroups: Array.isArray(character.namedComboGroups) ? character.namedComboGroups : [],
-    moveStats: character.moveStats && typeof character.moveStats === 'object' ? character.moveStats : {},
   };
 }
 
@@ -106,22 +109,40 @@ function normalizeNamedComboGroup(group: Partial<NamedComboGroup>): NamedComboGr
   };
 }
 
-/** インポートしたJSONのmoveStatsを正規化する（壊れた値はnullに落とし、それ以外は捨てる） */
-function normalizeMoveStats(value: unknown): Record<string, MoveStats> {
+const toNullableNumber = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) ? n : null);
+
+function normalizeMoveHitStats(value: unknown): MoveHitStats {
+  const s = (value && typeof value === 'object' ? value : {}) as Partial<MoveHitStats>;
+  return {
+    damage: toNullableNumber(s.damage),
+    dGaugeGain: toNullableNumber(s.dGaugeGain),
+    saGaugeGain: toNullableNumber(s.saGaugeGain),
+    dGaugeChip: toNullableNumber(s.dGaugeChip),
+  };
+}
+
+function normalizeMoveStatsEntry(value: unknown): MoveStats {
+  const s = (value && typeof value === 'object' ? value : {}) as Partial<MoveStats>;
+  const hits = Array.isArray(s.hits) ? s.hits.map(normalizeMoveHitStats) : [];
+  return {
+    isMultiHit: s.isMultiHit === true,
+    hits: hits.length > 0 ? hits : [normalizeMoveHitStats(undefined)],
+  };
+}
+
+/** インポートしたJSONの技データベース全体（キャラID→技名→技データ）を正規化する */
+function normalizeMoveStatsDatabase(value: unknown): MoveStatsDatabase {
   if (!value || typeof value !== 'object') return {};
 
-  const toNullableNumber = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) ? n : null);
+  const result: MoveStatsDatabase = {};
+  for (const [characterId, moves] of Object.entries(value as Record<string, unknown>)) {
+    if (!moves || typeof moves !== 'object') continue;
 
-  const result: Record<string, MoveStats> = {};
-  for (const [moveName, stats] of Object.entries(value as Record<string, unknown>)) {
-    if (!stats || typeof stats !== 'object') continue;
-    const s = stats as Partial<MoveStats>;
-    result[moveName] = {
-      damage: toNullableNumber(s.damage),
-      dGaugeGain: toNullableNumber(s.dGaugeGain),
-      saGaugeGain: toNullableNumber(s.saGaugeGain),
-      dGaugeChip: toNullableNumber(s.dGaugeChip),
-    };
+    const moveEntries: Record<string, MoveStats> = {};
+    for (const [moveName, stats] of Object.entries(moves as Record<string, unknown>)) {
+      moveEntries[moveName] = normalizeMoveStatsEntry(stats);
+    }
+    result[characterId] = moveEntries;
   }
   return result;
 }
@@ -147,7 +168,6 @@ function normalizeImportedCharacter(imported: Partial<Character>, fallback: Char
           .map((group) => normalizeNamedComboGroup(group as Partial<NamedComboGroup>))
           .filter((group): group is NamedComboGroup => group !== null)
       : fallback.namedComboGroups,
-    moveStats: imported.moveStats ? normalizeMoveStats(imported.moveStats) : fallback.moveStats,
     createdBy: typeof imported.createdBy === 'string' ? imported.createdBy : fallback.createdBy,
     createdAt: typeof imported.createdAt === 'string' ? imported.createdAt : fallback.createdAt,
     updatedAt: new Date().toISOString(),
@@ -270,11 +290,17 @@ export type AppState = {
   restoreCharacters: (imported: Partial<Character>[]) => void;
 
   // 技データ編集画面（技ごとのダメージ・ゲージ数値。頻繁に変える想定がないため、
-  // メインのコンボ編集画面とは別に、キャラ選択カードの小さなボタンからのみ入る）
+  // メインのコンボ編集画面とは別に、キャラ選択カードの小さなボタンからのみ入る）。
+  // Characterとは独立した技データベース（moveStatsDatabase）として持ち、コンボの
+  // 保存とは別に「全キャラぶんまとめて1ファイル」でエクスポート・インポートできるようにする
   moveStatsCharacterId: string | null;
   openMoveStatsEditor: (characterId: string) => void;
   closeMoveStatsEditor: () => void;
+
+  moveStatsDatabase: MoveStatsDatabase;
   setMoveStats: (characterId: string, moveName: string, stats: MoveStats) => void;
+  /** 技データベース全体をJSONから読み込み、丸ごと置き換える */
+  restoreMoveStatsDatabase: (imported: unknown) => void;
 
   // 技マスタ（特殊技・必殺技・SAはキャラ固有。ユーザーが登録したものを再利用できる）
   addMoveDefinition: (
@@ -550,18 +576,22 @@ export const useAppStore = create<AppState>()(
         set({ moveStatsCharacterId: null });
       },
 
+      moveStatsDatabase: MOVE_STATS_SEED,
+
       setMoveStats: (characterId, moveName, stats) => {
         set((state) => ({
-          characters: state.characters.map((character) =>
-            character.id === characterId
-              ? {
-                  ...character,
-                  moveStats: { ...character.moveStats, [moveName]: stats },
-                  updatedAt: new Date().toISOString(),
-                }
-              : character,
-          ),
+          moveStatsDatabase: {
+            ...state.moveStatsDatabase,
+            [characterId]: {
+              ...state.moveStatsDatabase[characterId],
+              [moveName]: stats,
+            },
+          },
         }));
+      },
+
+      restoreMoveStatsDatabase: (imported) => {
+        set({ moveStatsDatabase: normalizeMoveStatsDatabase(imported) });
       },
 
       // ──── 技マスタ ───────────────────────────────────────────────────
@@ -1312,6 +1342,7 @@ export const useAppStore = create<AppState>()(
         selectedCharacterId: state.selectedCharacterId,
         collapsedNodeIds: state.collapsedNodeIds,
         expandedGroupIds: state.expandedGroupIds,
+        moveStatsDatabase: state.moveStatsDatabase,
       }),
 
       merge: (persistedState, currentState) => {
@@ -1327,6 +1358,13 @@ export const useAppStore = create<AppState>()(
             Array.isArray(persisted?.characters) && persisted.characters.length > 0
               ? persisted.characters.map(migrateLegacyCharacter)
               : currentState.characters,
+          // 技データは「ローカル環境でのみ編集できる」運用のため、それ以外では常に
+          // ビルド同梱の正本（MOVE_STATS_SEED）を使う。ローカル編集中の下書きだけ
+          // localStorageの内容を採用する
+          moveStatsDatabase:
+            canEditMoveStatsLocally() && persisted?.moveStatsDatabase
+              ? normalizeMoveStatsDatabase(persisted.moveStatsDatabase)
+              : MOVE_STATS_SEED,
           user: currentState.user,
           nickname: persisted?.isGuest ? 'ゲスト' : currentState.nickname,
           isPatchNotesModalOpen: false,
