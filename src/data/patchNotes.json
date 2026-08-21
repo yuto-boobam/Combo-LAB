@@ -1,5 +1,45 @@
 [
   {
+    "id": "2026-08-20-e3df4575",
+    "date": "2026-08-20",
+    "buildNumber": 18,
+    "type": "feature",
+    "title": "ゲージ関連の項目を自動で計算できるようにした",
+    "description": "DゲージとSAゲージ増減を自動で計算するようにした。これにより、記入欄が不要になる。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260820-build18-after.png?v=1787296295766"
+  },
+  {
+    "id": "2026-08-20-eb79e7bb",
+    "date": "2026-08-20",
+    "buildNumber": 17,
+    "type": "feature",
+    "title": "プロジェクトへの更新ボタンを作成",
+    "description": "これまで手元のファイルを更新していただけだったため、プロジェクト内のファイルが更新されていなかったことを解決。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260820-build17-after.png?v=1787237426983"
+  },
+  {
+    "id": "2026-08-20-9f790597",
+    "date": "2026-08-20",
+    "buildNumber": 16,
+    "type": "other",
+    "title": "技の情報を記入（イングリッドのみ）",
+    "description": "ダメージやゲージに関する項目を用意して実際に記入した",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260820-build16-after.png?v=1787237377558"
+  },
+  {
+    "id": "2026-08-20-beec9c04",
+    "date": "2026-08-20",
+    "buildNumber": 15,
+    "type": "feature",
+    "title": "キャラごとの技情報を記入できるようにキャラ選択画面を少し変化",
+    "description": "右上のアイコンクリックで情報を記入できる。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260820-build15-after.png?v=1787237273796"
+  },
+  {
     "id": "2026-08-20-df7a234c",
     "date": "2026-08-20",
     "buildNumber": 14,

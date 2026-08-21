@@ -86,6 +86,10 @@ export type NodeAttribute =
  * ノードにのみ表示する（表示条件は src/components/combo/SideDrawerPanel.tsx の
  * showStatsEditor を参照）。
  */
+/** 枝の始動条件（通常/カウンター/パニッシュカウンターは排他）。「SAは基本除外」等、
+ * どのカテゴリの技に効くかは技によって異なるため、ここでは条件の記録のみ行う */
+export type BranchStartHitCondition = '通常' | 'カウンター' | 'パニカン';
+
 export type ComboBranchStats = {
   damage: number | null;
   dGaugeChange: number | null; // 回収+ / 消費-
@@ -99,6 +103,17 @@ export type ComboBranchStats = {
   plusFrame: number | null; // 具体的なフレーム数（例: +3）
   isThrowRange: boolean;
   canOkizeme: boolean;
+
+  /**
+   * この枝が前提とする始動条件のチェック項目。同じコンボでもカウンター始動だと
+   * 始動補正が変わりダメージ・ゲージが変わるため、枝を作り直さずに条件だけ記録できるようにする。
+   * 現状は記録のみで、この条件によるダメージ・ゲージの自動再計算はまだ実装していない
+   * （将来のノード自動計算機能の足掛かり）。
+   */
+  startHitCondition: BranchStartHitCondition | null;
+  isJustParryStart: boolean; // ジャストパリィ始動か
+  isRushStart: boolean; // (ドライブ)ラッシュ始動か
+  usesCA: boolean; // CA（クリティカルアーツ）を使うコンボか
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────
@@ -126,6 +141,15 @@ export type MoveNode = {
    * 表現するための機能。詳細は src/lib/tree/groupView.ts を参照
    */
   groupId?: string;
+
+  /**
+   * この技をヒット/ガードさせてもDゲージが回復しない、という個別ノードの記録。
+   * Dゲージは通常ヒット・ガードで回復するが、バーンアウト後のクールタイム中等、
+   * 回復しない状況もあるため（詳細な条件分けは未実装）、まずはノード単位で除外
+   * できるようにする。将来のDゲージ自動計算で、この印が付いたノードのdGaugeGainを
+   * 合計から除く想定（葉ノードに限らず、経路上のどのノードにも付けられる）。
+   */
+  dGaugeRecoveryBlocked?: boolean;
 };
 
 // ── 技ごとの基礎数値 ──────────────────────────────────────────────────────
@@ -135,12 +159,15 @@ export type MoveHitStats = {
   damage: number | null;
   modifier: string; // 補正の自由記述（例:「始動補正20%＋コンボ補正20%」）。基本は空文字
   dGaugeGain: number | null;  // ヒット時のDゲージ回復量
-  saGaugeGain: number | null; // SAゲージ回収量
+  saGaugeGain: number | null; // SAゲージ回収量（SAだけ「消費量」として扱う。MoveStatsPage参照）
   dGaugeChip: number | null;  // ガードされた時に相手のDゲージを削る量
   dGaugeChipPunishCounter: number | null; // パニッシュカウンターでガードされた時に相手のDゲージを削る量（SAだけ「ヒット時」の削り量として扱う。MoveStatsPage参照）
   // コンボ補正で減っても、ダメージがこの割合(%)を下回らないという最低保証(SA3は50%等)。
   // 主にSA用だが型自体は全カテゴリ共通のMoveHitStatsに置く
   minDamageGuaranteePercent: number | null;
+  // キャンセルラッシュ中にこの技をヒットさせた時のDゲージ回復量。SA以外は一律0として扱うため、
+  // SA技だけ個別の値（SA1/2は0、SA3は通常時と異なる値、等）を登録する。null = 未入力
+  dGaugeGainDuringRush: number | null;
 };
 
 /**
