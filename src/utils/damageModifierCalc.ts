@@ -146,8 +146,10 @@ export function calculateDamageScalingPath(
   hits: DamageHitInput[],
   rushTriggerPosition: number | null,
   startBase: number = 100,
-): number[] {
-  const rawPercents: number[] = [];
+): (number | null)[] {
+  // システム動作（isSystemAction）は敵にヒットする行動ではないため、そもそも「何%の
+  // 補正がかかったか」という概念自体が存在しない。percentはnull（対象外）を返す
+  const rawPercents: (number | null)[] = [];
   // 次のヒットに引き継がれる「現在の補正値」と、テーブル上の現在地(インデックス)。
   // 起点の値・startBaseとは独立して、標準テーブルの段＋技固有の補正の累積で進んでいく
   let carry = STANDARD_COMBO_TABLE[0];
@@ -172,7 +174,7 @@ export function calculateDamageScalingPath(
     }
 
     if (hit.isSystemAction) {
-      rawPercents.push(carry); // 参考値（ダメージ0なので実際には使われない）
+      rawPercents.push(null); // 敵にヒットしない行動には補正の概念自体が無い
       // 段は進めない。技固有の補正欄も通常無いので何もしない
       return;
     }
@@ -190,9 +192,10 @@ export function calculateDamageScalingPath(
   return rawPercents.map((percent, index) => {
     const hit = hits[index];
     if (hit.isSuperArt && hit.minDamageGuaranteePercent !== null) return percent; // SAは保証値をそのまま使う
+    if (hit.isSystemAction) return null; // 敵にヒットしない行動にラッシュ倍率・下限を適用しない
 
     const position = index + 1;
-    const withRush = inRush(position) ? Math.floor(percent * RUSH_DAMAGE_MULTIPLIER) : percent;
+    const withRush = inRush(position) ? Math.floor(percent! * RUSH_DAMAGE_MULTIPLIER) : percent!;
     return Math.max(withRush, floor);
   });
 }

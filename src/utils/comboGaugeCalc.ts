@@ -285,7 +285,9 @@ export function calculateBranchDamage(
 
   const { flatHits, rushTriggerPosition, startBase } = built;
   const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase);
-  const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * percents[index]) / 100, 0);
+  // システム動作(isSystemAction)はpercentがnull(補正対象外)。damageが常に0のためどちらにせよ
+  // 寄与は0だが、念のため明示的に0扱いする
+  const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * (percents[index] ?? 0)) / 100, 0);
 
   return Math.round(total);
 }
@@ -297,8 +299,11 @@ export type DamageBreakdownEntry = {
   modifierText: string;
   isSuperArt: boolean;
   minDamageGuaranteePercent: number | null;
+  // 敵にヒットしない行動（キャンセルラッシュ/生ラッシュ、damage:0で登録されたチャージ等）。
+  // 補正%という概念自体が無いため、percentはnullになる
+  isSystemAction: boolean;
   isRush: boolean;
-  percent: number;
+  percent: number | null;
   contribution: number;
 };
 
@@ -331,7 +336,7 @@ export function calculateBranchDamageBreakdown(
 
   const entries: DamageBreakdownEntry[] = flatHits.map((hit, index) => {
     const percent = percents[index];
-    const contribution = (hit.damage * percent) / 100;
+    const contribution = (hit.damage * (percent ?? 0)) / 100;
     return {
       position: index + 1,
       hitLabel: hit.hitLabel,
@@ -339,6 +344,7 @@ export function calculateBranchDamageBreakdown(
       modifierText: hit.modifierText,
       isSuperArt: hit.isSuperArt,
       minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
+      isSystemAction: hit.isSystemAction ?? false,
       isRush: rushTriggerPosition !== null && index + 1 >= rushTriggerPosition,
       percent,
       contribution,

@@ -121,11 +121,15 @@ export function BranchStatsEditor({
           {damageBreakdown.entries.map((entry) => (
             <div key={entry.position} style={styles.debugBreakdownRow}>
               {entry.position}発目 {entry.hitLabel}
-              {entry.isSuperArt && entry.minDamageGuaranteePercent !== null
-                ? ` : SA最低保証${entry.minDamageGuaranteePercent}%`
-                : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
+              {entry.isSystemAction
+                ? ' : 敵にヒットしない行動のため補正対象外'
+                : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
+                  ? ` : SA最低保証${entry.minDamageGuaranteePercent}%`
+                  : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
               {' → '}
-              {entry.damage} × {entry.percent}% = {Math.round(entry.contribution)}
+              {entry.isSystemAction
+                ? 'ダメージ0（位置のみ消費）'
+                : `${entry.damage} × ${entry.percent}% = ${Math.round(entry.contribution)}`}
             </div>
           ))}
           <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
