@@ -48,6 +48,14 @@ export type MoveDefinition = {
    * プレーンな `${強度}${技名}` のまま確定する
    */
   specialVariantsByStrength?: Partial<Record<MoveStrength, string[]>>;
+  /**
+   * SA(superArt)・特殊性能ありの技のみで使う。trueなら「この技は常にコンボの締め（末端）で
+   * 使う」という前提とし、特殊性能を選んだ時にノード名へ焼き込まず（技名は素のまま、
+   * 例:「SA1」）、代わりに末端ノードの`ComboBranchStats.finishingSpecialVariant`へ直接
+   * セットする（MoveNamePicker/SideDrawerPanel参照）。falseまたは未設定なら従来通り
+   * `${技名}(${特殊性能})`をノード名に焼き込む（この後さらに技を繋げる可能性がある技向け）
+   */
+  finishesComboOnSelect?: boolean;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
@@ -114,6 +122,15 @@ export type ComboBranchStats = {
   isJustParryStart: boolean; // ジャストパリィ始動か
   isRushStart: boolean; // (ドライブ)ラッシュ始動か
   usesCA: boolean; // CA（クリティカルアーツ）を使うコンボか
+
+  /**
+   * この枝がSA(superArt、特殊性能あり)で終わる場合に、実際に使った特殊性能（例:「Lv. 1」）。
+   * ノード自体は特殊性能を選ばず技名だけ（例:「SA1」）で置いたまま、この枝の終端でどのLv.を
+   * 使ったかだけを記録したいケース用（ノード側で既に`SA1(Lv. 1)`のように特殊性能込みで確定
+   * している場合や、SAで終わらない枝ではnullのまま）。技データの参照キーは
+   * `${末端ノードのmoveName}(${finishingSpecialVariant})`になる
+   */
+  finishingSpecialVariant: string | null;
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────
@@ -121,7 +138,8 @@ export type ComboBranchStats = {
 export type MoveNode = {
   id: string;
   moveName: string; // 技名（技マスタから選んだ時点のスナップショット）。ドロワー・見出し・エクスポート等で使う正式名称
-  // 木のノード上の表示用（必殺技の呼び名選択時のスナップショット）。未設定なら moveName を使う
+  // 木のノード上の表示用（必殺技の呼び名選択時・SAの特殊性能選択時のスナップショット）。
+  // 未設定なら moveName を使う
   displayName?: string;
   attributes: NodeAttribute[];
   specialNote: string; // 「ディレイ~F」のような特殊記入。基本は空文字
@@ -141,15 +159,6 @@ export type MoveNode = {
    * 表現するための機能。詳細は src/lib/tree/groupView.ts を参照
    */
   groupId?: string;
-
-  /**
-   * この技をヒット/ガードさせてもDゲージが回復しない、という個別ノードの記録。
-   * Dゲージは通常ヒット・ガードで回復するが、バーンアウト後のクールタイム中等、
-   * 回復しない状況もあるため（詳細な条件分けは未実装）、まずはノード単位で除外
-   * できるようにする。将来のDゲージ自動計算で、この印が付いたノードのdGaugeGainを
-   * 合計から除く想定（葉ノードに限らず、経路上のどのノードにも付けられる）。
-   */
-  dGaugeRecoveryBlocked?: boolean;
 };
 
 // ── 技ごとの基礎数値 ──────────────────────────────────────────────────────

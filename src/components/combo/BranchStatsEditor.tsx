@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 import type { DamageBreakdown } from '../../utils/comboGaugeCalc';
+import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 
 type Props = {
   value: ComboBranchStats | null;
@@ -27,23 +28,10 @@ type Props = {
   // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。
   // 原因を特定したら、このpropとJSXごと削除する
   damageBreakdown?: DamageBreakdown | null;
-};
-
-const DEFAULT_STATS: ComboBranchStats = {
-  damage: null,
-  dGaugeChange: null,
-  saGaugeGain: null,
-  damageRating: null,
-  dGaugeRating: null,
-  saGaugeRating: null,
-  overallRating: null,
-  plusFrame: null,
-  isThrowRange: false,
-  canOkizeme: false,
-  startHitCondition: null,
-  isJustParryStart: false,
-  isRushStart: false,
-  usesCA: false,
+  // このノードがSA(superArt・特殊性能あり)で、まだ特殊性能を選ばず技名だけ（例:「SA1」）
+  // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
+  // 選ばせるUIを表示し、finishingSpecialVariantに保存する（呼び出し側の判定はSideDrawerPanel参照）
+  finishingSuperArtMove?: { name: string; specialVariantOptions: string[] } | null;
 };
 
 const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
@@ -63,8 +51,9 @@ export function BranchStatsEditor({
   autoDGaugeChange = null,
   autoDamage = null,
   damageBreakdown = null,
+  finishingSuperArtMove = null,
 }: Props) {
-  const stats = value ?? DEFAULT_STATS;
+  const stats = value ?? DEFAULT_BRANCH_STATS;
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
@@ -124,7 +113,9 @@ export function BranchStatsEditor({
               {entry.isSystemAction
                 ? ' : 敵にヒットしない行動のため補正対象外'
                 : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
-                  ? ` : SA最低保証${entry.minDamageGuaranteePercent}%`
+                  ? entry.percent === entry.minDamageGuaranteePercent
+                    ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
+                    : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
                   : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
               {' → '}
               {entry.isSystemAction
@@ -295,6 +286,34 @@ export function BranchStatsEditor({
         />
         CA使用
       </label>
+
+      {finishingSuperArtMove && finishingSuperArtMove.specialVariantOptions.length > 0 && (
+        <div style={styles.fieldLabel}>
+          使用した{finishingSuperArtMove.name}の特殊性能
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {finishingSuperArtMove.specialVariantOptions.map((variant) => {
+              const active = (stats.finishingSpecialVariant ?? null) === variant;
+              return (
+                <button
+                  key={variant}
+                  type="button"
+                  onClick={() => update({ finishingSpecialVariant: active ? null : variant })}
+                  disabled={readOnly}
+                  style={{
+                    ...styles.conditionButton,
+                    borderColor: active ? 'var(--accent)' : 'var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: active ? '#fff' : 'var(--text-secondary)',
+                    cursor: readOnly ? 'default' : 'pointer',
+                  }}
+                >
+                  {variant}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

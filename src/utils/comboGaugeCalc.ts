@@ -78,6 +78,28 @@ function sumSaGaugeGain(stats: MoveStats): number {
 }
 
 /**
+ * 技データベースを引く際のキーを求める。末端ノード（targetNodeそのもの）が
+ * `branchStats.finishingSpecialVariant`を持っていれば、ノード自体は特殊性能を選ばず
+ * 技名だけ（例:「SA1」）で置かれているだけなので、実際に使った特殊性能を合成したキー
+ * （例:「SA1(Lv. 1)」）を使う。それ以外は従来通りnode.moveNameそのまま
+ */
+function lookupMoveName(node: MoveNode, isTargetNode: boolean): string {
+  const variant = isTargetNode ? node.branchStats?.finishingSpecialVariant : null;
+  return variant ? `${node.moveName}(${variant})` : node.moveName;
+}
+
+/**
+ * SA(superArt)判定用に、moveNameから特殊性能の`(...)`部分を取り除いた「素の技名」を返す。
+ * moveListに登録されているSAのMoveDefinition.nameは特殊性能を含まない素の名前
+ * （例:「SA1」）なので、ノードのmoveNameが`SA1(Lv. 1)`のように特殊性能込みで確定している
+ * 場合でも正しくSAとして検出できるようにする
+ */
+function baseMoveName(moveName: string): string {
+  const parenIndex = moveName.indexOf('(');
+  return parenIndex === -1 ? moveName : moveName.slice(0, parenIndex);
+}
+
+/**
  * root〜targetNodeId（両端含む）の経路上にある各ノードの技データから、SAゲージ増減の合計を求める。
  * 複数ヒット技は「何段目が当たったか」を選ぶUIがまだ無いため、常に全段分の合計を使う。
  * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
@@ -97,12 +119,13 @@ export function calculateBranchSaGaugeChange(
   let total = 0;
   let hasAnyData = false;
 
-  for (const node of path) {
-    const stats = characterStats[node.moveName];
-    if (!stats) continue;
+  path.forEach((node, index) => {
+    const isTargetNode = index === path.length - 1;
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
+    if (!stats) return;
     hasAnyData = true;
     total += sumSaGaugeGain(stats);
-  }
+  });
 
   return hasAnyData ? total : null;
 }
@@ -117,15 +140,18 @@ const RUSH_MOVE_NAMES = new Set([CANCEL_RUSH_MOVE_NAME, RAW_RUSH_MOVE_NAME]);
  * root〜targetNodeId（両端含む）の経路上にある各ノードの技データから、Dゲージ増減の合計を求める。
  *
  * 実機確認済みの仕様に基づく簡略化:
- * - 「キャンセルラッシュ」ノードより後は、通常技のヒット回復が0になる
+ * - 「キャンセルラッシュ」ノードより後は、通常技のヒット回復が0になる。ラッシュ中に回復
+ *   できるのは「歩き」（moveNameに「歩き」を含むノード。技データが未登録なら結局寄与0）と
+ *   SA技（`dGaugeGainDuringRush`の値。CAも含む。未入力なら0）だけで、それ以外の手段は
+ *   無い（実機確認済み。以前あった`dGaugeRecoveryBlocked`という個別ノードの手動除外は
+ *   このルールだけで表現しきれるため廃止した）
  * - 「生ラッシュ」自体は回復抑制の対象外（inRushにしない）だが、生ラッシュ自身のコスト
  *   （マイナスのdGaugeGain）は、既にキャンセルラッシュ中でも常に加算される
- * - ラッシュ中でもSA技だけは`dGaugeGainDuringRush`の値を使う（未入力なら0）
  * - 空振り属性のノードは寄与0
- * - `dGaugeRecoveryBlocked`が付いたノード（連続ガード等、手動で判定してもらう）は寄与0
  * - ガード属性のノードは、ガード時回復量のデータが無いため現状は寄与0
- * - 待機/歩行による実時間ベースの回復、ラッシュ終了2秒後の回復再開はスコープ外
- *   （このツールはコンボを技の並びとして記録するもので、実時間の経過を扱う仕組みが無いため）
+ * - 歩行の実時間ベースの回復量そのものの算出（フレーム数→回復量の換算）、ラッシュ終了2秒後の
+ *   回復再開はスコープ外（このツールはコンボを技の並びとして記録するもので、実時間の経過を
+ *   扱う仕組みが無いため。歩きノードの技データが登録されていれば、その値をそのまま使う）
  *
  * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
  */
@@ -146,8 +172,9 @@ export function calculateBranchDGaugeChange(
   let hasAnyData = false;
   let inRush = false;
 
-  for (const node of path) {
-    const stats = characterStats[node.moveName];
+  path.forEach((node, index) => {
+    const isTargetNode = index === path.length - 1;
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
 
     if (RUSH_MOVE_NAMES.has(node.moveName)) {
       if (stats) {
@@ -155,25 +182,26 @@ export function calculateBranchDGaugeChange(
         total += stats.hits.reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
       }
       if (node.moveName === CANCEL_RUSH_MOVE_NAME) inRush = true;
-      continue;
+      return;
     }
 
-    if (node.attributes.some((attribute) => attribute.type === 'whiff')) continue;
-    if (node.dGaugeRecoveryBlocked) continue;
-    if (node.attributes.some((attribute) => attribute.type === 'guard')) continue; // ガード回復量は未実装
+    if (node.attributes.some((attribute) => attribute.type === 'whiff')) return;
+    if (node.attributes.some((attribute) => attribute.type === 'guard')) return; // ガード回復量は未実装
 
-    if (!stats) continue;
+    if (!stats) return;
     hasAnyData = true;
 
     const isSuperArt = moveList.some(
-      (move) => move.name === node.moveName && move.category === 'superArt',
+      (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
     );
+    // 歩きはラッシュ中でも例外的に回復できる（実機確認済み）
+    const isWalkMove = node.moveName.includes('歩き');
 
     total += stats.hits.reduce((sum, hit) => {
-      if (!inRush) return sum + (hit.dGaugeGain ?? 0);
+      if (!inRush || isWalkMove) return sum + (hit.dGaugeGain ?? 0);
       return sum + (isSuperArt ? (hit.dGaugeGainDuringRush ?? 0) : 0);
     }, 0);
-  }
+  });
 
   return hasAnyData ? total : null;
 }
@@ -206,13 +234,14 @@ function buildFlatDamageHits(
   let rushTriggerPosition: number | null = null;
   let hasAnyData = false;
 
-  for (const node of path) {
-    if (node.attributes.some((attribute) => attribute.type === 'whiff')) continue;
-    if (node.attributes.some((attribute) => attribute.type === 'guard')) continue; // ガードはダメージ0
+  path.forEach((node, index) => {
+    const isTargetNode = index === path.length - 1;
+    if (node.attributes.some((attribute) => attribute.type === 'whiff')) return;
+    if (node.attributes.some((attribute) => attribute.type === 'guard')) return; // ガードはダメージ0
 
-    const stats = characterStats[node.moveName];
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
     const isSuperArt = moveList.some(
-      (move) => move.name === node.moveName && move.category === 'superArt',
+      (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
     );
     // キャンセルラッシュ/生ラッシュは名前で判定するシステム動作。加えて、チャージ等の
     // 「技データにdamage:0と明示登録されている＝実際にはダメージが存在しない行動」も同じ
@@ -251,7 +280,7 @@ function buildFlatDamageHits(
     if (RUSH_MOVE_NAMES.has(node.moveName) && rushTriggerPosition === null && flatHits.length > 1) {
       rushTriggerPosition = flatHits.length + 1;
     }
-  }
+  });
 
   if (!hasAnyData || flatHits.length === 0) return null;
 

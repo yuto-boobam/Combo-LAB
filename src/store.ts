@@ -85,7 +85,6 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
       ? node.children.map((child) => normalizeMoveNode(child as Partial<MoveNode>))
       : [],
     groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
-    dGaugeRecoveryBlocked: node.dGaugeRecoveryBlocked === true ? true : undefined,
   };
 }
 
@@ -369,6 +368,15 @@ export type AppState = {
     strength: MoveStrength,
     options: string[],
   ) => void;
+  /**
+   * SAが「常にコンボの締めで使う技」かどうかを編集する。trueなら特殊性能選択時に
+   * ノード名へ焼き込まず、末端ノードのbranchStats側で選ばせる方式になる
+   */
+  setMoveDefinitionFinishesComboOnSelect: (
+    characterId: string,
+    moveId: string,
+    finishesComboOnSelect: boolean,
+  ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
   createComboTree: (characterId: string, label: string, displayName?: string) => string;
@@ -429,13 +437,6 @@ export type AppState = {
     treeId: string,
     nodeId: string,
     branchStats: ComboBranchStats | null,
-  ) => void;
-
-  setNodeDGaugeRecoveryBlocked: (
-    characterId: string,
-    treeId: string,
-    nodeId: string,
-    blocked: boolean,
   ) => void;
 
   // ──「枝を選んでまとめてコピー」機能 ─────────────────────────────────
@@ -733,6 +734,22 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      setMoveDefinitionFinishesComboOnSelect: (characterId, moveId, finishesComboOnSelect) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId ? { ...move, finishesComboOnSelect } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
       setMoveDefinitionSpecialVariantOptions: (characterId, moveId, options) => {
         set((state) => ({
           characters: state.characters.map((character) =>
@@ -971,17 +988,6 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({ ...node, branchStats })),
-          ),
-        }));
-      },
-
-      setNodeDGaugeRecoveryBlocked: (characterId, treeId, nodeId, blocked) => {
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, nodeId, (node) => ({
-              ...node,
-              dGaugeRecoveryBlocked: blocked ? true : undefined,
-            })),
           ),
         }));
       },

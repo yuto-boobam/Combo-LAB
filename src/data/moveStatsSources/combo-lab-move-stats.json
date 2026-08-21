@@ -1034,7 +1034,7 @@
       "isMultiHit": false,
       "hits": [
         {
-          "damage": 19000,
+          "damage": 1900,
           "modifier": "",
           "dGaugeGain": 5000,
           "saGaugeGain": -10000,
