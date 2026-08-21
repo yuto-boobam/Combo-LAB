@@ -2,13 +2,19 @@
 // 枝（コンボ）の統計情報の編集UI。葉ノード、またはガード/空振り属性を持つノードで使う
 // （表示するかどうかの判断は呼び出し側で行う。src/components/combo/SideDrawerPanel.tsx を参照）。
 
+import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
+import type { DamageBreakdown } from '../../utils/comboGaugeCalc';
 
 type Props = {
   value: ComboBranchStats | null;
   onChange: (next: ComboBranchStats | null) => void;
   readOnly?: boolean;
+  // root〜このノードの経路上にある「カウンター」「パニッシュカウンター」属性から求まる、
+  // この枝が繋がるために最低限必要な始動条件（例:「カウンター以上でないと繋がらない」
+  // ノードが経路上にあれば'カウンター'）。null = 制約なし
+  requiredStartHitCondition?: BranchStartHitCondition | null;
   // root〜このノードまでの技データから自動計算したSAゲージ増減。技データが1件も
   // 登録されていない経路ではnull
   autoSaGaugeChange?: number | null;
@@ -18,6 +24,9 @@ type Props = {
   // root〜このノードまでの技データから自動計算したダメージ。標準コンボ補正テーブル・
   // ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証を反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
   autoDamage?: number | null;
+  // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。
+  // 原因を特定したら、このpropとJSXごと削除する
+  damageBreakdown?: DamageBreakdown | null;
 };
 
 const DEFAULT_STATS: ComboBranchStats = {
@@ -39,19 +48,44 @@ const DEFAULT_STATS: ComboBranchStats = {
 
 const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
 
+const START_HIT_CONDITION_RANK: Record<BranchStartHitCondition, number> = {
+  通常: 0,
+  カウンター: 1,
+  パニカン: 2,
+};
+
 export function BranchStatsEditor({
   value,
   onChange,
   readOnly = false,
+  requiredStartHitCondition = null,
   autoSaGaugeChange = null,
   autoDGaugeChange = null,
   autoDamage = null,
+  damageBreakdown = null,
 }: Props) {
   const stats = value ?? DEFAULT_STATS;
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
   };
+
+  // 経路上に「カウンター以上でないと繋がらない」ノードがあれば、始動条件はそれ以上でなければ
+  // ならない。手動入力がまだそれを満たしていなければ表示・実データの両方を自動で引き上げる
+  // （「通常」を選べる状態のまま放置されないようにするための仕様。ユーザー確認済み）
+  const satisfiesRequirement =
+    !requiredStartHitCondition ||
+    (stats.startHitCondition !== null &&
+      START_HIT_CONDITION_RANK[stats.startHitCondition] >= START_HIT_CONDITION_RANK[requiredStartHitCondition]);
+  const effectiveStartHitCondition = satisfiesRequirement
+    ? stats.startHitCondition
+    : requiredStartHitCondition;
+
+  useEffect(() => {
+    if (readOnly || satisfiesRequirement || !requiredStartHitCondition) return;
+    onChange({ ...stats, startHitCondition: requiredStartHitCondition });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, satisfiesRequirement, requiredStartHitCondition]);
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -74,6 +108,27 @@ export function BranchStatsEditor({
               この値を使う
             </button>
           )}
+        </div>
+      )}
+      {/* 【一時的なデバッグ表示】原因を特定したらこのブロックごと削除する */}
+      {damageBreakdown && (
+        <div style={styles.debugBreakdown}>
+          <div style={styles.debugBreakdownHeader}>
+            計算式デバッグ：起点基準値{damageBreakdown.startBase}%
+            {damageBreakdown.rushTriggerPosition !== null &&
+              `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
+          </div>
+          {damageBreakdown.entries.map((entry) => (
+            <div key={entry.position} style={styles.debugBreakdownRow}>
+              {entry.position}発目 {entry.hitLabel}
+              {entry.isSuperArt && entry.minDamageGuaranteePercent !== null
+                ? ` : SA最低保証${entry.minDamageGuaranteePercent}%`
+                : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
+              {' → '}
+              {entry.damage} × {entry.percent}% = {Math.round(entry.contribution)}
+            </div>
+          ))}
+          <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
         </div>
       )}
       <NumberField
@@ -172,21 +227,32 @@ export function BranchStatsEditor({
 
       <div style={styles.fieldLabel}>
         始動条件
+        {requiredStartHitCondition && (
+          <span style={styles.requiredHint}>
+            経路上に「{requiredStartHitCondition}以上」でないと繋がらないノードがあるため、
+            {requiredStartHitCondition}未満は選べません
+          </span>
+        )}
         <div style={{ display: 'flex', gap: 4 }}>
           {START_HIT_CONDITIONS.map((condition) => {
-            const active = (stats.startHitCondition ?? null) === condition;
+            const active = effectiveStartHitCondition === condition;
+            const belowRequirement =
+              !!requiredStartHitCondition &&
+              START_HIT_CONDITION_RANK[condition] < START_HIT_CONDITION_RANK[requiredStartHitCondition];
+            const disabled = readOnly || belowRequirement;
             return (
               <button
                 key={condition}
                 type="button"
                 onClick={() => update({ startHitCondition: active ? null : condition })}
-                disabled={readOnly}
+                disabled={disabled}
                 style={{
                   ...styles.conditionButton,
                   borderColor: active ? 'var(--accent)' : 'var(--border)',
                   background: active ? 'var(--accent)' : 'var(--bg-elevated)',
                   color: active ? '#fff' : 'var(--text-secondary)',
-                  cursor: readOnly ? 'default' : 'pointer',
+                  cursor: disabled ? 'default' : 'pointer',
+                  opacity: belowRequirement ? 0.4 : 1,
                 }}
               >
                 {condition}
@@ -319,6 +385,26 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     padding: '2px 8px',
   },
+  // 【一時的なデバッグ表示用】原因を特定したら他のdebugBreakdown*スタイルと一緒に削除する
+  debugBreakdown: {
+    display: 'grid',
+    gap: 3,
+    marginTop: -2,
+    padding: '8px 10px',
+    borderRadius: 8,
+    border: '1px dashed var(--accent-rose-border)',
+    background: 'var(--accent-rose-bg)',
+    fontFamily: 'monospace',
+    fontSize: 10.5,
+    color: 'var(--text-secondary)',
+  },
+  debugBreakdownHeader: {
+    fontWeight: 800,
+    color: 'var(--accent-rose-text)',
+  },
+  debugBreakdownRow: {
+    lineHeight: 1.5,
+  },
   ratingButton: {
     width: 26,
     height: 26,
@@ -335,6 +421,11 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     fontWeight: 800,
     cursor: 'pointer',
+  },
+  requiredHint: {
+    fontSize: 10.5,
+    fontWeight: 400,
+    color: 'var(--text-muted)',
   },
   checkboxRow: {
     display: 'flex',

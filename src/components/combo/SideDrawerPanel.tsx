@@ -12,8 +12,10 @@ import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import {
   calculateBranchDamage,
+  calculateBranchDamageBreakdown,
   calculateBranchDGaugeChange,
   calculateBranchSaGaugeChange,
+  calculateRequiredStartHitCondition,
 } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
@@ -486,6 +488,9 @@ function ReadOnlyNodeView({
   const autoDamage = root
     ? calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
     : null;
+  const requiredStartHitCondition = root
+    ? calculateRequiredStartHitCondition(root, selectedNode.id)
+    : null;
 
   return (
     <>
@@ -501,6 +506,7 @@ function ReadOnlyNodeView({
             value={selectedNode.branchStats}
             onChange={() => {}}
             readOnly
+            requiredStartHitCondition={requiredStartHitCondition}
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
             autoDamage={autoDamage}
@@ -657,6 +663,15 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。原因特定後に削除する
+  const damageBreakdown = calculateBranchDamageBreakdown(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
+  const requiredStartHitCondition = calculateRequiredStartHitCondition(root, selectedNode.id);
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -688,9 +703,11 @@ function NodeEditor({
           <BranchStatsEditor
             value={selectedNode.branchStats}
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
+            requiredStartHitCondition={requiredStartHitCondition}
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
             autoDamage={autoDamage}
+            damageBreakdown={damageBreakdown}
           />
         </AccordionSection>
       )}

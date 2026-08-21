@@ -301,8 +301,18 @@
       ]
     },
     "中P → 中K": {
-      "isMultiHit": false,
+      "isMultiHit": true,
       "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        },
         {
           "damage": 700,
           "modifier": "コンボ補正20%",
@@ -366,8 +376,18 @@
       ]
     },
     "J強K->強K": {
-      "isMultiHit": false,
+      "isMultiHit": true,
       "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        },
         {
           "damage": 600,
           "modifier": "",
@@ -616,7 +636,7 @@
           "dGaugeChip": -7500,
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": 15000
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1021,7 +1041,7 @@
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
-          "dGaugeGainDuringRush": 0
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1036,7 +1056,7 @@
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
-          "dGaugeGainDuringRush": 0
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1051,7 +1071,7 @@
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
-          "dGaugeGainDuringRush": 0
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1066,7 +1086,7 @@
           "dGaugeChip": -7500,
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": 50,
-          "dGaugeGainDuringRush": 15000
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1081,7 +1101,7 @@
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -7200,
           "minDamageGuaranteePercent": 40,
-          "dGaugeGainDuringRush": 0
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1096,7 +1116,7 @@
           "dGaugeChip": -8000,
           "dGaugeChipPunishCounter": -9600,
           "minDamageGuaranteePercent": 40,
-          "dGaugeGainDuringRush": 0
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1111,7 +1131,7 @@
           "dGaugeChip": -10000,
           "dGaugeChipPunishCounter": -12000,
           "minDamageGuaranteePercent": 40,
-          "dGaugeGainDuringRush": 0
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1126,7 +1146,7 @@
           "dGaugeChip": -10000,
           "dGaugeChipPunishCounter": -20000,
           "minDamageGuaranteePercent": 50,
-          "dGaugeGainDuringRush": 15000
+          "dGaugeGainDuringRush": null
         }
       ]
     },

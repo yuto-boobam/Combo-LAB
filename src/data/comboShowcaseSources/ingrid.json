@@ -174,7 +174,7 @@
       "label": "小P",
       "root": {
         "id": "msmx4wthxxtikchfp2f",
-        "moveName": "小P",
+        "moveName": "弱P",
         "attributes": [],
         "specialNote": "",
         "branchStats": null,
@@ -255,7 +255,22 @@
                 "displayName": "ODライズ",
                 "attributes": [],
                 "specialNote": "",
-                "branchStats": null,
+                "branchStats": {
+                  "damage": 2180,
+                  "dGaugeChange": null,
+                  "saGaugeGain": null,
+                  "damageRating": null,
+                  "dGaugeRating": null,
+                  "saGaugeRating": null,
+                  "overallRating": null,
+                  "plusFrame": null,
+                  "isThrowRange": false,
+                  "canOkizeme": false,
+                  "startHitCondition": null,
+                  "isJustParryStart": false,
+                  "isRushStart": false,
+                  "usesCA": false
+                },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-17T05:26:35.885Z",
                 "children": []
@@ -377,7 +392,22 @@
                 "moveName": "SA3",
                 "attributes": [],
                 "specialNote": "",
-                "branchStats": null,
+                "branchStats": {
+                  "damage": null,
+                  "dGaugeChange": null,
+                  "saGaugeGain": null,
+                  "damageRating": null,
+                  "dGaugeRating": null,
+                  "saGaugeRating": null,
+                  "overallRating": null,
+                  "plusFrame": null,
+                  "isThrowRange": false,
+                  "canOkizeme": false,
+                  "startHitCondition": "カウンター",
+                  "isJustParryStart": false,
+                  "isRushStart": false,
+                  "usesCA": false
+                },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-18T08:26:06.952Z",
                 "children": []
@@ -510,13 +540,13 @@
                         "displayName": "空中ビーム|Lv. 1",
                         "attributes": [
                           {
-                            "type": "delay"
+                            "type": "situational"
                           },
                           {
-                            "type": "situational"
+                            "type": "delay"
                           }
                         ],
-                        "specialNote": "",
+                        "specialNote": "ディレイ9~11F",
                         "branchStats": null,
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-18T10:51:00.123Z",
@@ -762,6 +792,6 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-21T07:04:19.008Z",
+  "updatedAt": "2026-08-21T15:55:24.285Z",
   "moveStats": {}
 }

@@ -4,7 +4,14 @@
 // というユーザー確認済みの仕様。SA自身のsaGaugeGainは消費量として負の値で登録される想定なので、
 // 合計にSAが含まれていれば自然にマイナス側へ振れる）。
 
-import type { ComboBranchStats, MoveDefinition, MoveNode, MoveStats, MoveStatsDatabase } from '../types';
+import type {
+  BranchStartHitCondition,
+  ComboBranchStats,
+  MoveDefinition,
+  MoveNode,
+  MoveStats,
+  MoveStatsDatabase,
+} from '../types';
 import { calculateDamageScalingPath, type DamageHitInput } from './damageModifierCalc';
 
 function findPathToNode(root: MoveNode, targetId: string): MoveNode[] | null {
@@ -16,6 +23,54 @@ function findPathToNode(root: MoveNode, targetId: string): MoveNode[] | null {
   }
 
   return null;
+}
+
+const START_HIT_CONDITION_RANK: Record<BranchStartHitCondition, number> = {
+  通常: 0,
+  カウンター: 1,
+  パニカン: 2,
+};
+
+/**
+ * root〜targetNodeの経路上のノードに付いた「カウンター」「パニッシュカウンター」属性から、
+ * この枝が繋がるために最低限必要な始動条件を求める（「カウンター以上でないと繋がらない」
+ * ノードが経路上にあれば、末端の始動条件はそれ以上でなければならない、という前提）。
+ * どちらの属性も経路上に無ければnull（制約なし）。
+ */
+function requiredStartHitConditionFromPath(path: MoveNode[]): BranchStartHitCondition | null {
+  let required: BranchStartHitCondition | null = null;
+  for (const node of path) {
+    for (const attribute of node.attributes) {
+      if (attribute.type === 'punishCounter') required = 'パニカン';
+      else if (attribute.type === 'counter' && required !== 'パニカン') required = 'カウンター';
+    }
+  }
+  return required;
+}
+
+export function calculateRequiredStartHitCondition(
+  root: MoveNode,
+  targetNodeId: string,
+): BranchStartHitCondition | null {
+  const path = findPathToNode(root, targetNodeId);
+  if (!path) return null;
+  return requiredStartHitConditionFromPath(path);
+}
+
+/**
+ * 末端の`branchStats.startHitCondition`（手動入力）と、経路上のカウンター/パニカン属性から
+ * 求まる必須条件のうち、厳しい方（ランクが高い方）を実際の計算に使う。手動入力が未設定・
+ * または経路の必須条件を満たさない場合は、経路側の必須条件を優先する。
+ */
+function effectiveStartHitCondition(
+  branchStats: ComboBranchStats | null,
+  path: MoveNode[],
+): BranchStartHitCondition | null {
+  const required = requiredStartHitConditionFromPath(path);
+  const stored = branchStats?.startHitCondition ?? null;
+  if (!required) return stored;
+  if (!stored) return required;
+  return START_HIT_CONDITION_RANK[stored] >= START_HIT_CONDITION_RANK[required] ? stored : required;
 }
 
 function sumSaGaugeGain(stats: MoveStats): number {
@@ -123,16 +178,85 @@ export function calculateBranchDGaugeChange(
   return hasAnyData ? total : null;
 }
 
-function startBaseFromBranchStats(branchStats: ComboBranchStats | null): number {
-  if (!branchStats) return 100;
-  const { startHitCondition, isJustParryStart } = branchStats;
+function startBaseFromPath(path: MoveNode[]): number {
+  const targetNode = path[path.length - 1];
+  const branchStats = targetNode.branchStats;
+  const condition = effectiveStartHitCondition(branchStats, path);
+  const isJustParryStart = branchStats?.isJustParryStart ?? false;
   // ジャストパリィ後にパニカンで始動すると50%からスタート（カウンター/パニカンの120%ルールより優先）
-  if (isJustParryStart && startHitCondition === 'パニカン') return 50;
-  if (startHitCondition === 'カウンター' || startHitCondition === 'パニカン') return 120;
+  if (isJustParryStart && condition === 'パニカン') return 50;
+  if (condition === 'カウンター' || condition === 'パニカン') return 120;
   return 100;
 }
 
-type FlatDamageHit = DamageHitInput & { damage: number };
+type FlatDamageHit = DamageHitInput & { damage: number; moveName: string; hitLabel: string };
+
+function buildFlatDamageHits(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  path: MoveNode[],
+): { flatHits: FlatDamageHit[]; rushTriggerPosition: number | null; startBase: number } | null {
+  const characterStats = moveStatsDatabase[characterId];
+  if (!characterStats) return null;
+
+  const startBase = startBaseFromPath(path);
+
+  const flatHits: FlatDamageHit[] = [];
+  let rushTriggerPosition: number | null = null;
+  let hasAnyData = false;
+
+  for (const node of path) {
+    if (node.attributes.some((attribute) => attribute.type === 'whiff')) continue;
+    if (node.attributes.some((attribute) => attribute.type === 'guard')) continue; // ガードはダメージ0
+
+    const stats = characterStats[node.moveName];
+    const isSuperArt = moveList.some(
+      (move) => move.name === node.moveName && move.category === 'superArt',
+    );
+    // キャンセルラッシュ/生ラッシュは名前で判定するシステム動作。加えて、チャージ等の
+    // 「技データにdamage:0と明示登録されている＝実際にはダメージが存在しない行動」も同じ
+    // 扱いにする（標準テーブルの段を進めない。位置は消費するが、ダメージ計算上の"1ヒット"
+    // としては扱わない）。技データ未登録（damageがnullで0埋めしているだけ）は対象外
+    // ——実戦では本来ヒットしているはずなので、従来通り段を進める
+    const isRushMove = RUSH_MOVE_NAMES.has(node.moveName);
+
+    if (stats) {
+      hasAnyData = true;
+      stats.hits.forEach((hit, hitIndex) => {
+        flatHits.push({
+          damage: hit.damage ?? 0,
+          modifierText: hit.modifier,
+          isSuperArt,
+          minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
+          isSystemAction: isRushMove || hit.damage === 0,
+          moveName: node.moveName,
+          hitLabel: stats.isMultiHit ? `${node.moveName}(${hitIndex + 1}/${stats.hits.length}段目)` : node.moveName,
+        });
+      });
+    } else {
+      // 技データが無くても、実戦では1ヒットぶんの位置を消費しているはずなので
+      // ダメージ0・補正なしとして位置だけ確保する（後続ヒットの段数がずれないようにする）
+      flatHits.push({
+        damage: 0,
+        modifierText: '',
+        isSuperArt,
+        minDamageGuaranteePercent: null,
+        isSystemAction: isRushMove,
+        moveName: node.moveName,
+        hitLabel: `${node.moveName}(技データ未登録)`,
+      });
+    }
+
+    if (RUSH_MOVE_NAMES.has(node.moveName) && rushTriggerPosition === null && flatHits.length > 1) {
+      rushTriggerPosition = flatHits.length + 1;
+    }
+  }
+
+  if (!hasAnyData || flatHits.length === 0) return null;
+
+  return { flatHits, rushTriggerPosition, startBase };
+}
 
 /**
  * root〜targetNodeId（両端含む）の経路上にある各ヒットのダメージを、実機確認済みの補正
@@ -156,50 +280,72 @@ export function calculateBranchDamage(
   const path = findPathToNode(root, targetNodeId);
   if (!path) return null;
 
-  const characterStats = moveStatsDatabase[characterId];
-  if (!characterStats) return null;
+  const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
+  if (!built) return null;
 
-  const targetNode = path[path.length - 1];
-  const startBase = startBaseFromBranchStats(targetNode.branchStats);
-
-  const flatHits: FlatDamageHit[] = [];
-  let rushTriggerPosition: number | null = null;
-  let hasAnyData = false;
-
-  for (const node of path) {
-    if (node.attributes.some((attribute) => attribute.type === 'whiff')) continue;
-    if (node.attributes.some((attribute) => attribute.type === 'guard')) continue; // ガードはダメージ0
-
-    const stats = characterStats[node.moveName];
-    const isSuperArt = moveList.some(
-      (move) => move.name === node.moveName && move.category === 'superArt',
-    );
-
-    if (stats) {
-      hasAnyData = true;
-      for (const hit of stats.hits) {
-        flatHits.push({
-          damage: hit.damage ?? 0,
-          modifierText: hit.modifier,
-          isSuperArt,
-          minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
-        });
-      }
-    } else {
-      // 技データが無くても、実戦では1ヒットぶんの位置を消費しているはずなので
-      // ダメージ0・補正なしとして位置だけ確保する（後続ヒットの段数がずれないようにする）
-      flatHits.push({ damage: 0, modifierText: '', isSuperArt, minDamageGuaranteePercent: null });
-    }
-
-    if (RUSH_MOVE_NAMES.has(node.moveName) && rushTriggerPosition === null && flatHits.length > 1) {
-      rushTriggerPosition = flatHits.length + 1;
-    }
-  }
-
-  if (!hasAnyData || flatHits.length === 0) return null;
-
+  const { flatHits, rushTriggerPosition, startBase } = built;
   const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase);
   const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * percents[index]) / 100, 0);
 
   return Math.round(total);
+}
+
+export type DamageBreakdownEntry = {
+  position: number;
+  hitLabel: string;
+  damage: number;
+  modifierText: string;
+  isSuperArt: boolean;
+  minDamageGuaranteePercent: number | null;
+  isRush: boolean;
+  percent: number;
+  contribution: number;
+};
+
+export type DamageBreakdown = {
+  startBase: number;
+  rushTriggerPosition: number | null;
+  entries: DamageBreakdownEntry[];
+  total: number;
+};
+
+/**
+ * calculateBranchDamageと同じ計算を、デバッグ用に1ヒットずつの内訳付きで返す。
+ * 一時的な検証用途（計算結果に食い違いが出た時に、どの段で想定とズレたかを特定するため）。
+ */
+export function calculateBranchDamageBreakdown(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): DamageBreakdown | null {
+  const path = findPathToNode(root, targetNodeId);
+  if (!path) return null;
+
+  const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
+  if (!built) return null;
+
+  const { flatHits, rushTriggerPosition, startBase } = built;
+  const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase);
+
+  const entries: DamageBreakdownEntry[] = flatHits.map((hit, index) => {
+    const percent = percents[index];
+    const contribution = (hit.damage * percent) / 100;
+    return {
+      position: index + 1,
+      hitLabel: hit.hitLabel,
+      damage: hit.damage,
+      modifierText: hit.modifierText,
+      isSuperArt: hit.isSuperArt,
+      minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
+      isRush: rushTriggerPosition !== null && index + 1 >= rushTriggerPosition,
+      percent,
+      contribution,
+    };
+  });
+
+  const total = Math.round(entries.reduce((sum, entry) => sum + entry.contribution, 0));
+
+  return { startBase, rushTriggerPosition, entries, total };
 }

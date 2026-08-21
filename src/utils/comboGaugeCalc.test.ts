@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { calculateBranchDGaugeChange, calculateBranchDamage, calculateBranchSaGaugeChange } from './comboGaugeCalc';
+import {
+  calculateBranchDGaugeChange,
+  calculateBranchDamage,
+  calculateBranchSaGaugeChange,
+  calculateRequiredStartHitCondition,
+} from './comboGaugeCalc';
 import type {
   ComboBranchStats,
   MoveCategory,
@@ -290,8 +295,11 @@ describe('calculateBranchDamage', () => {
       },
     };
 
-    // 1000*0.8(始動補正20%) + 0(ラッシュ自身) + 1000*0.68(標準テーブル3発目×ラッシュ0.85) = 1480
-    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'hitK')).toBe(1480);
+    // 2中K: 始動補正は自分自身には効かないため100%のまま → 1000
+    // キャンセルラッシュ: システム動作なのでダメージ0
+    // 強K: 2中Kの始動補正20%ぶん前倒しで進んだ段(80%)にラッシュ0.85倍 → 1000*0.68=680
+    // 合計: 1000+0+680=1680
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'hitK')).toBe(1680);
   });
 
   it('ターゲットコンボ(1ノードに複数ヒット)は、その段数ぶん標準テーブルの位置を消費する', () => {
@@ -346,6 +354,39 @@ describe('calculateBranchDamage', () => {
     expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'starter')).toBe(1200);
   });
 
+  it('経路上のノードにカウンター属性が付いているだけで、末端のstartHitCondition未入力でも120%を採用する', () => {
+    const leaf = makeNode('leaf', 'ビームLv.0', {
+      attributes: [{ type: 'counter' }],
+      branchStats: makeBranchStats(), // startHitConditionは未入力(null)のまま
+    });
+    const starter = makeNode('starter', '2中K', { children: [leaf] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '2中K': makeStats([makeHit({ damage: 1000 })]),
+        'ビームLv.0': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'leaf')).toBe(2200);
+  });
+
+  it('経路上のパニッシュカウンター属性の方が末端の手動入力(カウンター)より厳しい場合はパニッシュカウンター側を優先する', () => {
+    const leaf = makeNode('leaf', 'ビームLv.0', {
+      attributes: [{ type: 'punishCounter' }],
+      branchStats: makeBranchStats({ startHitCondition: 'カウンター' }),
+    });
+    const starter = makeNode('starter', '2中K', { children: [leaf] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: { '2中K': makeStats([makeHit({ damage: 1000 })]) },
+    };
+
+    // 通常のジャストパリィ無しでは120%までしか上がらないが、パニカン優先の分岐(50%)は
+    // ジャストパリィ始動時のみなのでここでは120%になることだけ確認する
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'leaf')).toBe(1200);
+  });
+
   it('空振り・ガード属性のノードはダメージ0で、後続ヒットの位置もずらさない', () => {
     const after = makeNode('after', '中P');
     const guarded = makeNode('guarded', '弱P', { attributes: [{ type: 'guard' }], children: [after] });
@@ -363,6 +404,39 @@ describe('calculateBranchDamage', () => {
     expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'after')).toBe(2000);
   });
 
+  it('ラッシュ以外でも技データにdamage:0と明示登録されている行動(チャージ等)は標準テーブルの段を進めない', () => {
+    const after = makeNode('after', '中K');
+    const charge = makeNode('charge', 'チャージ', { children: [after] });
+    const starter = makeNode('starter', '強P', { children: [charge] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 1000 })]),
+        'チャージ': makeStats([makeHit({ damage: 0 })]),
+        '中K': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // チャージは段を進めないため、中Kは(強Pの次)=2発目扱い(100%)のまま
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'after')).toBe(2000);
+  });
+
+  it('技データ未登録のノードは(damageが不明なだけで実際にはヒットしているはずなので)従来通り段を進める', () => {
+    const after = makeNode('after', '中K');
+    const unregistered = makeNode('unregistered', '未登録の技', { children: [after] });
+    const starter = makeNode('starter', '強P', { children: [unregistered] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 1000 })]),
+        '中K': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 未登録技は段を進めるため、中Kは3発目扱い(80%)になる
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'after')).toBe(1800);
+  });
+
   it('生ラッシュもキャンセルラッシュと同じく以降のヒットに0.85倍が発生する（Dゲージとは違う扱い）', () => {
     const after = makeNode('after', '中K');
     const rush = makeNode('rush', '生ラッシュ', { children: [after] });
@@ -376,8 +450,11 @@ describe('calculateBranchDamage', () => {
       },
     };
 
-    // 強P:1000(100%) + 生ラッシュ:0 + 中K:1000*0.68(3発目のラッシュ後テーブル) = 1680
-    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'after')).toBe(1680);
+    // 強P: 始動補正が無いので自然に1段だけ進む(テーブルの最初の2段はどちらも100%のため据え置き)
+    // 生ラッシュ: システム動作なので段を進めずダメージ0
+    // 中K: 強Pの次の自然な段(100%、まだ2発しか実質進んでいないため)にラッシュ0.85倍 → 1000*0.85=850
+    // 合計: 1000+0+850=1850
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'after')).toBe(1850);
   });
 
   it('始動技自体がラッシュ攻撃の場合は0.85倍が発生しない', () => {
@@ -398,5 +475,38 @@ describe('calculateBranchDamage', () => {
   it('技データが1件も登録されていない経路ではnullを返す', () => {
     const node = makeNode('a', '未登録の技');
     expect(calculateBranchDamage('ryu', {}, [], node, 'a')).toBeNull();
+  });
+});
+
+describe('calculateRequiredStartHitCondition', () => {
+  it('経路上のどのノードにもカウンター/パニカン属性が無ければnullを返す', () => {
+    const leaf = makeNode('leaf', '中P');
+    const starter = makeNode('starter', '2中K', { children: [leaf] });
+    expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBeNull();
+  });
+
+  it('経路上のノードにカウンター属性が付いていれば「カウンター」を返す', () => {
+    const leaf = makeNode('leaf', 'ビームLv.0', { attributes: [{ type: 'counter' }] });
+    const starter = makeNode('starter', '2中K', { children: [leaf] });
+    expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBe('カウンター');
+  });
+
+  it('経路上のノードにパニッシュカウンター属性が付いていれば「パニカン」を返す', () => {
+    const leaf = makeNode('leaf', 'ビームLv.0', { attributes: [{ type: 'punishCounter' }] });
+    const starter = makeNode('starter', '2中K', { children: [leaf] });
+    expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBe('パニカン');
+  });
+
+  it('カウンターとパニッシュカウンターが経路上の別ノードに混在していれば、厳しい方(パニカン)を返す', () => {
+    const mid = makeNode('mid', 'ビームLv.0', { attributes: [{ type: 'counter' }] });
+    const leaf = makeNode('leaf', 'SA3', { attributes: [{ type: 'punishCounter' }] });
+    mid.children = [leaf];
+    const starter = makeNode('starter', '2中K', { children: [mid] });
+    expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBe('パニカン');
+  });
+
+  it('対象ノードが木の中に存在しなければnullを返す', () => {
+    const starter = makeNode('starter', '2中K');
+    expect(calculateRequiredStartHitCondition(starter, '存在しないID')).toBeNull();
   });
 });
