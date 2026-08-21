@@ -3,12 +3,21 @@
 // （表示するかどうかの判断は呼び出し側で行う。src/components/combo/SideDrawerPanel.tsx を参照）。
 
 import type { CSSProperties } from 'react';
-import type { ComboBranchStats, Rating5 } from '../../types';
+import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 
 type Props = {
   value: ComboBranchStats | null;
   onChange: (next: ComboBranchStats | null) => void;
   readOnly?: boolean;
+  // root〜このノードまでの技データから自動計算したSAゲージ増減。技データが1件も
+  // 登録されていない経路ではnull
+  autoSaGaugeChange?: number | null;
+  // root〜このノードまでの技データから自動計算したDゲージ増減。キャンセルラッシュ中の
+  // 抑制や連続ガード等の判定はできる範囲のみ反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
+  autoDGaugeChange?: number | null;
+  // root〜このノードまでの技データから自動計算したダメージ。標準コンボ補正テーブル・
+  // ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証を反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
+  autoDamage?: number | null;
 };
 
 const DEFAULT_STATS: ComboBranchStats = {
@@ -22,9 +31,22 @@ const DEFAULT_STATS: ComboBranchStats = {
   plusFrame: null,
   isThrowRange: false,
   canOkizeme: false,
+  startHitCondition: null,
+  isJustParryStart: false,
+  isRushStart: false,
+  usesCA: false,
 };
 
-export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) {
+const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
+
+export function BranchStatsEditor({
+  value,
+  onChange,
+  readOnly = false,
+  autoSaGaugeChange = null,
+  autoDGaugeChange = null,
+  autoDamage = null,
+}: Props) {
   const stats = value ?? DEFAULT_STATS;
 
   const update = (patch: Partial<ComboBranchStats>) => {
@@ -39,18 +61,63 @@ export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) 
         onChange={(next) => update({ damage: next })}
         readOnly={readOnly}
       />
+      {autoDamage !== null && (
+        <div style={styles.autoCalcRow}>
+          <span>自動計算：{autoDamage}</span>
+          {!readOnly && stats.damage !== autoDamage && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={() => update({ damage: autoDamage })}
+            >
+              この値を使う
+            </button>
+          )}
+        </div>
+      )}
       <NumberField
         label="Dゲージ増減（回収+ / 消費-）"
         value={stats.dGaugeChange}
         onChange={(next) => update({ dGaugeChange: next })}
         readOnly={readOnly}
       />
+      {autoDGaugeChange !== null && (
+        <div style={styles.autoCalcRow}>
+          <span>自動計算：{autoDGaugeChange}</span>
+          {!readOnly && stats.dGaugeChange !== autoDGaugeChange && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={() => update({ dGaugeChange: autoDGaugeChange })}
+            >
+              この値を使う
+            </button>
+          )}
+        </div>
+      )}
       <NumberField
         label="SAゲージ増加"
         value={stats.saGaugeGain}
         onChange={(next) => update({ saGaugeGain: next })}
         readOnly={readOnly}
       />
+      {autoSaGaugeChange !== null && (
+        <div style={styles.autoCalcRow}>
+          <span>自動計算：{autoSaGaugeChange}</span>
+          {!readOnly && stats.saGaugeGain !== autoSaGaugeChange && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={() => update({ saGaugeGain: autoSaGaugeChange })}
+            >
+              この値を使う
+            </button>
+          )}
+        </div>
+      )}
       <NumberField
         label="プラスフレーム"
         value={stats.plusFrame}
@@ -101,6 +168,62 @@ export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) 
           onChange={(event) => update({ canOkizeme: event.target.checked })}
         />
         起き攻め可能
+      </label>
+
+      <div style={styles.fieldLabel}>
+        始動条件
+        <div style={{ display: 'flex', gap: 4 }}>
+          {START_HIT_CONDITIONS.map((condition) => {
+            const active = (stats.startHitCondition ?? null) === condition;
+            return (
+              <button
+                key={condition}
+                type="button"
+                onClick={() => update({ startHitCondition: active ? null : condition })}
+                disabled={readOnly}
+                style={{
+                  ...styles.conditionButton,
+                  borderColor: active ? 'var(--accent)' : 'var(--border)',
+                  background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                  color: active ? '#fff' : 'var(--text-secondary)',
+                  cursor: readOnly ? 'default' : 'pointer',
+                }}
+              >
+                {condition}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.isJustParryStart ?? false}
+          disabled={readOnly}
+          onChange={(event) => update({ isJustParryStart: event.target.checked })}
+        />
+        ジャストパリィ始動
+      </label>
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.isRushStart ?? false}
+          disabled={readOnly}
+          onChange={(event) => update({ isRushStart: event.target.checked })}
+        />
+        ラッシュ始動
+      </label>
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.usesCA ?? false}
+          disabled={readOnly}
+          onChange={(event) => update({ usesCA: event.target.checked })}
+        />
+        CA使用
       </label>
     </div>
   );
@@ -183,9 +306,30 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     padding: '6px 10px',
   },
+  autoCalcRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: -4,
+    fontSize: 11,
+    color: 'var(--text-muted)',
+  },
+  autoCalcButton: {
+    fontSize: 11,
+    padding: '2px 8px',
+  },
   ratingButton: {
     width: 26,
     height: 26,
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    fontSize: 11,
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  conditionButton: {
+    padding: '4px 10px',
     borderRadius: 8,
     border: '1px solid var(--border)',
     fontSize: 11,

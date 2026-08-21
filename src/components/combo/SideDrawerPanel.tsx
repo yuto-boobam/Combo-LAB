@@ -7,9 +7,14 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
-import type { ComboTree, MoveNode, NodeAttribute } from '../../types';
+import type { ComboBranchStats, ComboTree, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
+import {
+  calculateBranchDamage,
+  calculateBranchDGaugeChange,
+  calculateBranchSaGaugeChange,
+} from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
 import { ChainPreviewRow } from './ChainPreviewRow';
@@ -41,7 +46,11 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
         )}
 
         {isGuest ? (
-          <ReadOnlyNodeView selectedNode={selectedInfo?.node ?? null} />
+          <ReadOnlyNodeView
+            characterId={characterId}
+            root={selectedInfo?.tree.root ?? null}
+            selectedNode={selectedInfo?.node ?? null}
+          />
         ) : copyModeAnchorId ? (
           <CopyModePanel characterId={characterId} comboTrees={comboTrees} anchorId={copyModeAnchorId} />
         ) : groupModeActive ? (
@@ -418,8 +427,43 @@ function MatchResultsPanel({
   );
 }
 
-function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
+// 「コンボの情報」バッジに表示する件数。記入済みの項目がひと目で分かるよう、
+// 未入力(null/false/初期値)を除いた項目数を数える
+function countFilledBranchStats(stats: ComboBranchStats | null): number {
+  if (!stats) return 0;
+  return [
+    stats.damage !== null,
+    stats.dGaugeChange !== null,
+    stats.saGaugeGain !== null,
+    stats.damageRating !== null,
+    stats.dGaugeRating !== null,
+    stats.saGaugeRating !== null,
+    stats.overallRating !== null,
+    stats.plusFrame !== null,
+    stats.isThrowRange,
+    stats.canOkizeme,
+    stats.startHitCondition !== null,
+    stats.isJustParryStart,
+    stats.isRushStart,
+    stats.usesCA,
+  ].filter(Boolean).length;
+}
+
+function ReadOnlyNodeView({
+  characterId,
+  root,
+  selectedNode,
+}: {
+  characterId: string;
+  root: MoveNode | null;
+  selectedNode: MoveNode | null;
+}) {
   const [isOpen, setIsOpen] = useState(true);
+  const [isStatsOpen, setIsStatsOpen] = useState(true);
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
+  const moveList = useAppStore(
+    (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
+  );
 
   if (!selectedNode) {
     return (
@@ -433,31 +477,60 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
     selectedNode.children.length === 0 ||
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
-  return (
-    <AccordionSection
-      title={`選択中のノード：${selectedNode.moveName}`}
-      icon="👁️"
-      count={selectedNode.attributes.length}
-      isOpen={isOpen}
-      onToggle={() => setIsOpen((open) => !open)}
-    >
-      <div style={{ display: 'grid', gap: 10 }}>
-        <AttributeEditor
-          value={selectedNode.attributes}
-          onChange={() => {}}
-          readOnly
-          specialNote={selectedNode.specialNote}
-          onSpecialNoteChange={() => {}}
-        />
+  const autoSaGaugeChange = root
+    ? calculateBranchSaGaugeChange(characterId, moveStatsDatabase, root, selectedNode.id)
+    : null;
+  const autoDGaugeChange = root
+    ? calculateBranchDGaugeChange(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
+    : null;
+  const autoDamage = root
+    ? calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
+    : null;
 
-        {showStats && (
-          <div style={{ marginTop: 4 }}>
-            <div style={styles.sectionTitle}>この枝の統計</div>
-            <BranchStatsEditor value={selectedNode.branchStats} onChange={() => {}} readOnly />
-          </div>
-        )}
-      </div>
-    </AccordionSection>
+  return (
+    <>
+      {showStats && (
+        <AccordionSection
+          title="コンボの情報"
+          icon="📊"
+          count={countFilledBranchStats(selectedNode.branchStats)}
+          isOpen={isStatsOpen}
+          onToggle={() => setIsStatsOpen((open) => !open)}
+        >
+          <BranchStatsEditor
+            value={selectedNode.branchStats}
+            onChange={() => {}}
+            readOnly
+            autoSaGaugeChange={autoSaGaugeChange}
+            autoDGaugeChange={autoDGaugeChange}
+            autoDamage={autoDamage}
+          />
+        </AccordionSection>
+      )}
+
+      <AccordionSection
+        title={`選択中のノード：${selectedNode.moveName}`}
+        icon="👁️"
+        count={selectedNode.attributes.length}
+        isOpen={isOpen}
+        onToggle={() => setIsOpen((open) => !open)}
+      >
+        <div style={{ display: 'grid', gap: 10 }}>
+          <AttributeEditor
+            value={selectedNode.attributes}
+            onChange={() => {}}
+            readOnly
+            specialNote={selectedNode.specialNote}
+            onSpecialNoteChange={() => {}}
+          />
+
+          <label style={styles.checkboxLabel}>
+            <input type="checkbox" checked={selectedNode.dGaugeRecoveryBlocked ?? false} disabled />
+            この技ではDゲージが回復しない
+          </label>
+        </div>
+      </AccordionSection>
+    </>
   );
 }
 
@@ -528,6 +601,11 @@ function NodeEditor({
   const updateNodeSpecialNote = useAppStore((state) => state.updateNodeSpecialNote);
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
+  const setNodeDGaugeRecoveryBlocked = useAppStore((state) => state.setNodeDGaugeRecoveryBlocked);
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
+  const moveList = useAppStore(
+    (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
+  );
   const startCopyMode = useAppStore((state) => state.startCopyMode);
   const startGroupMode = useAppStore((state) => state.startGroupMode);
   const startMatchMode = useAppStore((state) => state.startMatchMode);
@@ -548,8 +626,9 @@ function NodeEditor({
   const [editedMoveName, setEditedMoveName] = useState(selectedNode.moveName);
   const [editedDisplayName, setEditedDisplayName] = useState(selectedNode.displayName);
 
-  // 「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
-  // ノードを切り替えるたびに（keyでの再マウントにより）両方とも開いた状態に戻る
+  // 「コンボの情報」「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
+  // ノードを切り替えるたびに（keyでの再マウントにより）すべて開いた状態に戻る
+  const [isStatsOpen, setIsStatsOpen] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(true);
   const [isAddFormOpen, setIsAddFormOpen] = useState(true);
 
@@ -557,6 +636,27 @@ function NodeEditor({
   const showStatsEditor =
     selectedNode.children.length === 0 ||
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
+
+  const autoSaGaugeChange = calculateBranchSaGaugeChange(
+    characterId,
+    moveStatsDatabase,
+    root,
+    selectedNode.id,
+  );
+  const autoDGaugeChange = calculateBranchDGaugeChange(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
+  const autoDamage = calculateBranchDamage(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -577,6 +677,24 @@ function NodeEditor({
 
   return (
     <>
+      {showStatsEditor && (
+        <AccordionSection
+          title="コンボの情報"
+          icon="📊"
+          count={countFilledBranchStats(selectedNode.branchStats)}
+          isOpen={isStatsOpen}
+          onToggle={() => setIsStatsOpen((open) => !open)}
+        >
+          <BranchStatsEditor
+            value={selectedNode.branchStats}
+            onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
+            autoSaGaugeChange={autoSaGaugeChange}
+            autoDGaugeChange={autoDGaugeChange}
+            autoDamage={autoDamage}
+          />
+        </AccordionSection>
+      )}
+
       <AccordionSection
         title={`選択中のノード：${selectedNode.moveName}`}
         icon="✏️"
@@ -618,15 +736,16 @@ function NodeEditor({
             }
           />
 
-          {showStatsEditor && (
-            <div style={{ marginTop: 4 }}>
-              <div style={styles.sectionTitle}>この枝の統計</div>
-              <BranchStatsEditor
-                value={selectedNode.branchStats}
-                onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
-              />
-            </div>
-          )}
+          <label style={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={selectedNode.dGaugeRecoveryBlocked ?? false}
+              onChange={(event) =>
+                setNodeDGaugeRecoveryBlocked(characterId, treeId, selectedNode.id, event.target.checked)
+              }
+            />
+            この技ではDゲージが回復しない
+          </label>
 
           <button
             type="button"
@@ -747,11 +866,6 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.7,
     color: 'var(--text-muted)',
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 900,
-    color: 'var(--text-primary)',
   },
   fieldLabel: {
     display: 'grid',
