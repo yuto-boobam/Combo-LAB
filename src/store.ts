@@ -85,6 +85,7 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
       ? node.children.map((child) => normalizeMoveNode(child as Partial<MoveNode>))
       : [],
     groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
+    dGaugeRecoveryBlocked: node.dGaugeRecoveryBlocked === true ? true : undefined,
   };
 }
 
@@ -152,6 +153,7 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     dGaugeChip: toNullableNumber(s.dGaugeChip),
     dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
     minDamageGuaranteePercent: toNullableNumber(s.minDamageGuaranteePercent),
+    dGaugeGainDuringRush: toNullableNumber(s.dGaugeGainDuringRush),
   };
 }
 
@@ -427,6 +429,13 @@ export type AppState = {
     treeId: string,
     nodeId: string,
     branchStats: ComboBranchStats | null,
+  ) => void;
+
+  setNodeDGaugeRecoveryBlocked: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    blocked: boolean,
   ) => void;
 
   // ──「枝を選んでまとめてコピー」機能 ─────────────────────────────────
@@ -962,6 +971,17 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({ ...node, branchStats })),
+          ),
+        }));
+      },
+
+      setNodeDGaugeRecoveryBlocked: (characterId, treeId, nodeId, blocked) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({
+              ...node,
+              dGaugeRecoveryBlocked: blocked ? true : undefined,
+            })),
           ),
         }));
       },

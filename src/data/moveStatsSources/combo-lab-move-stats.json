@@ -10,7 +10,8 @@
           "saGaugeGain": 300,
           "dGaugeChip": -500,
           "dGaugeChipPunishCounter": -2000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -24,7 +25,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -3000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -38,7 +40,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -5000,
           "dGaugeChipPunishCounter": -8000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -52,7 +55,8 @@
           "saGaugeGain": 300,
           "dGaugeChip": -500,
           "dGaugeChipPunishCounter": -2000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -66,7 +70,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -3000,
           "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -80,7 +85,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -5000,
           "dGaugeChipPunishCounter": -8000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -94,7 +100,8 @@
           "saGaugeGain": 300,
           "dGaugeChip": -500,
           "dGaugeChipPunishCounter": -2000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -108,7 +115,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -3000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -122,7 +130,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -5000,
           "dGaugeChipPunishCounter": -8000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -136,7 +145,8 @@
           "saGaugeGain": 300,
           "dGaugeChip": -500,
           "dGaugeChipPunishCounter": -2000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -150,7 +160,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -164,7 +175,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -10000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -178,7 +190,8 @@
           "saGaugeGain": 300,
           "dGaugeChip": -1500,
           "dGaugeChipPunishCounter": -2000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -192,7 +205,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -206,7 +220,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -220,7 +235,8 @@
           "saGaugeGain": 300,
           "dGaugeChip": -1500,
           "dGaugeChipPunishCounter": -2000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -234,7 +250,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -248,7 +265,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -262,7 +280,8 @@
           "saGaugeGain": 700,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -276,7 +295,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -5000,
           "dGaugeChipPunishCounter": -8000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -290,7 +310,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -304,7 +325,8 @@
           "saGaugeGain": 500,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         },
         {
           "damage": 800,
@@ -313,7 +335,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -327,7 +350,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -5000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         },
         {
           "damage": 800,
@@ -336,7 +360,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -350,7 +375,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -364,7 +390,8 @@
           "saGaugeGain": 600,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -3000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -378,7 +405,8 @@
           "saGaugeGain": 600,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -3000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -392,7 +420,8 @@
           "saGaugeGain": 600,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -3000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -406,7 +435,8 @@
           "saGaugeGain": 600,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -420,7 +450,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -434,7 +465,8 @@
           "saGaugeGain": 1400,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -448,7 +480,8 @@
           "saGaugeGain": 800,
           "dGaugeChip": -3000,
           "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -462,7 +495,8 @@
           "saGaugeGain": 1200,
           "dGaugeChip": -1500,
           "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -476,105 +510,8 @@
           "saGaugeGain": 1200,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -3500,
-          "minDamageGuaranteePercent": null
-        }
-      ]
-    },
-    "サンシャイン(Lv1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1900,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": -2500,
-          "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
-        }
-      ]
-    },
-    "サンシャイン(Lv2)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 2300,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": -2500,
-          "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
-        }
-      ]
-    },
-    "サンシャイン(Lv3)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 2700,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": -2500,
-          "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
-        }
-      ]
-    },
-    "サンオーダー(Lv1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1600,
-          "modifier": "即時補正20%",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": -6000,
-          "dGaugeChipPunishCounter": -7200,
-          "minDamageGuaranteePercent": null
-        }
-      ]
-    },
-    "サンオーダー(Lv2)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 2400,
-          "modifier": "即時補正20%",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": -8000,
-          "dGaugeChipPunishCounter": -9600,
-          "minDamageGuaranteePercent": null
-        }
-      ]
-    },
-    "サンオーダー(Lv3)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 3400,
-          "modifier": "即時補正20%",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": -10000,
-          "dGaugeChipPunishCounter": -12000,
-          "minDamageGuaranteePercent": null
-        }
-      ]
-    },
-    "コズミックレイ": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 4000,
-          "modifier": "※即時補正10%",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": -7500,
-          "dGaugeChipPunishCounter": -15000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -588,7 +525,8 @@
           "saGaugeGain": 2000,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": -10000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -602,7 +540,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -616,7 +555,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -630,7 +570,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": -5000,
           "dGaugeChipPunishCounter": -15000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -644,7 +585,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -658,7 +600,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -3500,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -672,7 +615,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -3500,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -686,7 +630,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -3500,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -700,7 +645,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -714,7 +660,8 @@
           "saGaugeGain": 700,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -728,7 +675,8 @@
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -742,7 +690,8 @@
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -9000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -756,7 +705,8 @@
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -770,7 +720,8 @@
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -9000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -784,7 +735,8 @@
           "saGaugeGain": 1600,
           "dGaugeChip": -8000,
           "dGaugeChipPunishCounter": -12000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -798,7 +750,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -812,7 +765,8 @@
           "saGaugeGain": 600,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -826,7 +780,8 @@
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -840,7 +795,8 @@
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -7500,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -854,7 +810,8 @@
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -868,7 +825,8 @@
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -7500,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -882,7 +840,8 @@
           "saGaugeGain": 1600,
           "dGaugeChip": -8000,
           "dGaugeChipPunishCounter": -10000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -896,7 +855,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -910,7 +870,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -924,7 +885,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -938,7 +900,8 @@
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -948,11 +911,12 @@
         {
           "damage": 19000,
           "modifier": "",
-          "dGaugeGain": 0,
+          "dGaugeGain": 5000,
           "saGaugeGain": -10000,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": 30
+          "minDamageGuaranteePercent": 30,
+          "dGaugeGainDuringRush": 0
         }
       ]
     },
@@ -962,11 +926,12 @@
         {
           "damage": 2300,
           "modifier": "",
-          "dGaugeGain": 0,
+          "dGaugeGain": 5000,
           "saGaugeGain": -10000,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": 30
+          "minDamageGuaranteePercent": 30,
+          "dGaugeGainDuringRush": 0
         }
       ]
     },
@@ -976,11 +941,12 @@
         {
           "damage": 2700,
           "modifier": "",
-          "dGaugeGain": 0,
+          "dGaugeGain": 5000,
           "saGaugeGain": -10000,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": 30
+          "minDamageGuaranteePercent": 30,
+          "dGaugeGainDuringRush": 0
         }
       ]
     },
@@ -990,11 +956,12 @@
         {
           "damage": 4000,
           "modifier": "即時補正10%",
-          "dGaugeGain": 0,
+          "dGaugeGain": 20000,
           "saGaugeGain": -30000,
           "dGaugeChip": -7500,
           "dGaugeChipPunishCounter": -15000,
-          "minDamageGuaranteePercent": 50
+          "minDamageGuaranteePercent": 50,
+          "dGaugeGainDuringRush": 15000
         }
       ]
     },
@@ -1008,7 +975,8 @@
           "saGaugeGain": -20000,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -7200,
-          "minDamageGuaranteePercent": 40
+          "minDamageGuaranteePercent": 40,
+          "dGaugeGainDuringRush": 0
         }
       ]
     },
@@ -1022,7 +990,8 @@
           "saGaugeGain": -20000,
           "dGaugeChip": -8000,
           "dGaugeChipPunishCounter": -9600,
-          "minDamageGuaranteePercent": 40
+          "minDamageGuaranteePercent": 40,
+          "dGaugeGainDuringRush": 0
         }
       ]
     },
@@ -1036,7 +1005,8 @@
           "saGaugeGain": -20000,
           "dGaugeChip": -10000,
           "dGaugeChipPunishCounter": -12000,
-          "minDamageGuaranteePercent": 40
+          "minDamageGuaranteePercent": 40,
+          "dGaugeGainDuringRush": 0
         }
       ]
     },
@@ -1046,11 +1016,12 @@
         {
           "damage": 4500,
           "modifier": "即時補正10%",
-          "dGaugeGain": 0,
+          "dGaugeGain": 20000,
           "saGaugeGain": -30000,
           "dGaugeChip": -10000,
           "dGaugeChipPunishCounter": -20000,
-          "minDamageGuaranteePercent": 50
+          "minDamageGuaranteePercent": 50,
+          "dGaugeGainDuringRush": 15000
         }
       ]
     },
@@ -1064,7 +1035,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -5000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         },
         {
           "damage": 800,
@@ -1073,7 +1045,8 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1087,7 +1060,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     },
@@ -1101,7 +1075,8 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
         }
       ]
     }

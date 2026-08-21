@@ -172,6 +172,7 @@ describe('restoreCharacters', () => {
                   createdBy: '',
                   createdAt: '2026-01-01T00:00:00.000Z',
                   groupId: 'g1',
+                  dGaugeRecoveryBlocked: true,
                   children: [],
                 },
               ],
@@ -187,6 +188,32 @@ describe('restoreCharacters', () => {
     const tree = updated.comboTrees.find((t) => t.id === 't1')!;
     expect(tree.root.groupId).toBe('g1');
     expect(tree.root.children[0].groupId).toBe('g1');
+    expect(tree.root.dGaugeRecoveryBlocked).toBeUndefined();
+    expect(tree.root.children[0].dGaugeRecoveryBlocked).toBe(true);
+  });
+});
+
+describe('setNodeDGaugeRecoveryBlocked', () => {
+  beforeEach(() => {
+    useAppStore.setState({ characters: createInitialCharacterRoster() });
+  });
+
+  it('指定ノードだけdGaugeRecoveryBlockedが切り替わり、他のノードには影響しない', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '小P始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+    const childId = store.addChildNode(characterId, treeId, rootId, '中P');
+
+    store.setNodeDGaugeRecoveryBlocked(characterId, treeId, childId, true);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.dGaugeRecoveryBlocked).toBeUndefined();
+    expect(findNodeByMoveName(tree.root, '中P').dGaugeRecoveryBlocked).toBe(true);
+
+    store.setNodeDGaugeRecoveryBlocked(characterId, treeId, childId, false);
+    const treeAfterUncheck = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(treeAfterUncheck.root, '中P').dGaugeRecoveryBlocked).toBeUndefined();
   });
 });
 
@@ -502,6 +529,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeChip: 20,
           dGaugeChipPunishCounter: -50,
           minDamageGuaranteePercent: null,
+          dGaugeGainDuringRush: null,
         },
       ],
     });
@@ -517,9 +545,9 @@ describe('技データベース（moveStatsDatabase）', () => {
     useAppStore.getState().setMoveStats(char.id, '中K', {
       isMultiHit: true,
       hits: [
-        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null },
-        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null },
-        { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
+        { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
       ],
     });
 
@@ -557,6 +585,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeChip: null,
           dGaugeChipPunishCounter: null,
           minDamageGuaranteePercent: null,
+          dGaugeGainDuringRush: null,
         },
       ],
     });
@@ -576,6 +605,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeChip: null,
           dGaugeChipPunishCounter: null,
           minDamageGuaranteePercent: null,
+          dGaugeGainDuringRush: null,
         },
       ],
     });

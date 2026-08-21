@@ -10,8 +10,11 @@ type Props = {
   onChange: (next: ComboBranchStats | null) => void;
   readOnly?: boolean;
   // root〜このノードまでの技データから自動計算したSAゲージ増減。技データが1件も
-  // 登録されていない経路ではnull（自動計算のうちSAゲージだけ実装済み。ダメージ・Dゲージは未実装）
+  // 登録されていない経路ではnull（自動計算のうちSAゲージだけ実装済み。ダメージは未実装）
   autoSaGaugeChange?: number | null;
+  // root〜このノードまでの技データから自動計算したDゲージ増減。キャンセルラッシュ中の
+  // 抑制や連続ガード等の判定はできる範囲のみ反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
+  autoDGaugeChange?: number | null;
 };
 
 const DEFAULT_STATS: ComboBranchStats = {
@@ -38,6 +41,7 @@ export function BranchStatsEditor({
   onChange,
   readOnly = false,
   autoSaGaugeChange = null,
+  autoDGaugeChange = null,
 }: Props) {
   const stats = value ?? DEFAULT_STATS;
 
@@ -59,6 +63,21 @@ export function BranchStatsEditor({
         onChange={(next) => update({ dGaugeChange: next })}
         readOnly={readOnly}
       />
+      {autoDGaugeChange !== null && (
+        <div style={styles.autoCalcRow}>
+          <span>自動計算：{autoDGaugeChange}</span>
+          {!readOnly && stats.dGaugeChange !== autoDGaugeChange && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={() => update({ dGaugeChange: autoDGaugeChange })}
+            >
+              この値を使う
+            </button>
+          )}
+        </div>
+      )}
       <NumberField
         label="SAゲージ増加"
         value={stats.saGaugeGain}

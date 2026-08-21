@@ -10,7 +10,7 @@ import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
 import type { ComboBranchStats, ComboTree, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
-import { calculateBranchSaGaugeChange } from '../../utils/comboGaugeCalc';
+import { calculateBranchDGaugeChange, calculateBranchSaGaugeChange } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
 import { ChainPreviewRow } from './ChainPreviewRow';
@@ -457,6 +457,9 @@ function ReadOnlyNodeView({
   const [isOpen, setIsOpen] = useState(true);
   const [isStatsOpen, setIsStatsOpen] = useState(true);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
+  const moveList = useAppStore(
+    (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
+  );
 
   if (!selectedNode) {
     return (
@@ -472,6 +475,9 @@ function ReadOnlyNodeView({
 
   const autoSaGaugeChange = root
     ? calculateBranchSaGaugeChange(characterId, moveStatsDatabase, root, selectedNode.id)
+    : null;
+  const autoDGaugeChange = root
+    ? calculateBranchDGaugeChange(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
     : null;
 
   return (
@@ -489,6 +495,7 @@ function ReadOnlyNodeView({
             onChange={() => {}}
             readOnly
             autoSaGaugeChange={autoSaGaugeChange}
+            autoDGaugeChange={autoDGaugeChange}
           />
         </AccordionSection>
       )}
@@ -508,6 +515,11 @@ function ReadOnlyNodeView({
             specialNote={selectedNode.specialNote}
             onSpecialNoteChange={() => {}}
           />
+
+          <label style={styles.checkboxLabel}>
+            <input type="checkbox" checked={selectedNode.dGaugeRecoveryBlocked ?? false} disabled />
+            この技ではDゲージが回復しない
+          </label>
         </div>
       </AccordionSection>
     </>
@@ -581,7 +593,11 @@ function NodeEditor({
   const updateNodeSpecialNote = useAppStore((state) => state.updateNodeSpecialNote);
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
+  const setNodeDGaugeRecoveryBlocked = useAppStore((state) => state.setNodeDGaugeRecoveryBlocked);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
+  const moveList = useAppStore(
+    (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
+  );
   const startCopyMode = useAppStore((state) => state.startCopyMode);
   const startGroupMode = useAppStore((state) => state.startGroupMode);
   const startMatchMode = useAppStore((state) => state.startMatchMode);
@@ -619,6 +635,13 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  const autoDGaugeChange = calculateBranchDGaugeChange(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -651,6 +674,7 @@ function NodeEditor({
             value={selectedNode.branchStats}
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
             autoSaGaugeChange={autoSaGaugeChange}
+            autoDGaugeChange={autoDGaugeChange}
           />
         </AccordionSection>
       )}
@@ -695,6 +719,17 @@ function NodeEditor({
               updateNodeSpecialNote(characterId, treeId, selectedNode.id, note)
             }
           />
+
+          <label style={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={selectedNode.dGaugeRecoveryBlocked ?? false}
+              onChange={(event) =>
+                setNodeDGaugeRecoveryBlocked(characterId, treeId, selectedNode.id, event.target.checked)
+              }
+            />
+            この技ではDゲージが回復しない
+          </label>
 
           <button
             type="button"
