@@ -402,7 +402,7 @@
         {
           "damage": 1000,
           "modifier": "始動補正20%＋コンボ補正20%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 600,
           "dGaugeChip": -2500,
           "dGaugeChipPunishCounter": -5000,
@@ -458,7 +458,7 @@
         {
           "damage": 1600,
           "modifier": "コンボ補正20%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 1200,
           "dGaugeChip": -1500,
           "dGaugeChipPunishCounter": -6000,
@@ -472,7 +472,7 @@
         {
           "damage": 1200,
           "modifier": "",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 1200,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -3500,
@@ -640,7 +640,7 @@
         {
           "damage": 0,
           "modifier": "",
-          "dGaugeGain": 0,
+          "dGaugeGain": -5000,
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
@@ -752,7 +752,7 @@
         {
           "damage": 1100,
           "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -6000,
@@ -766,7 +766,7 @@
         {
           "damage": 1350,
           "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -9000,
@@ -780,7 +780,7 @@
         {
           "damage": 1800,
           "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 1600,
           "dGaugeChip": -8000,
           "dGaugeChipPunishCounter": -12000,
@@ -850,7 +850,7 @@
         {
           "damage": 1100,
           "modifier": "始動補正20%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 800,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -4000,
@@ -864,7 +864,7 @@
         {
           "damage": 1350,
           "modifier": "始動補正30%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 1200,
           "dGaugeChip": -6000,
           "dGaugeChipPunishCounter": -7500,
@@ -878,7 +878,7 @@
         {
           "damage": 1800,
           "modifier": "始動補正30%＋コンボ補正15%",
-          "dGaugeGain": 0,
+          "dGaugeGain": -20000,
           "saGaugeGain": 1600,
           "dGaugeChip": -8000,
           "dGaugeChipPunishCounter": -10000,
@@ -1073,6 +1073,34 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -2000,
           "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "キャンセルラッシュ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": -30000,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null
+        }
+      ]
+    },
+    "生ラッシュ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": -10000,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null
         }
       ]
