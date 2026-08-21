@@ -10,7 +10,11 @@ import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
 import type { ComboBranchStats, ComboTree, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
-import { calculateBranchDGaugeChange, calculateBranchSaGaugeChange } from '../../utils/comboGaugeCalc';
+import {
+  calculateBranchDamage,
+  calculateBranchDGaugeChange,
+  calculateBranchSaGaugeChange,
+} from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
 import { ChainPreviewRow } from './ChainPreviewRow';
@@ -479,6 +483,9 @@ function ReadOnlyNodeView({
   const autoDGaugeChange = root
     ? calculateBranchDGaugeChange(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
     : null;
+  const autoDamage = root
+    ? calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
+    : null;
 
   return (
     <>
@@ -496,6 +503,7 @@ function ReadOnlyNodeView({
             readOnly
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
+            autoDamage={autoDamage}
           />
         </AccordionSection>
       )}
@@ -642,6 +650,13 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  const autoDamage = calculateBranchDamage(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -675,6 +690,7 @@ function NodeEditor({
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
+            autoDamage={autoDamage}
           />
         </AccordionSection>
       )}

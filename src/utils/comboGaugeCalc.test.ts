@@ -1,6 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { calculateBranchDGaugeChange, calculateBranchSaGaugeChange } from './comboGaugeCalc';
-import type { MoveCategory, MoveDefinition, MoveHitStats, MoveNode, MoveStats, MoveStatsDatabase } from '../types';
+import { calculateBranchDGaugeChange, calculateBranchDamage, calculateBranchSaGaugeChange } from './comboGaugeCalc';
+import type {
+  ComboBranchStats,
+  MoveCategory,
+  MoveDefinition,
+  MoveHitStats,
+  MoveNode,
+  MoveStats,
+  MoveStatsDatabase,
+} from '../types';
+
+function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranchStats {
+  return {
+    damage: null,
+    dGaugeChange: null,
+    saGaugeGain: null,
+    damageRating: null,
+    dGaugeRating: null,
+    saGaugeRating: null,
+    overallRating: null,
+    plusFrame: null,
+    isThrowRange: false,
+    canOkizeme: false,
+    startHitCondition: null,
+    isJustParryStart: false,
+    isRushStart: false,
+    usesCA: false,
+    ...overrides,
+  };
+}
 
 function makeNode(id: string, moveName: string, overrides: Partial<MoveNode> = {}): MoveNode {
   return {
@@ -245,5 +273,130 @@ describe('calculateBranchDGaugeChange', () => {
   it('技データが1件も登録されていない経路ではnullを返す', () => {
     const node = makeNode('a', '未登録の技');
     expect(calculateBranchDGaugeChange('ingrid', {}, [], node, 'a')).toBeNull();
+  });
+});
+
+describe('calculateBranchDamage', () => {
+  it('実機確認済みの例を再現する: 始動補正20%の技→キャンセルラッシュ→無地の技 で3発目が68%換算になる', () => {
+    const hitK = makeNode('hitK', '強K', { branchStats: makeBranchStats() });
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [hitK] });
+    const starter = makeNode('starter', '2中K', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '2中K': makeStats([makeHit({ damage: 1000, modifier: '始動補正20%' })]),
+        'キャンセルラッシュ': makeStats([makeHit({ damage: 0 })]),
+        '強K': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 1000*0.8(始動補正20%) + 0(ラッシュ自身) + 1000*0.68(標準テーブル3発目×ラッシュ0.85) = 1480
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'hitK')).toBe(1480);
+  });
+
+  it('ターゲットコンボ(1ノードに複数ヒット)は、その段数ぶん標準テーブルの位置を消費する', () => {
+    // a→aターゲットコンボ(2発分)の後に無地の技を続けると、その技は3発目のテーブル値(80%)になる
+    const after = makeNode('after', '中P');
+    const targetCombo = makeNode('tc', '中P→中K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中P→中K': makeStats(
+          [makeHit({ damage: 500, modifier: '' }), makeHit({ damage: 500, modifier: '' })],
+          true,
+        ),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 1発目:500*1.0 + 2発目:500*1.0(テーブル2発目=100%) + 3発目:1000*0.8(テーブル3発目=80%) = 500+500+800=1800
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], targetCombo, 'after')).toBe(1800);
+  });
+
+  it('SAはminDamageGuaranteePercentをそのままダメージに使う', () => {
+    const sa = makeNode('sa', 'コズミックレイ');
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [sa] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 900 })]),
+        'キャンセルラッシュ': makeStats([makeHit({ damage: 0 })]),
+        'コズミックレイ': makeStats([
+          makeHit({ damage: 4000, minDamageGuaranteePercent: 50 }),
+        ]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('コズミックレイ', 'superArt')];
+
+    // 強P: 100%(起点、始動補正なし) → 900
+    // コズミックレイ: 最低保証50%をそのまま使う(ラッシュ0.85倍の影響を受けない) → 4000*0.5=2000
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBe(2900);
+  });
+
+  it('カウンター始動は末端ノードのbranchStatsから基準値120%を採用する', () => {
+    const starter = makeNode('starter', '強P', {
+      branchStats: makeBranchStats({ startHitCondition: 'カウンター' }),
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: { '強P': makeStats([makeHit({ damage: 1000 })]) },
+    };
+
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'starter')).toBe(1200);
+  });
+
+  it('空振り・ガード属性のノードはダメージ0で、後続ヒットの位置もずらさない', () => {
+    const after = makeNode('after', '中P');
+    const guarded = makeNode('guarded', '弱P', { attributes: [{ type: 'guard' }], children: [after] });
+    const starter = makeNode('starter', '強P', { children: [guarded] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '強P': makeStats([makeHit({ damage: 1000 })]),
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // ガードされた弱Pは寄与0・位置も消費しないため、中Pは(強Pの次)=2発目扱い(100%)になる
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'after')).toBe(2000);
+  });
+
+  it('生ラッシュもキャンセルラッシュと同じく以降のヒットに0.85倍が発生する（Dゲージとは違う扱い）', () => {
+    const after = makeNode('after', '中K');
+    const rush = makeNode('rush', '生ラッシュ', { children: [after] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '強P': makeStats([makeHit({ damage: 1000 })]),
+        '生ラッシュ': makeStats([makeHit({ damage: 0 })]),
+        '中K': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 強P:1000(100%) + 生ラッシュ:0 + 中K:1000*0.68(3発目のラッシュ後テーブル) = 1680
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'after')).toBe(1680);
+  });
+
+  it('始動技自体がラッシュ攻撃の場合は0.85倍が発生しない', () => {
+    const after = makeNode('after', '中K');
+    const starter = makeNode('starter', 'キャンセルラッシュ', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        'キャンセルラッシュ': makeStats([makeHit({ damage: 0 })]),
+        '中K': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // ラッシュが始動技なので0.85倍は発生せず、中Kは標準テーブルの2発目(100%)のまま
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'after')).toBe(1000);
+  });
+
+  it('技データが1件も登録されていない経路ではnullを返す', () => {
+    const node = makeNode('a', '未登録の技');
+    expect(calculateBranchDamage('ryu', {}, [], node, 'a')).toBeNull();
   });
 });

@@ -10,11 +10,14 @@ type Props = {
   onChange: (next: ComboBranchStats | null) => void;
   readOnly?: boolean;
   // root〜このノードまでの技データから自動計算したSAゲージ増減。技データが1件も
-  // 登録されていない経路ではnull（自動計算のうちSAゲージだけ実装済み。ダメージは未実装）
+  // 登録されていない経路ではnull
   autoSaGaugeChange?: number | null;
   // root〜このノードまでの技データから自動計算したDゲージ増減。キャンセルラッシュ中の
   // 抑制や連続ガード等の判定はできる範囲のみ反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
   autoDGaugeChange?: number | null;
+  // root〜このノードまでの技データから自動計算したダメージ。標準コンボ補正テーブル・
+  // ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証を反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
+  autoDamage?: number | null;
 };
 
 const DEFAULT_STATS: ComboBranchStats = {
@@ -42,6 +45,7 @@ export function BranchStatsEditor({
   readOnly = false,
   autoSaGaugeChange = null,
   autoDGaugeChange = null,
+  autoDamage = null,
 }: Props) {
   const stats = value ?? DEFAULT_STATS;
 
@@ -57,6 +61,21 @@ export function BranchStatsEditor({
         onChange={(next) => update({ damage: next })}
         readOnly={readOnly}
       />
+      {autoDamage !== null && (
+        <div style={styles.autoCalcRow}>
+          <span>自動計算：{autoDamage}</span>
+          {!readOnly && stats.damage !== autoDamage && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={() => update({ damage: autoDamage })}
+            >
+              この値を使う
+            </button>
+          )}
+        </div>
+      )}
       <NumberField
         label="Dゲージ増減（回収+ / 消費-）"
         value={stats.dGaugeChange}

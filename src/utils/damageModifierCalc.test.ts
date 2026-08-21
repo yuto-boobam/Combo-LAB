@@ -4,7 +4,16 @@ import {
   applyMultiplicativeModifier,
   calculateDamageScalingPath,
   parseModifierText,
+  type DamageHitInput,
 } from './damageModifierCalc';
+
+function damageHit(modifierText: string, overrides: Partial<DamageHitInput> = {}): DamageHitInput {
+  return { modifierText, isSuperArt: false, minDamageGuaranteePercent: null, ...overrides };
+}
+
+function noModHits(count: number): DamageHitInput[] {
+  return Array.from({ length: count }, () => damageHit(''));
+}
 
 describe('parseModifierText', () => {
   it('単一の補正を読み取る', () => {
@@ -51,42 +60,71 @@ describe('applyAdditiveModifier / applyMultiplicativeModifier', () => {
 });
 
 describe('calculateDamageScalingPath', () => {
-  it('始動補正だけの1ヒットコンボは、そのまま補正後の値になる', () => {
-    expect(calculateDamageScalingPath(['始動補正20%'])).toEqual([80]);
-  });
-
-  it('始動補正なしの技で始まると100%のままになる', () => {
-    expect(calculateDamageScalingPath([''])).toEqual([100]);
-  });
-
-  it('コンボ補正は加算され、以降のヒットへ持ち越される', () => {
-    expect(calculateDamageScalingPath(['始動補正20%', 'コンボ補正20%', 'コンボ補正20%'])).toEqual([
-      80, 60, 40,
+  it('技固有のmodifierが無い経路は、標準コンボ補正テーブル通りに減衰する（実機確認済み）', () => {
+    expect(calculateDamageScalingPath(noModHits(10), null)).toEqual([
+      100, 100, 80, 70, 60, 50, 40, 30, 20, 10,
     ]);
   });
 
-  it('即時補正はコンボ補正と同じく、そのヒット自身にも以降のヒットにも持ち越される（実機確認済み）', () => {
-    // 1発目: 100 - 20 = 80
-    // 2発目(即時補正): 80 - 20 = 60。持ち越し値も60になる
-    // 3発目(コンボ補正): 60 - 10 = 50
-    expect(calculateDamageScalingPath(['始動補正20%', '即時補正20%', 'コンボ補正10%'])).toEqual([
-      80, 60, 50,
+  it('10発目以降は10%で下げ止まる', () => {
+    const result = calculateDamageScalingPath(noModHits(12), null);
+    expect(result[9]).toBe(10);
+    expect(result[10]).toBe(10);
+    expect(result[11]).toBe(10);
+  });
+
+  it('ラッシュ発生後は、標準テーブルの値に0.85を掛けて小数点以下切り捨てにした値になる（実機確認済み）', () => {
+    // 1発目はラッシュの影響を受けない(ラッシュ攻撃が起点になることは無いため)
+    expect(calculateDamageScalingPath(noModHits(10), 2)).toEqual([
+      100, 85, 68, 59, 51, 42, 34, 25, 17, 8,
     ]);
   });
 
-  it('乗算補正は持続的な補正値そのものを掛け算で圧縮し、以降のヒットへ持ち越される', () => {
-    // 1発目: 100 - 20 = 80
-    // 2発目(乗算補正20%): 80 * 0.8 = 64
-    // 3発目(コンボ補正10%): 64 - 10 = 54
-    expect(calculateDamageScalingPath(['始動補正20%', '乗算補正20%', 'コンボ補正10%'])).toEqual([
-      80, 64, 54,
-    ]);
+  it('カウンター/パニカン始動は起点の基準値が120になる', () => {
+    expect(calculateDamageScalingPath([damageHit('')], null, 120)).toEqual([120]);
   });
 
-  it('始動補正とコンボ補正が併記された技は、起点か否かで採用される値が変わる', () => {
-    // 「強サンライズ」相当: 始動補正20%＋コンボ補正20% が併記された技
-    expect(calculateDamageScalingPath(['始動補正20%＋コンボ補正20%'])).toEqual([80]);
-    expect(calculateDamageScalingPath(['', '始動補正20%＋コンボ補正20%'])).toEqual([100, 80]);
+  it('ジャストパリィ後パニカン始動は起点の基準値が50になる', () => {
+    expect(calculateDamageScalingPath([damageHit('')], null, 50)).toEqual([50]);
+  });
+
+  it('起点の始動補正は起点自身にのみ効き、2発目以降の標準テーブル参照には影響しない（実機確認済みの例）', () => {
+    // 「始動補正20%の2中Kを起点に、2中K→キャンセルラッシュ→強Kとすると100%→68%になる」
+    // という実機確認済みの例を再現する。強K(3発目)は標準テーブルの3発目(80%)にラッシュ0.85倍を
+    // 掛けた値と一致し、起点の-20%の影響を受けない
+    const hits = [damageHit('始動補正20%'), damageHit(''), damageHit('')];
+    expect(calculateDamageScalingPath(hits, 3)).toEqual([80, 100, 68]);
+  });
+
+  it('技固有のコンボ補正/即時補正は標準テーブルの減衰に加算され、以降のヒットへ持ち越される', () => {
+    // 2発目: テーブルの段差(100→100=0) + 技固有のコンボ補正20% = 100-20=80
+    // 3発目: テーブルの段差(100→80=20) + 前段からの持ち越し = 80-20=60
+    const hits = [damageHit(''), damageHit('コンボ補正20%'), damageHit('')];
+    expect(calculateDamageScalingPath(hits, null)).toEqual([100, 80, 60]);
+  });
+
+  it('乗算補正は現在の持ち越し値を(1-percent/100)倍する', () => {
+    // 2発目: テーブル段差0、乗算補正20% → 100 * 0.8 = 80
+    const hits = [damageHit(''), damageHit('乗算補正20%')];
+    expect(calculateDamageScalingPath(hits, null)).toEqual([100, 80]);
+  });
+
+  it('SAは自身のminDamageGuaranteePercentをそのまま採用し、テーブル・ラッシュ・下限の影響を受けない', () => {
+    const hits = [
+      damageHit(''),
+      damageHit('', { isSuperArt: true, minDamageGuaranteePercent: 50 }),
+    ];
+    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, 50]);
+  });
+
+  it('ラッシュ無しコンボは10%を下回らない', () => {
+    const hits = [damageHit(''), damageHit('コンボ補正200%')];
+    expect(calculateDamageScalingPath(hits, null)).toEqual([100, 10]);
+  });
+
+  it('ラッシュありコンボは8%を下回らない', () => {
+    const hits = [damageHit(''), damageHit('コンボ補正200%')];
+    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, 8]);
   });
 
   it('実際に登録済みのイングリッドの補正表記をすべて解釈できる', () => {
