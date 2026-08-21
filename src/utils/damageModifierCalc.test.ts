@@ -134,12 +134,26 @@ describe('calculateDamageScalingPath', () => {
     expect(calculateDamageScalingPath(hits, null)).toEqual([100, 100, 64]);
   });
 
-  it('SAは自身のminDamageGuaranteePercentをそのまま採用し、テーブル・ラッシュ・下限の影響を受けない', () => {
+  it('SAの自然計算値がminDamageGuaranteePercentを上回っている間は、自然計算の方をそのまま使う（実機確認済みの訂正後の仕様）', () => {
+    // 以前は無条件に保証値(50%)を採用していたが、自然計算(テーブル80%×ラッシュ0.85=85%)の方が
+    // 保証値より高いケースでダメージを不当に下げてしまう不具合があった。保証値はあくまで
+    // 「これを下回らない」という下限であり、自然計算が上回っていればそちらを使う
     const hits = [
       damageHit(''),
       damageHit('', { isSuperArt: true, minDamageGuaranteePercent: 50 }),
     ];
-    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, 50]);
+    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, 85]);
+  });
+
+  it('SAの自然計算値がminDamageGuaranteePercentを下回った時だけ、保証値まで引き上げる', () => {
+    // 乗算補正80%で自然計算を大きく下げ(テーブル80%×0.2倍×ラッシュ0.85≒13%)、
+    // 保証値50%を下回るようにする → この場合だけ保証値50%が採用される
+    const hits = [
+      damageHit(''),
+      damageHit('乗算補正80%'),
+      damageHit('', { isSuperArt: true, minDamageGuaranteePercent: 50 }),
+    ];
+    expect(calculateDamageScalingPath(hits, 3)).toEqual([100, 100, 50]);
   });
 
   it('ラッシュ無しコンボは10%を下回らない', () => {

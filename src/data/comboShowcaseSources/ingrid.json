@@ -607,16 +607,13 @@
                                     "branchStats": null,
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T10:52:27.781Z",
-                                    "children": [],
-                                    "dGaugeRecoveryBlocked": true
+                                    "children": []
                                   }
-                                ],
-                                "dGaugeRecoveryBlocked": true
+                                ]
                               }
                             ]
                           }
-                        ],
-                        "dGaugeRecoveryBlocked": true
+                        ]
                       },
                       {
                         "id": "msyjxzn5abw89vdr2uk",
@@ -692,11 +689,9 @@
                           }
                         ]
                       }
-                    ],
-                    "dGaugeRecoveryBlocked": true
+                    ]
                   }
-                ],
-                "dGaugeRecoveryBlocked": true
+                ]
               }
             ]
           }

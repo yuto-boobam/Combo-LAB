@@ -140,7 +140,11 @@ function forwardMultiplier(modifiers: ParsedModifier[]): number {
  * - rushTriggerPosition以降（ラッシュ攻撃＝ラッシュ直後の技から）は、ラッシュが絡まない場合の
  *   計算結果に0.85を掛け、小数点以下切り捨てにする
  * - SA以外は、ラッシュを伴うコンボなら8%、伴わないコンボなら10%を下回らない
- * - SAは自身の`minDamageGuaranteePercent`をそのまま採用し、テーブル・ラッシュ倍率・下限の影響を受けない
+ * - SAは自身の`minDamageGuaranteePercent`を「これを下回らない」という下限として扱う（他の
+ *   補正と同じくテーブル・ラッシュ倍率による自然な計算は行った上で、その結果が保証値を
+ *   下回った時だけ保証値に引き上げる。自然計算が保証値を上回っている間は自然計算の方を使う。
+ *   実機確認済み：以前は無条件に保証値を採用していたが、自然計算が保証値を上回るケースで
+ *   ダメージを不当に下げてしまう不具合があった）
  */
 export function calculateDamageScalingPath(
   hits: DamageHitInput[],
@@ -157,13 +161,6 @@ export function calculateDamageScalingPath(
 
   hits.forEach((hit, index) => {
     const isStarter = index === 0;
-
-    if (hit.isSuperArt && hit.minDamageGuaranteePercent !== null) {
-      rawPercents.push(hit.minDamageGuaranteePercent);
-      // SA自身の補正欄は次のヒットへも影響させない（保証値がそのまま採用される特殊ケースのため）
-      return;
-    }
-
     const modifiers = parseModifierText(hit.modifierText);
 
     if (isStarter) {
@@ -191,11 +188,14 @@ export function calculateDamageScalingPath(
 
   return rawPercents.map((percent, index) => {
     const hit = hits[index];
-    if (hit.isSuperArt && hit.minDamageGuaranteePercent !== null) return percent; // SAは保証値をそのまま使う
     if (hit.isSystemAction) return null; // 敵にヒットしない行動にラッシュ倍率・下限を適用しない
 
     const position = index + 1;
     const withRush = inRush(position) ? Math.floor(percent! * RUSH_DAMAGE_MULTIPLIER) : percent!;
-    return Math.max(withRush, floor);
+    // SAは通常の8%/10%下限の代わりに、自身のminDamageGuaranteePercentを下限として使う
+    // （自然計算がそれを上回っていれば、そのまま自然計算の値を使う）
+    const effectiveFloor =
+      hit.isSuperArt && hit.minDamageGuaranteePercent !== null ? hit.minDamageGuaranteePercent : floor;
+    return Math.max(withRush, effectiveFloor);
   });
 }

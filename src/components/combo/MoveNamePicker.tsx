@@ -27,8 +27,11 @@ type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
 type Props = {
   characterId: string;
   value: string;
-  // displayName は必殺技を選んだ時のみ渡ってくる（呼び名が登録されている場合）
-  onChange: (name: string, displayName?: string) => void;
+  // displayName は必殺技を選んだ時のみ渡ってくる（呼び名が登録されている場合）。
+  // finishingSpecialVariant は「常にコンボの締めで使う」設定のSA(finishesComboOnSelect)の
+  // 特殊性能を選んだ時のみ渡ってくる。呼び出し側はこれを選択中/新規追加ノードの
+  // branchStats.finishingSpecialVariantへ反映する（SideDrawerPanel参照）
+  onChange: (name: string, displayName?: string, finishingSpecialVariant?: string) => void;
 };
 
 function computeInitialOpenSections(
@@ -556,7 +559,7 @@ function SuperArtGroupBody({
   characterId: string;
   moves: MoveDefinition[];
   value: string;
-  onChange: (name: string) => void;
+  onChange: (name: string, displayName?: string, finishingSpecialVariant?: string) => void;
 }) {
   const renameMoveDefinition = useAppStore((state) => state.renameMoveDefinition);
   const setMoveDefinitionHasSpecialVariant = useAppStore(
@@ -565,13 +568,21 @@ function SuperArtGroupBody({
   const setMoveDefinitionSpecialVariantOptions = useAppStore(
     (state) => state.setMoveDefinitionSpecialVariantOptions,
   );
+  const setMoveDefinitionFinishesComboOnSelect = useAppStore(
+    (state) => state.setMoveDefinitionFinishesComboOnSelect,
+  );
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       {moves.map((move) => {
-        // 特殊性能ありのSAは `${SA名}(${Lv等})` の形で確定する（必殺技のstock/同時押しと同じ考え方）
+        // 特殊性能ありのSAは `${SA名}(${Lv等})` の形で確定する（必殺技のstock/同時押しと同じ考え方）。
+        // finishesComboOnSelectの技は技名を焼き込まない（末端ノードのbranchStats側で選ぶ）ため、
+        // このピッカーのvalue文字列からは今どのLv.が選ばれているか分からず、ハイライトできない
         const activeVariant =
-          move.hasSpecialVariant && value.startsWith(`${move.name}(`) && value.endsWith(')')
+          !move.finishesComboOnSelect &&
+          move.hasSpecialVariant &&
+          value.startsWith(`${move.name}(`) &&
+          value.endsWith(')')
             ? value.slice(move.name.length + 1, -1)
             : null;
 
@@ -600,10 +611,34 @@ function SuperArtGroupBody({
             </label>
 
             {move.hasSpecialVariant && (
+              <label style={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={move.finishesComboOnSelect ?? false}
+                  onChange={(event) =>
+                    setMoveDefinitionFinishesComboOnSelect(characterId, move.id, event.target.checked)
+                  }
+                />
+                常にコンボの締めで使う（この後に技を繋げない）
+              </label>
+            )}
+
+            {move.hasSpecialVariant && (
               <SpecialVariantRegistration
                 options={move.specialVariantOptions ?? []}
                 activeVariant={activeVariant}
-                onSelectVariant={(variant) => onChange(`${move.name}(${variant})`)}
+                onSelectVariant={(variant) =>
+                  move.finishesComboOnSelect
+                    ? // 常にコンボの締めで使う技は、ノード名を素の技名のまま確定し、実際に
+                      // 使った特殊性能は末端ノードのbranchStats.finishingSpecialVariantへ
+                      // 直接渡す（呼び出し側で反映する。SideDrawerPanel参照）
+                      onChange(move.name, undefined, variant)
+                    : // それ以外は必殺技の特殊性能選択と同じく、木のノード上にはvariantの
+                      // 文字列だけをそのまま表示する（moveNameは技データ照合用のキーとして
+                      // `${name}(${variant})`のまま保つが、表示はそれとは独立させることで
+                      // 「SA1(SA1|Lv. 1)」のような技名の二重表記を避ける）
+                      onChange(`${move.name}(${variant})`, variant)
+                }
                 onOptionsChange={(next) => setMoveDefinitionSpecialVariantOptions(characterId, move.id, next)}
               />
             )}

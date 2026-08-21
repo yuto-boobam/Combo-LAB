@@ -31,6 +31,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     isJustParryStart: false,
     isRushStart: false,
     usesCA: false,
+    finishingSpecialVariant: null,
     ...overrides,
   };
 }
@@ -233,18 +234,24 @@ describe('calculateBranchDGaugeChange', () => {
     expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBe(3000);
   });
 
-  it('dGaugeRecoveryBlockedが付いたノードは寄与0になる（連続ガード等の手動除外）', () => {
-    const blocked = makeNode('blocked', '中P', { dGaugeRecoveryBlocked: true });
-    const a = makeNode('a', '弱P', { children: [blocked] });
+  it('キャンセルラッシュ中でも「歩き」ノードは例外的に回復できる（実機確認済み。歩き以外の通常技は0のまま）', () => {
+    const walk = makeNode('walk', '前歩き(10F~20F)');
+    const normalAfterRush = makeNode('normal', '中P', { children: [walk] });
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [normalAfterRush] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
 
     const moveStatsDatabase: MoveStatsDatabase = {
       ryu: {
-        '弱P': makeStats([makeHit({ dGaugeGain: 250 })]),
+        '強P': makeStats([makeHit({ dGaugeGain: 3000 })]),
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -2000 })]),
         '中P': makeStats([makeHit({ dGaugeGain: 1500 })]),
+        '前歩き(10F~20F)': makeStats([makeHit({ dGaugeGain: 800 })]),
       },
     };
 
-    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, [], a, 'blocked')).toBe(250);
+    // 強P:3000 + キャンセルラッシュ:-2000 + 中P(ラッシュ中の通常技なので0) +
+    // 前歩き(ラッシュ中でも例外的に回復):800 = 1800
+    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, [], starter, 'walk')).toBe(1800);
   });
 
   it('ガード属性のノードは、ガード回復量が未実装のため寄与0になる', () => {
@@ -321,14 +328,18 @@ describe('calculateBranchDamage', () => {
     expect(calculateBranchDamage('ryu', moveStatsDatabase, [], targetCombo, 'after')).toBe(1800);
   });
 
-  it('SAはminDamageGuaranteePercentをそのままダメージに使う', () => {
+  it('SAの自然計算値が保証を下回った時だけ、minDamageGuaranteePercentまで引き上げる', () => {
     const sa = makeNode('sa', 'コズミックレイ');
     const rush = makeNode('rush', 'キャンセルラッシュ', { children: [sa] });
-    const starter = makeNode('starter', '強P', { children: [rush] });
+    // 中Kに乗算補正80%を付けて、コズミックレイに入る時点の自然計算値を保証(50%)より
+    // 低く(16%→ラッシュ0.85倍で13%)しておく。この場合だけ保証値50%が採用される
+    const midHit = makeNode('mid', '中K', { children: [rush] });
+    const starter = makeNode('starter', '強P', { children: [midHit] });
 
     const moveStatsDatabase: MoveStatsDatabase = {
       ingrid: {
         '強P': makeStats([makeHit({ damage: 900 })]),
+        '中K': makeStats([makeHit({ damage: 700, modifier: '乗算補正80%' })]),
         'キャンセルラッシュ': makeStats([makeHit({ damage: 0 })]),
         'コズミックレイ': makeStats([
           makeHit({ damage: 4000, minDamageGuaranteePercent: 50 }),
@@ -337,9 +348,73 @@ describe('calculateBranchDamage', () => {
     };
     const moveList: MoveDefinition[] = [makeMove('コズミックレイ', 'superArt')];
 
-    // 強P: 100%(起点、始動補正なし) → 900
-    // コズミックレイ: 最低保証50%をそのまま使う(ラッシュ0.85倍の影響を受けない) → 4000*0.5=2000
-    expect(calculateBranchDamage('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBe(2900);
+    // 強P:900(100%) + 中K:700(100%、乗算補正は自分には効かない) + キャンセルラッシュ:0 +
+    // コズミックレイ: 自然計算13%は保証50%を下回るため50%採用 → 4000*0.5=2000
+    // 合計: 900+700+0+2000=3600
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBe(3600);
+  });
+
+  it('末端ノードがfinishingSpecialVariantを持つ場合、moveNameはそのまま(例:SA1)で技データは`moveName(variant)`のキーを参照する', () => {
+    const sa = makeNode('sa', 'SA1', {
+      branchStats: makeBranchStats({ finishingSpecialVariant: 'Lv. 1' }),
+    });
+    const starter = makeNode('starter', '強P', { children: [sa] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 900 })]),
+        // ノードのmoveNameは"SA1"のままだが、実際に参照されるべきキーは"SA1(Lv. 1)"
+        'SA1(Lv. 1)': makeStats([makeHit({ damage: 4000, minDamageGuaranteePercent: 50 })]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('SA1', 'superArt')];
+
+    // 強P: 100%(起点) → 900、SA1: 自然計算100%は保証50%を上回るため自然計算を採用
+    // (isSuperArt判定もmoveName"SA1"のまま正しく検出) → 4000*100%=4000
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBe(4900);
+  });
+
+  it('末端ノード以外(経路の途中)ではfinishingSpecialVariantを参照しない(末端固有の仕様のため)', () => {
+    const after = makeNode('after', '中K');
+    const sa = makeNode('sa', 'SA1', {
+      children: [after],
+      branchStats: makeBranchStats({ finishingSpecialVariant: 'Lv. 1' }),
+    });
+    const starter = makeNode('starter', '強P', { children: [sa] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 900 })]),
+        'SA1(Lv. 1)': makeStats([makeHit({ damage: 4000 })]),
+        '中K': makeStats([makeHit({ damage: 700 })]),
+      },
+    };
+
+    // SA1ノード自体は経路の途中(末端はafter)なので、branchStats.finishingSpecialVariantが
+    // 付いていても無視され、素の"SA1"キーで探す(データが無いので技データ未登録扱いになる)
+    // 強P:900(100%) → SA1:技データ未登録なのでdamage0(位置だけ消費、3発目相当) →
+    // 中K:700*80%=560 (合計1460)
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'after')).toBe(1460);
+  });
+
+  it('SAのmoveNameが既に特殊性能込み(例:SA2(SA2|Lv. 1))で確定していても、isSuperArt判定を正しく検出する(baseMoveNameの効果)', () => {
+    const sa = makeNode('sa', 'SA2(SA2|Lv. 1)');
+    const starter = makeNode('starter', '強P', { children: [sa] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 900 })]),
+        'SA2(SA2|Lv. 1)': makeStats([
+          makeHit({ damage: 4000, minDamageGuaranteePercent: 50 }),
+        ]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('SA2', 'superArt')];
+
+    // moveNameが"SA2(SA2|Lv. 1)"でも、括弧より前の"SA2"でMoveDefinitionと照合できるため
+    // isSuperArt(=SA用の下限ロジック対象)として正しく検出される(以前はここが素の名前と
+    // 完全一致しないと判定できなかった)。自然計算100%は保証50%を上回るため自然計算を採用
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBe(4900);
   });
 
   it('カウンター始動は末端ノードのbranchStatsから基準値120%を採用する', () => {
