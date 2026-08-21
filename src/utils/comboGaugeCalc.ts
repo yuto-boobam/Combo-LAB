@@ -4,7 +4,8 @@
 // というユーザー確認済みの仕様。SA自身のsaGaugeGainは消費量として負の値で登録される想定なので、
 // 合計にSAが含まれていれば自然にマイナス側へ振れる）。
 
-import type { MoveDefinition, MoveNode, MoveStats, MoveStatsDatabase } from '../types';
+import type { ComboBranchStats, MoveDefinition, MoveNode, MoveStats, MoveStatsDatabase } from '../types';
+import { calculateDamageScalingPath, type DamageHitInput } from './damageModifierCalc';
 
 function findPathToNode(root: MoveNode, targetId: string): MoveNode[] | null {
   if (root.id === targetId) return [root];
@@ -120,4 +121,85 @@ export function calculateBranchDGaugeChange(
   }
 
   return hasAnyData ? total : null;
+}
+
+function startBaseFromBranchStats(branchStats: ComboBranchStats | null): number {
+  if (!branchStats) return 100;
+  const { startHitCondition, isJustParryStart } = branchStats;
+  // ジャストパリィ後にパニカンで始動すると50%からスタート（カウンター/パニカンの120%ルールより優先）
+  if (isJustParryStart && startHitCondition === 'パニカン') return 50;
+  if (startHitCondition === 'カウンター' || startHitCondition === 'パニカン') return 120;
+  return 100;
+}
+
+type FlatDamageHit = DamageHitInput & { damage: number };
+
+/**
+ * root〜targetNodeId（両端含む）の経路上にある各ヒットのダメージを、実機確認済みの補正
+ * （標準コンボ補正テーブル・ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証）を
+ * 適用して合計する。詳細な計算式は src/utils/damageModifierCalc.ts を参照。
+ *
+ * - 対象ノード（末端）のbranchStats（startHitCondition/isJustParryStart）から起点の基準値を決める
+ * - 空振り・ガード属性のノードはダメージ0（位置も消費しない）
+ * - 「キャンセルラッシュ」「生ラッシュ」のどちらも、以降のヒットにダメージ0.85倍を発生させる
+ *   （Dゲージの回復抑制とは違い、生ラッシュも対象。始動技自体がラッシュ攻撃の時は発生しない）
+ * - 技データが未登録のノードもダメージ0として位置だけは消費する（後続ヒットの段数がずれないように）
+ * - 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）
+ */
+export function calculateBranchDamage(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): number | null {
+  const path = findPathToNode(root, targetNodeId);
+  if (!path) return null;
+
+  const characterStats = moveStatsDatabase[characterId];
+  if (!characterStats) return null;
+
+  const targetNode = path[path.length - 1];
+  const startBase = startBaseFromBranchStats(targetNode.branchStats);
+
+  const flatHits: FlatDamageHit[] = [];
+  let rushTriggerPosition: number | null = null;
+  let hasAnyData = false;
+
+  for (const node of path) {
+    if (node.attributes.some((attribute) => attribute.type === 'whiff')) continue;
+    if (node.attributes.some((attribute) => attribute.type === 'guard')) continue; // ガードはダメージ0
+
+    const stats = characterStats[node.moveName];
+    const isSuperArt = moveList.some(
+      (move) => move.name === node.moveName && move.category === 'superArt',
+    );
+
+    if (stats) {
+      hasAnyData = true;
+      for (const hit of stats.hits) {
+        flatHits.push({
+          damage: hit.damage ?? 0,
+          modifierText: hit.modifier,
+          isSuperArt,
+          minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
+        });
+      }
+    } else {
+      // 技データが無くても、実戦では1ヒットぶんの位置を消費しているはずなので
+      // ダメージ0・補正なしとして位置だけ確保する（後続ヒットの段数がずれないようにする）
+      flatHits.push({ damage: 0, modifierText: '', isSuperArt, minDamageGuaranteePercent: null });
+    }
+
+    if (RUSH_MOVE_NAMES.has(node.moveName) && rushTriggerPosition === null && flatHits.length > 1) {
+      rushTriggerPosition = flatHits.length + 1;
+    }
+  }
+
+  if (!hasAnyData || flatHits.length === 0) return null;
+
+  const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase);
+  const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * percents[index]) / 100, 0);
+
+  return Math.round(total);
 }

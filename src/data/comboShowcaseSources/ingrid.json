@@ -274,7 +274,74 @@
             "branchStats": null,
             "createdBy": "",
             "createdAt": "2026-08-16T05:19:17.320Z",
-            "children": []
+            "children": [
+              {
+                "id": "mt2lsv13pmk93oxwzd",
+                "moveName": "キャンセルラッシュ",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": null,
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-21T07:04:08.727Z",
+                "children": [
+                  {
+                    "id": "mt2lsv13eq0axtqpv3j",
+                    "moveName": "強K",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": null,
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-21T07:04:08.727Z",
+                    "children": [
+                      {
+                        "id": "mt2lsv13jnjfkt4j68o",
+                        "moveName": "中P → 中K",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": null,
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-21T07:04:08.727Z",
+                        "children": [
+                          {
+                            "id": "mt2lsv137eqb0bdjz46",
+                            "moveName": "中サンフレア(ビーム|Lv. 0)",
+                            "displayName": "ビーム|Lv. 0",
+                            "attributes": [],
+                            "specialNote": "",
+                            "branchStats": null,
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-21T07:04:08.727Z",
+                            "children": [
+                              {
+                                "id": "mt2lsv13ee8mbth1x0c",
+                                "moveName": "弱サンフレア(チャージ)",
+                                "displayName": "チャージ",
+                                "attributes": [],
+                                "specialNote": "",
+                                "branchStats": null,
+                                "createdBy": "ローカル",
+                                "createdAt": "2026-08-21T07:04:08.727Z",
+                                "children": []
+                              },
+                              {
+                                "id": "mt2lsv13eyov2t5w9n5",
+                                "moveName": "SA3",
+                                "attributes": [],
+                                "specialNote": "",
+                                "branchStats": null,
+                                "createdBy": "ローカル",
+                                "createdAt": "2026-08-21T07:04:08.727Z",
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
@@ -695,6 +762,6 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-21T06:22:18.643Z",
+  "updatedAt": "2026-08-21T07:04:19.008Z",
   "moveStats": {}
 }

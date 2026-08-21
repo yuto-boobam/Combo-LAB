@@ -515,6 +515,111 @@
         }
       ]
     },
+    "サンシャイン(Lv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1900,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンシャイン(Lv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンシャイン(Lv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンオーダー(Lv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1600,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7200,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンオーダー(Lv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -9600,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンオーダー(Lv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3400,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": -10000,
+          "dGaugeChipPunishCounter": -12000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "コズミックレイ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 4000,
+          "modifier": "※即時補正10%",
+          "dGaugeGain": 20000,
+          "saGaugeGain": 0,
+          "dGaugeChip": -7500,
+          "dGaugeChipPunishCounter": -15000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": 15000
+        }
+      ]
+    },
     "投げ": {
       "isMultiHit": false,
       "hits": [
