@@ -91,10 +91,16 @@ describe('calculateDamageScalingPath', () => {
   it('始動補正は起点自身のダメージには影響せず、次につなぐ技にだけ効く（実機確認済みの訂正後の仕様）', () => {
     // 「始動補正20%の2中Kを起点に、2中K→キャンセルラッシュ→強Kとすると100%→68%になる」
     // という実機確認済みの例を再現する。起点(2中K)自身は100%のまま、キャンセルラッシュは
-    // システム動作なので段を進めず、強K(3発目)は始動補正ぶん前倒しで進んだ段(80%)にラッシュ
-    // 0.85倍を掛けた68%になる
+    // 敵にヒットしない行動なのでpercentがnull(補正対象外)になり、段も進めない。強K(3発目)は
+    // 始動補正ぶん前倒しで進んだ段(80%)にラッシュ0.85倍を掛けた68%になる
     const hits = [damageHit('始動補正20%'), damageHit('', { isSystemAction: true }), damageHit('')];
-    expect(calculateDamageScalingPath(hits, 3)).toEqual([100, 80, 68]);
+    expect(calculateDamageScalingPath(hits, 3)).toEqual([100, null, 68]);
+  });
+
+  it('システム動作(isSystemAction)はラッシュ発生後でも0.85倍・下限の対象にならずnullのまま', () => {
+    const hits = [damageHit(''), damageHit('', { isSystemAction: true })];
+    // ラッシュ発生位置を2発目からにしても、システム動作自身にはラッシュ倍率も下限も適用しない
+    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, null]);
   });
 
   it('弱P→弱K→中サンライズの実機確認済みの例（100%→80%→70%）を再現する', () => {
