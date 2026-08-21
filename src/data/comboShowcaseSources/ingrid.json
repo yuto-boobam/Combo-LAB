@@ -510,13 +510,16 @@
                                     "branchStats": null,
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T10:52:27.781Z",
-                                    "children": []
+                                    "children": [],
+                                    "dGaugeRecoveryBlocked": true
                                   }
-                                ]
+                                ],
+                                "dGaugeRecoveryBlocked": true
                               }
                             ]
                           }
-                        ]
+                        ],
+                        "dGaugeRecoveryBlocked": true
                       },
                       {
                         "id": "msyjxzn5abw89vdr2uk",
@@ -592,9 +595,11 @@
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "dGaugeRecoveryBlocked": true
                   }
-                ]
+                ],
+                "dGaugeRecoveryBlocked": true
               }
             ]
           }
@@ -690,6 +695,6 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-20T15:03:49.207Z",
+  "updatedAt": "2026-08-21T06:22:18.643Z",
   "moveStats": {}
 }
