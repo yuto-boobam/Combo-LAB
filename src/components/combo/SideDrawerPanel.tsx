@@ -10,6 +10,7 @@ import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
 import type { ComboBranchStats, ComboTree, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
+import { calculateBranchSaGaugeChange } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
 import { ChainPreviewRow } from './ChainPreviewRow';
@@ -41,7 +42,11 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
         )}
 
         {isGuest ? (
-          <ReadOnlyNodeView selectedNode={selectedInfo?.node ?? null} />
+          <ReadOnlyNodeView
+            characterId={characterId}
+            root={selectedInfo?.tree.root ?? null}
+            selectedNode={selectedInfo?.node ?? null}
+          />
         ) : copyModeAnchorId ? (
           <CopyModePanel characterId={characterId} comboTrees={comboTrees} anchorId={copyModeAnchorId} />
         ) : groupModeActive ? (
@@ -440,9 +445,18 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
   ].filter(Boolean).length;
 }
 
-function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
+function ReadOnlyNodeView({
+  characterId,
+  root,
+  selectedNode,
+}: {
+  characterId: string;
+  root: MoveNode | null;
+  selectedNode: MoveNode | null;
+}) {
   const [isOpen, setIsOpen] = useState(true);
   const [isStatsOpen, setIsStatsOpen] = useState(true);
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
 
   if (!selectedNode) {
     return (
@@ -456,6 +470,10 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
     selectedNode.children.length === 0 ||
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
+  const autoSaGaugeChange = root
+    ? calculateBranchSaGaugeChange(characterId, moveStatsDatabase, root, selectedNode.id)
+    : null;
+
   return (
     <>
       {showStats && (
@@ -466,7 +484,12 @@ function ReadOnlyNodeView({ selectedNode }: { selectedNode: MoveNode | null }) {
           isOpen={isStatsOpen}
           onToggle={() => setIsStatsOpen((open) => !open)}
         >
-          <BranchStatsEditor value={selectedNode.branchStats} onChange={() => {}} readOnly />
+          <BranchStatsEditor
+            value={selectedNode.branchStats}
+            onChange={() => {}}
+            readOnly
+            autoSaGaugeChange={autoSaGaugeChange}
+          />
         </AccordionSection>
       )}
 
@@ -558,6 +581,7 @@ function NodeEditor({
   const updateNodeSpecialNote = useAppStore((state) => state.updateNodeSpecialNote);
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const startCopyMode = useAppStore((state) => state.startCopyMode);
   const startGroupMode = useAppStore((state) => state.startGroupMode);
   const startMatchMode = useAppStore((state) => state.startMatchMode);
@@ -589,6 +613,13 @@ function NodeEditor({
     selectedNode.children.length === 0 ||
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
 
+  const autoSaGaugeChange = calculateBranchSaGaugeChange(
+    characterId,
+    moveStatsDatabase,
+    root,
+    selectedNode.id,
+  );
+
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
 
@@ -619,6 +650,7 @@ function NodeEditor({
           <BranchStatsEditor
             value={selectedNode.branchStats}
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
+            autoSaGaugeChange={autoSaGaugeChange}
           />
         </AccordionSection>
       )}

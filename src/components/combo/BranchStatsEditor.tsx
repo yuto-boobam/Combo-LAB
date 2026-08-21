@@ -9,6 +9,9 @@ type Props = {
   value: ComboBranchStats | null;
   onChange: (next: ComboBranchStats | null) => void;
   readOnly?: boolean;
+  // root〜このノードまでの技データから自動計算したSAゲージ増減。技データが1件も
+  // 登録されていない経路ではnull（自動計算のうちSAゲージだけ実装済み。ダメージ・Dゲージは未実装）
+  autoSaGaugeChange?: number | null;
 };
 
 const DEFAULT_STATS: ComboBranchStats = {
@@ -30,7 +33,12 @@ const DEFAULT_STATS: ComboBranchStats = {
 
 const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
 
-export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) {
+export function BranchStatsEditor({
+  value,
+  onChange,
+  readOnly = false,
+  autoSaGaugeChange = null,
+}: Props) {
   const stats = value ?? DEFAULT_STATS;
 
   const update = (patch: Partial<ComboBranchStats>) => {
@@ -57,6 +65,21 @@ export function BranchStatsEditor({ value, onChange, readOnly = false }: Props) 
         onChange={(next) => update({ saGaugeGain: next })}
         readOnly={readOnly}
       />
+      {autoSaGaugeChange !== null && (
+        <div style={styles.autoCalcRow}>
+          <span>自動計算：{autoSaGaugeChange}</span>
+          {!readOnly && stats.saGaugeGain !== autoSaGaugeChange && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={() => update({ saGaugeGain: autoSaGaugeChange })}
+            >
+              この値を使う
+            </button>
+          )}
+        </div>
+      )}
       <NumberField
         label="プラスフレーム"
         value={stats.plusFrame}
@@ -244,6 +267,19 @@ const styles: Record<string, CSSProperties> = {
   numberInput: {
     fontSize: 12,
     padding: '6px 10px',
+  },
+  autoCalcRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: -4,
+    fontSize: 11,
+    color: 'var(--text-muted)',
+  },
+  autoCalcButton: {
+    fontSize: 11,
+    padding: '2px 8px',
   },
   ratingButton: {
     width: 26,
