@@ -12,13 +12,7 @@ import {
   NODE_BORDER_COLOR_VAR,
   CANCEL_RUSH_MOVE_NAME,
 } from '../utils/nodeVisualStyle';
-
-// 「キャンセルラッシュ」のような5文字の技名でも1行目（「キャンセル」）が折り返さず、
-// ｜で指定した位置で2行に分かれるように少し広めにしている（以前は72px）
-export const NODE_WIDTH = 88;
-// 実測前（マウント直後）の仮の高さ。1〜2行の技名がだいたい収まる目安値で、
-// 実際の高さはuseNodeHeightsの実測値にすぐ置き換わる
-export const NODE_DEFAULT_HEIGHT = 44;
+import { NODE_DEFAULT_HEIGHT, nodeWidthFor } from '../utils/nodeSizing';
 
 /**
  * ノード表示名の中の「｜」を改行に変換する。自動折り返しが意図しない位置（例:
@@ -143,14 +137,14 @@ export function MoveNodeCircle({
       onClick={onClick}
       className="flex flex-col items-center justify-center select-none"
       style={{
-        width: NODE_WIDTH,
+        width: nodeWidthFor(node),
         minHeight: NODE_DEFAULT_HEIGHT,
         borderRadius: 'var(--radius-lg)',
         position: 'relative',
         background: NODE_BODY_COLOR_VAR[visual.bodyColorKind],
         border: `${visual.borderWidth === 'thick' || isPicked ? 3 : 1.5}px ${isCopyAnchor || isGroupAnchor ? 'dashed' : visual.borderStyle} ${borderColor}`,
         boxShadow: isSelected ? '0 0 0 3px var(--accent-glow)' : 'none',
-        padding: '6px 7px',
+        padding: '5px 6px',
         textAlign: 'center',
         opacity: isInactiveDuringMode ? 0.35 : 1,
         cursor: isInactiveDuringMode ? 'default' : 'pointer',
@@ -227,7 +221,7 @@ export function MoveNodeCircle({
 
       <span
         style={{
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 700,
           color: 'var(--text-secondary)',
           lineHeight: 1.2,
@@ -247,7 +241,11 @@ export function MoveNodeCircle({
       {node.specialNote && (
         <span
           style={{
-            fontSize: 8,
+            // デフォルトズームを100%→75%に下げた分を考慮しつつ、大きすぎると
+            // 幅に収まらずすぐ省略記号(…)で見切れてしまうため、8pxと12pxの間で調整
+            // （ユーザー確認済み）。あわせてこの特殊記入があるノードだけ横幅を広げている
+            // （nodeWidthFor参照）
+            fontSize: 10,
             color: 'var(--text-secondary)',
             marginTop: 1,
             overflow: 'hidden',

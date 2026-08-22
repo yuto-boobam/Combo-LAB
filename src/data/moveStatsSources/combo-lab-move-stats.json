@@ -760,216 +760,6 @@
         }
       ]
     },
-    "弱サンフレア(チャージ)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 0,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": 0,
-          "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "中サンフレア(ビーム|Lv. 0)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 900,
-          "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": 2000,
-          "saGaugeGain": 700,
-          "dGaugeChip": -2500,
-          "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "強サンフレア(ビーム|Lv. 1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1100,
-          "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": 2000,
-          "saGaugeGain": 800,
-          "dGaugeChip": -4000,
-          "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "強サンフレア(ビーム|Lv. 2)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1350,
-          "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": 3000,
-          "saGaugeGain": 1200,
-          "dGaugeChip": -6000,
-          "dGaugeChipPunishCounter": -9000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "ODサンフレア(ODビーム|Lv. 1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1100,
-          "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": -20000,
-          "saGaugeGain": 800,
-          "dGaugeChip": -4000,
-          "dGaugeChipPunishCounter": -6000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "ODサンフレア(ODビーム|Lv. 2)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1350,
-          "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": -20000,
-          "saGaugeGain": 1200,
-          "dGaugeChip": -6000,
-          "dGaugeChipPunishCounter": -9000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "ODサンフレア(ODビーム|Lv. 3)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1800,
-          "modifier": "始動補正30%＋コンボ補正20%",
-          "dGaugeGain": -20000,
-          "saGaugeGain": 1600,
-          "dGaugeChip": -8000,
-          "dGaugeChipPunishCounter": -12000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "弱ソーラーフレア(空中|チャージ)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 0,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": 0,
-          "dGaugeChipPunishCounter": 0,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "中ソーラーフレア(空中ビーム|Lv. 0)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 900,
-          "modifier": "始動補正20%",
-          "dGaugeGain": 2000,
-          "saGaugeGain": 600,
-          "dGaugeChip": -2500,
-          "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "強ソーラーフレア(空中ビーム|LV. 1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1100,
-          "modifier": "始動補正20%",
-          "dGaugeGain": 2000,
-          "saGaugeGain": 800,
-          "dGaugeChip": -4000,
-          "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "強ソーラーフレア(空中ビーム|Lv. 2)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1350,
-          "modifier": "始動補正30%",
-          "dGaugeGain": 3000,
-          "saGaugeGain": 1200,
-          "dGaugeChip": -6000,
-          "dGaugeChipPunishCounter": -7500,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "ODソーラーフレア(OD空中ビーム|Lv. 1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1100,
-          "modifier": "始動補正20%",
-          "dGaugeGain": -20000,
-          "saGaugeGain": 800,
-          "dGaugeChip": -4000,
-          "dGaugeChipPunishCounter": -4000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "ODソーラーフレア(OD空中ビーム|Lv. 2)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1350,
-          "modifier": "始動補正30%",
-          "dGaugeGain": -20000,
-          "saGaugeGain": 1200,
-          "dGaugeChip": -6000,
-          "dGaugeChipPunishCounter": -7500,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "ODソーラーフレア(OD空中ビーム|Lv. 3)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1800,
-          "modifier": "始動補正30%＋コンボ補正15%",
-          "dGaugeGain": -20000,
-          "saGaugeGain": 1600,
-          "dGaugeChip": -8000,
-          "dGaugeChipPunishCounter": -10000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
     "弱サンバニッシュ(後方ワープ)": {
       "isMultiHit": false,
       "hits": [
@@ -1010,21 +800,6 @@
           "saGaugeGain": 1000,
           "dGaugeChip": -4000,
           "dGaugeChipPunishCounter": -5000,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null
-        }
-      ]
-    },
-    "強ソーラーフレア(空中ビーム|Lv. 1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1100,
-          "modifier": "始動補正20%",
-          "dGaugeGain": 2000,
-          "saGaugeGain": 800,
-          "dGaugeChip": -4000,
-          "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
@@ -1200,6 +975,216 @@
           "saGaugeGain": 0,
           "dGaugeChip": 0,
           "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンフレア(チャージ)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンフレア(ビーム|Lv. 0)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 700,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンフレア(ビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンフレア(ビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -9000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "ソーラーフレア(空中|チャージ)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "ソーラーフレア(空中ビーム|Lv. 0)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 600,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "ソーラーフレア(空中ビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "ソーラーフレア(空中ビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7500,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンフレア(ODビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": -20000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンフレア(ODビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": -20000,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -9000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "サンフレア(ODビーム|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1800,
+          "modifier": "始動補正30%＋コンボ補正20%",
+          "dGaugeGain": -20000,
+          "saGaugeGain": 1600,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -12000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "ソーラーフレア(OD空中ビーム|Lv. 1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1100,
+          "modifier": "始動補正20%",
+          "dGaugeGain": -20000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "ソーラーフレア(OD空中ビーム|Lv. 2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1350,
+          "modifier": "始動補正30%",
+          "dGaugeGain": -20000,
+          "saGaugeGain": 1200,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -7500,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null
+        }
+      ]
+    },
+    "ソーラーフレア(OD空中ビーム|Lv. 3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1800,
+          "modifier": "始動補正30%＋コンボ補正15%",
+          "dGaugeGain": -20000,
+          "saGaugeGain": 1600,
+          "dGaugeChip": -8000,
+          "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }

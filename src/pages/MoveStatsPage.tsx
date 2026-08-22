@@ -31,6 +31,7 @@ import type { MoveHitStats, MoveStats, MoveStrength } from '../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../data/commonMoves';
 import { canEditMoveStatsLocally } from '../utils/localEditAccess';
 import { getSpecialVariantOptions } from '../utils/specialVariant';
+import { calculateOdLevelConstraintForVariant } from '../utils/comboGaugeCalc';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
@@ -81,15 +82,31 @@ export function MoveStatsPage() {
   const normalMoveNames = [...NORMAL_MOVE_NAMES, ...uniqueMoves.map((move) => move.name)];
   // 特殊性能あり（hasSpecialVariant）の技は、強度ごとに登録された選択肢を持つ場合だけ
   // 実際にノードで確定する名前（`${強度}${技名}(${特殊性能})`）ごとに1行ずつ並べる。
-  // 選択肢がない強度は特殊性能なしのプレーンな1行のまま（src/utils/specialVariant.ts参照）
-  const specialMoveNames = specialMoves.flatMap((move) =>
-    SPECIAL_MOVE_STRENGTHS.flatMap((strength) => {
+  // 選択肢がない強度は特殊性能なしのプレーンな1行のまま（src/utils/specialVariant.ts参照）。
+  // hasFlatVariantsな技（イングリッドのビーム等、強度に依存しない技）は強度を挟まず
+  // specialVariantOptionsを直接展開する（SAと同じ考え方）。さらに、Lv.を含む選択肢は
+  // 「OD使用」時に別データを参照する仕組みになっているため、OD版の行もあわせて用意する
+  // （src/utils/comboGaugeCalc.ts の applyOdVariantLookup 参照）。ただし最小Lv.は通常版
+  // でしか、最大Lv.はOD版でしか実際には選べない（コンボ登録画面でボタンごと押せなく
+  // なっている）ため、その組み合わせの行はそもそも作らない
+  const specialMoveNames = specialMoves.flatMap((move) => {
+    if (move.hasFlatVariants) {
+      const options = move.specialVariantOptions ?? [];
+      return options.flatMap((variant) => {
+        const constraint = calculateOdLevelConstraintForVariant(variant, move);
+        const rows: string[] = [];
+        if (constraint !== 'odOnly') rows.push(`${move.name}(${variant})`);
+        if (constraint === 'either' || constraint === 'odOnly') rows.push(`${move.name}(OD${variant})`);
+        return rows;
+      });
+    }
+    return SPECIAL_MOVE_STRENGTHS.flatMap((strength) => {
       const options = move.hasSpecialVariant ? getSpecialVariantOptions(move, strength) : [];
       return options.length > 0
         ? options.map((variant) => `${strength}${move.name}(${variant})`)
         : [`${strength}${move.name}`];
-    }),
-  );
+    });
+  });
   const superArtMoveNames = superArtMoves.flatMap((move) =>
     move.hasSpecialVariant && move.specialVariantOptions && move.specialVariantOptions.length > 0
       ? move.specialVariantOptions.map((variant) => `${move.name}(${variant})`)

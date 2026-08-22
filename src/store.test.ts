@@ -111,7 +111,7 @@ describe('restoreCharacters', () => {
     expect(updated.comboTrees).toHaveLength(0);
   });
 
-  it('技マスタのhasSpecialVariant/specialVariantOptionsがインポート時に消えない', () => {
+  it('技マスタのhasSpecialVariant/specialVariantOptions/finishesComboOnSelect/hasFlatVariantsがインポート時に消えない', () => {
     const target = useAppStore.getState().characters[3];
 
     useAppStore.getState().restoreCharacters([
@@ -124,6 +124,8 @@ describe('restoreCharacters', () => {
             category: 'special',
             hasSpecialVariant: true,
             specialVariantOptions: ['ビームレベル2', 'ビームレベル3', 'ビームレベル4'],
+            finishesComboOnSelect: true,
+            hasFlatVariants: true,
           },
           { id: 'normal-move', name: '波動拳', category: 'special' }, // 特殊性能なしの技は影響なし
         ],
@@ -135,10 +137,14 @@ describe('restoreCharacters', () => {
     const beam = updated.moveList.find((move) => move.id === 'beam');
     expect(beam?.hasSpecialVariant).toBe(true);
     expect(beam?.specialVariantOptions).toEqual(['ビームレベル2', 'ビームレベル3', 'ビームレベル4']);
+    expect(beam?.finishesComboOnSelect).toBe(true);
+    expect(beam?.hasFlatVariants).toBe(true);
 
     const normalMove = updated.moveList.find((move) => move.id === 'normal-move');
     expect(normalMove?.hasSpecialVariant).toBeUndefined();
     expect(normalMove?.specialVariantOptions).toBeUndefined();
+    expect(normalMove?.finishesComboOnSelect).toBeUndefined();
+    expect(normalMove?.hasFlatVariants).toBeUndefined();
   });
 
   it('ノードのgroupIdとキャラのnamedComboGroupsがインポート時に消えない', () => {
@@ -187,6 +193,30 @@ describe('restoreCharacters', () => {
     const tree = updated.comboTrees.find((t) => t.id === 't1')!;
     expect(tree.root.groupId).toBe('g1');
     expect(tree.root.children[0].groupId).toBe('g1');
+  });
+});
+
+describe('setNodeUsesOD', () => {
+  beforeEach(() => {
+    useAppStore.setState({ characters: createInitialCharacterRoster() });
+  });
+
+  it('指定ノードだけusesODが切り替わり、他のノードには影響しない', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '小P始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+    const childId = store.addChildNode(characterId, treeId, rootId, '中P');
+
+    store.setNodeUsesOD(characterId, treeId, childId, true);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.usesOD).toBeUndefined();
+    expect(findNodeByMoveName(tree.root, '中P').usesOD).toBe(true);
+
+    store.setNodeUsesOD(characterId, treeId, childId, false);
+    const treeAfterUncheck = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(treeAfterUncheck.root, '中P').usesOD).toBeUndefined();
   });
 });
 

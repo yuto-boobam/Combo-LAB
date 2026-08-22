@@ -78,14 +78,136 @@ function sumSaGaugeGain(stats: MoveStats): number {
 }
 
 /**
+ * 技名や特殊性能文字列から「Lv. N」のNを取り出す。表記揺れ（大文字「LV.」等）にも
+ * 対応するため大文字小文字を区別しない
+ */
+function parseLevelFromText(text: string): number | null {
+  const match = text.match(/lv\.?\s*(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * node.moveNameに技名が含まれるMoveDefinitionを探す。複数の技名が部分一致しうる場合は、
+ * より具体的な（長い）名前を優先する
+ */
+function findMoveForNode(node: MoveNode, moveList: MoveDefinition[]): MoveDefinition | undefined {
+  return moveList
+    .filter((move) => node.moveName.includes(move.name))
+    .sort((a, b) => b.name.length - a.name.length)[0];
+}
+
+/**
+ * その技が使っているLv.の範囲(最小〜最大)を求める。強度ごとの一覧(specialVariantsByStrength)・
+ * フラットな一覧(specialVariantOptions、hasFlatVariantsな技用)の両方から集める。
+ * イングリッドのビームのように、最小Lv.は通常版でしか存在せず、最大Lv.はOD版でしか
+ * 存在しない技で、その境界を判定するために使う。Lv.を持たない技やLv.が1種類しか無い技
+ * （範囲で語る意味が無い）はnull
+ */
+function levelRangeForMove(move: MoveDefinition | undefined): { min: number; max: number } | null {
+  if (!move) return null;
+
+  const fromStrength = move.specialVariantsByStrength ? Object.values(move.specialVariantsByStrength).flat() : [];
+  const fromFlat = move.specialVariantOptions ?? [];
+
+  const levels = [...fromStrength, ...fromFlat]
+    .map((option) => parseLevelFromText(option))
+    .filter((level): level is number => level !== null);
+
+  if (levels.length < 2) return null;
+  return { min: Math.min(...levels), max: Math.max(...levels) };
+}
+
+export type OdLevelConstraint = 'normalOnly' | 'odOnly' | 'either';
+
+/**
+ * イングリッドのビーム等、通常版とOD版でLv.の範囲がずれている技で、指定した特殊性能文字列
+ * （例:「ビーム|Lv. 1」）のLv.から、通常版/OD版の選択がどう制限されるかを求める。
+ * 最小Lv.は通常版でしか存在せず、最大Lv.はOD版でしか存在しない（実機確認済み）。
+ * 対象の技がLv.を持たない・該当しない場合はnull。
+ * MoveStatsPage（技データ画面の行生成）とcalculateOdLevelConstraint（ノード側の判定）の
+ * 両方から使う共通ロジック
+ */
+export function calculateOdLevelConstraintForVariant(
+  variant: string,
+  move: MoveDefinition | undefined,
+): OdLevelConstraint | null {
+  const level = parseLevelFromText(variant);
+  if (level === null) return null;
+
+  const range = levelRangeForMove(move);
+  if (!range) return null;
+
+  if (level <= range.min) return 'normalOnly';
+  if (level >= range.max) return 'odOnly';
+  return 'either';
+}
+
+/**
+ * ノードのmoveNameから技を特定した上でcalculateOdLevelConstraintForVariantを呼ぶラッパー
+ * （コンボ木側のノード判定用。MoveStatsPageのような技マスタ側の判定にはVariant版を直接使う）
+ */
+export function calculateOdLevelConstraint(
+  node: MoveNode,
+  moveList: MoveDefinition[],
+): OdLevelConstraint | null {
+  return calculateOdLevelConstraintForVariant(node.moveName, findMoveForNode(node, moveList));
+}
+
+export type OdRelevantNode = {
+  node: MoveNode;
+  constraint: OdLevelConstraint;
+};
+
+/**
+ * root〜targetNodeId（両端含む）の経路上にある、OD/通常版の選択が関係する（Lv.を持つ）
+ * ノードだけを抜き出す。末端ノードの「コンボの情報」欄から、経路の途中にあるビーム等の
+ * OD使用もまとめて確認・変更できるようにするために使う（ユーザー確認済み：ビームの
+ * ノードを1つずつ選び直さなくても、最終的なゲージを見ている画面から直接調整したい）
+ */
+export function findOdRelevantNodesOnPath(
+  root: MoveNode,
+  targetNodeId: string,
+  moveList: MoveDefinition[],
+): OdRelevantNode[] {
+  const path = findPathToNode(root, targetNodeId);
+  if (!path) return [];
+
+  return path.reduce<OdRelevantNode[]>((result, node) => {
+    const constraint = calculateOdLevelConstraint(node, moveList);
+    if (constraint) result.push({ node, constraint });
+    return result;
+  }, []);
+}
+
+/**
+ * usesODが付いたノードの技データ参照キーを、OD版として事前に登録されたキーへ差し替える
+ * （例:「サンフレア(ビーム|Lv. 1)」→「サンフレア(ODビーム|Lv. 1)」）。OD版は通常版と
+ * ダメージ・ゲージ回収量等が異なる（Dゲージ回収が無い等）ため、Lv.番号はそのままに、
+ * 特殊性能欄の先頭に「OD」が付いた別データとして個別に登録してもらう方式にしている
+ * （実機確認済み。以前試した「Lv.+1のデータを流用する」方式は、通常版と数値が違う項目
+ * （Dゲージ回収）があったため廃止した）
+ */
+function applyOdVariantLookup(node: MoveNode, name: string): string {
+  if (!node.usesOD) return name;
+
+  const match = name.match(/^(.*)\((.+)\)$/);
+  if (!match) return name;
+
+  const [, prefix, variant] = match;
+  return `${prefix}(OD${variant})`;
+}
+
+/**
  * 技データベースを引く際のキーを求める。末端ノード（targetNodeそのもの）が
  * `branchStats.finishingSpecialVariant`を持っていれば、ノード自体は特殊性能を選ばず
  * 技名だけ（例:「SA1」）で置かれているだけなので、実際に使った特殊性能を合成したキー
- * （例:「SA1(Lv. 1)」）を使う。それ以外は従来通りnode.moveNameそのまま
+ * （例:「SA1(Lv. 1)」）を使う。それ以外は従来通りnode.moveNameそのまま。
+ * さらに、usesODが付いていればapplyOdVariantLookupでOD版専用のキーへ差し替える
  */
 function lookupMoveName(node: MoveNode, isTargetNode: boolean): string {
   const variant = isTargetNode ? node.branchStats?.finishingSpecialVariant : null;
-  return variant ? `${node.moveName}(${variant})` : node.moveName;
+  const baseName = variant ? `${node.moveName}(${variant})` : node.moveName;
+  return applyOdVariantLookup(node, baseName);
 }
 
 /**

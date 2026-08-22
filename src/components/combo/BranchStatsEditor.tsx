@@ -5,8 +5,16 @@
 import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
-import type { DamageBreakdown } from '../../utils/comboGaugeCalc';
+import type { DamageBreakdown, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
+import { OdLevelToggle } from './OdLevelToggle';
+
+export type OdUsageOnPath = {
+  nodeId: string;
+  label: string;
+  constraint: OdLevelConstraint;
+  usesOD: boolean;
+};
 
 type Props = {
   value: ComboBranchStats | null;
@@ -32,6 +40,12 @@ type Props = {
   // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
   // 選ばせるUIを表示し、finishingSpecialVariantに保存する（呼び出し側の判定はSideDrawerPanel参照）
   finishingSuperArtMove?: { name: string; specialVariantOptions: string[] } | null;
+  // root〜このノードの経路上にある「OD版はレベル+1相当の性能になる」技（ビーム等）の一覧。
+  // 末端ノードの「コンボの情報」欄から、経路の途中にあるノードのOD使用もまとめて確認・
+  // 変更できるようにする（選択中のノードを1つずつ辿らなくても、最終的なゲージを見ている
+  // 画面から直接調整できるようにしてほしい、というユーザー要望）
+  odUsagesOnPath?: OdUsageOnPath[];
+  onChangeOdUsage?: (nodeId: string, next: boolean) => void;
 };
 
 const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
@@ -52,6 +66,8 @@ export function BranchStatsEditor({
   autoDamage = null,
   damageBreakdown = null,
   finishingSuperArtMove = null,
+  odUsagesOnPath = [],
+  onChangeOdUsage,
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
 
@@ -312,6 +328,22 @@ export function BranchStatsEditor({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {odUsagesOnPath.length > 0 && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={styles.fieldLabel}>経路上のOD使用</div>
+          {odUsagesOnPath.map((entry) => (
+            <OdLevelToggle
+              key={entry.nodeId}
+              label={entry.label}
+              constraint={entry.constraint}
+              usesOD={entry.usesOD}
+              onChange={(next) => onChangeOdUsage?.(entry.nodeId, next)}
+              readOnly={readOnly || !onChangeOdUsage}
+            />
+          ))}
         </div>
       )}
     </div>

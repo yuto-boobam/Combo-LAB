@@ -96,4 +96,42 @@ describe('computeTreeLayout', () => {
     expect(layout.positions.get('a1')?.x).toBe(depth2X);
     expect(layout.width).toBe(depth2X + CONFIG.cardWidth);
   });
+
+  it('widthsで個別ノードの幅を広げると、その列以降のx座標が広げた分だけ後ろにずれる', () => {
+    const root = node('root', [node('a', [node('a1')])]);
+    const heights = { root: 80, a: 50, a1: 50 };
+    // aの列(深さ1)だけ通常のcardWidth(200)より40px広い240にする
+    const widths = { a: 240 };
+
+    const layout = computeTreeLayout(root, new Set(), heights, CONFIG, widths);
+
+    const depth1X = CONFIG.rootWidth + CONFIG.gapX; // 190（列0の幅はrootWidthのまま変わらない）
+    const depth2X = depth1X + 240 + CONFIG.gapX; // aの実際の幅(240)ぶんだけ後ろにずれる
+
+    expect(layout.positions.get('a')?.x).toBe(depth1X);
+    expect(layout.positions.get('a1')?.x).toBe(depth2X);
+    expect(layout.width).toBe(depth2X + CONFIG.cardWidth);
+  });
+
+  it('同じ列に幅の異なるノードが混在する場合、その列は最大幅に揃う', () => {
+    const root = node('root', [node('a'), node('b')]);
+    const heights = { root: 80, a: 50, b: 60 };
+    // aだけ広げる。bは指定が無いのでcardWidth(200)のまま
+    const widths = { a: 300 };
+
+    const layout = computeTreeLayout(root, new Set(), heights, CONFIG, widths);
+
+    // aとbは同じ列(深さ1)なので、列全体がaの幅(300)に揃う
+    expect(layout.width).toBe(CONFIG.rootWidth + CONFIG.gapX + 300);
+  });
+
+  it('widthsを省略した場合は従来通りcardWidth/rootWidthのみを使う（後方互換）', () => {
+    const root = node('root', [node('a')]);
+    const heights = { root: 80, a: 50 };
+
+    const layout = computeTreeLayout(root, new Set(), heights, CONFIG);
+
+    expect(layout.positions.get('a')?.x).toBe(CONFIG.rootWidth + CONFIG.gapX);
+    expect(layout.width).toBe(CONFIG.rootWidth + CONFIG.gapX + CONFIG.cardWidth);
+  });
 });

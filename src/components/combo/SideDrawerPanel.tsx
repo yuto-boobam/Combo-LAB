@@ -3,20 +3,23 @@
 // 現時点では「属性付与/新規ノード追加」機能のみ実装する。
 // 「枝の閲覧（条件での絞り込み）」は別フェーズで追加する。
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
 import type { ComboBranchStats, ComboTree, MoveDefinition, MoveNode, NodeAttribute } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
+import { OdLevelToggle } from './OdLevelToggle';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import {
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
   calculateBranchDGaugeChange,
   calculateBranchSaGaugeChange,
+  calculateOdLevelConstraint,
   calculateRequiredStartHitCondition,
+  findOdRelevantNodesOnPath,
 } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
@@ -507,6 +510,10 @@ function ReadOnlyNodeView({
     ? calculateRequiredStartHitCondition(root, selectedNode.id)
     : null;
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
+  const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
+  const effectiveUsesOD =
+    odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
+  const odNodesOnPath = root ? findOdRelevantNodesOnPath(root, selectedNode.id, moveList) : [];
 
   return (
     <>
@@ -527,6 +534,13 @@ function ReadOnlyNodeView({
             autoDGaugeChange={autoDGaugeChange}
             autoDamage={autoDamage}
             finishingSuperArtMove={finishingSuperArtMove}
+            odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
+              nodeId: node.id,
+              label: node.displayName ?? node.moveName,
+              constraint,
+              usesOD: node.usesOD ?? false,
+            }))}
+            onChangeOdUsage={() => {}}
           />
         </AccordionSection>
       )}
@@ -546,6 +560,10 @@ function ReadOnlyNodeView({
             specialNote={selectedNode.specialNote}
             onSpecialNoteChange={() => {}}
           />
+
+          {odConstraint && (
+            <OdLevelToggle constraint={odConstraint} usesOD={effectiveUsesOD} onChange={() => {}} readOnly />
+          )}
         </div>
       </AccordionSection>
     </>
@@ -619,6 +637,7 @@ function NodeEditor({
   const updateNodeSpecialNote = useAppStore((state) => state.updateNodeSpecialNote);
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
+  const setNodeUsesOD = useAppStore((state) => state.setNodeUsesOD);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const moveList = useAppStore(
     (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
@@ -694,6 +713,24 @@ function NodeEditor({
   );
   const requiredStartHitCondition = calculateRequiredStartHitCondition(root, selectedNode.id);
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
+  const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
+  const usesOD = selectedNode.usesOD ?? false;
+  // root〜選択中ノードの経路上にあるOD関連ノード（このノード自身が末端でなくても、経路の
+  // 途中にビーム等があれば含まれる）。「コンボの情報」欄からまとめて確認・変更できるようにする
+  const odNodesOnPath = findOdRelevantNodesOnPath(root, selectedNode.id, moveList);
+
+  // Lv.によって通常/OD版の選択が一方に固定される場合、手動入力がまだそれを満たしていなければ
+  // 自動で引き上げる（始動条件のカウンター制約と同じ考え方。ユーザー確認済み）。経路上の
+  // ノードすべてを対象にすることで、選択中のノード自身が末端（葉）でなくても機能する
+  useEffect(() => {
+    odNodesOnPath.forEach(({ node, constraint }) => {
+      if (constraint === 'either') return;
+      const forced = constraint === 'odOnly';
+      if ((node.usesOD ?? false) !== forced) {
+        setNodeUsesOD(characterId, treeId, node.id, forced);
+      }
+    });
+  }, [odNodesOnPath, characterId, treeId, setNodeUsesOD]);
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -738,6 +775,13 @@ function NodeEditor({
             autoDamage={autoDamage}
             damageBreakdown={damageBreakdown}
             finishingSuperArtMove={finishingSuperArtMove}
+            odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
+              nodeId: node.id,
+              label: node.displayName ?? node.moveName,
+              constraint,
+              usesOD: node.usesOD ?? false,
+            }))}
+            onChangeOdUsage={(nodeId, next) => setNodeUsesOD(characterId, treeId, nodeId, next)}
           />
         </AccordionSection>
       )}
@@ -791,6 +835,15 @@ function NodeEditor({
               updateNodeSpecialNote(characterId, treeId, selectedNode.id, note)
             }
           />
+
+          {odConstraint && (
+            <OdLevelToggle
+              constraint={odConstraint}
+              usesOD={usesOD}
+              onChange={(next) => setNodeUsesOD(characterId, treeId, selectedNode.id, next)}
+              readOnly={false}
+            />
+          )}
 
           <button
             type="button"
