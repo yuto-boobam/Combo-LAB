@@ -247,6 +247,18 @@ function parseSpecialMoveValue(
   return null;
 }
 
+/**
+ * hasFlatVariantsな技（強度に依存しない技）用に、valueが `${技名}` または
+ * `${技名}(特殊性能)` のどちらの形かを判定する（SA(superArt)の判定と同じ考え方）
+ */
+function parseFlatSpecialMoveValue(value: string, moveName: string): { subLevel: string | null } | null {
+  if (value === moveName) return { subLevel: null };
+  if (value.startsWith(`${moveName}(`) && value.endsWith(')')) {
+    return { subLevel: value.slice(moveName.length + 1, -1) };
+  }
+  return null;
+}
+
 function SpecialMoveGroupBody({
   characterId,
   moves,
@@ -267,12 +279,29 @@ function SpecialMoveGroupBody({
   const setMoveDefinitionSpecialVariantsForStrength = useAppStore(
     (state) => state.setMoveDefinitionSpecialVariantsForStrength,
   );
+  const setMoveDefinitionSpecialVariantOptions = useAppStore(
+    (state) => state.setMoveDefinitionSpecialVariantOptions,
+  );
+  const setMoveDefinitionHasFlatVariants = useAppStore(
+    (state) => state.setMoveDefinitionHasFlatVariants,
+  );
   const [draftName, setDraftName] = useState('');
   const [draftShortName, setDraftShortName] = useState('');
 
-  // valueがどの技の何強度（＋選んだ特殊性能）に該当するかをまとめて判定する
-  let parsedValue: { move: MoveDefinition; strength: MoveStrength; subLevel: string | null } | null = null;
+  // valueがどの技の何強度（＋選んだ特殊性能）に該当するかをまとめて判定する。
+  // hasFlatVariantsな技は強度を持たないため、代わりにparseFlatSpecialMoveValueで判定する
+  let parsedValue:
+    | { move: MoveDefinition; strength: MoveStrength | null; subLevel: string | null }
+    | null = null;
   for (const move of moves) {
+    if (move.hasFlatVariants) {
+      const parsed = parseFlatSpecialMoveValue(value, move.name);
+      if (parsed) {
+        parsedValue = { move, strength: null, subLevel: parsed.subLevel };
+        break;
+      }
+      continue;
+    }
     const parsed = parseSpecialMoveValue(value, move.name);
     if (parsed) {
       parsedValue = { move, ...parsed };
@@ -352,78 +381,106 @@ function SpecialMoveGroupBody({
 
       {pickingMove && (
         <>
-          <fieldset style={styles.fieldset}>
-            <legend style={styles.legend}>強度選択</legend>
-            <div style={styles.buttonRow}>
-              {SPECIAL_MOVE_STRENGTHS.map((strength) => (
-                <MovePill
-                  key={strength}
-                  label={strength}
-                  active={pickingMoveMatch?.strength === strength}
-                  onClick={() =>
-                    onChange(
-                      `${strength}${pickingMove.name}`,
-                      pickingMove.shortName ? `${strength}${pickingMove.shortName}` : undefined,
-                    )
-                  }
-                />
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset style={styles.fieldset}>
-            <legend style={styles.legend}>呼び名（木のノード上の表示用・省略可・「｜」で改行）</legend>
-            <input
-              type="text"
-              className="input-field"
-              style={styles.addInput}
-              placeholder={`例: ${pickingMove.name}｜Lv.1（改行したい位置に｜）`}
-              value={pickingMove.shortName ?? ''}
-              onChange={(event) =>
-                setMoveDefinitionShortName(characterId, pickingMove.id, event.target.value)
-              }
-            />
-          </fieldset>
-
-          <fieldset style={styles.fieldset}>
-            <legend style={styles.legend}>特殊性能（省略可）</legend>
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={pickingMove.hasSpecialVariant ?? false}
-                onChange={(event) =>
-                  setMoveDefinitionHasSpecialVariant(characterId, pickingMove.id, event.target.checked)
-                }
-              />
-              特殊性能あり
-            </label>
-
-            {pickingMove.hasSpecialVariant && (
-              <>
-                {pickingMoveMatch ? (
-                  <SpecialVariantRegistration
-                    options={pickingMove.specialVariantsByStrength?.[pickingMoveMatch.strength] ?? []}
-                    activeVariant={pickingMoveMatch.subLevel}
-                    onSelectVariant={(variant) =>
-                      onChange(`${pickingMoveMatch.strength}${pickingMove.name}(${variant})`, variant)
-                    }
-                    onOptionsChange={(next) =>
-                      setMoveDefinitionSpecialVariantsForStrength(
-                        characterId,
-                        pickingMove.id,
-                        pickingMoveMatch.strength,
-                        next,
+          {!pickingMove.hasFlatVariants && (
+            <fieldset style={styles.fieldset}>
+              <legend style={styles.legend}>強度選択</legend>
+              <div style={styles.buttonRow}>
+                {SPECIAL_MOVE_STRENGTHS.map((strength) => (
+                  <MovePill
+                    key={strength}
+                    label={strength}
+                    active={pickingMoveMatch?.strength === strength}
+                    onClick={() =>
+                      onChange(
+                        `${strength}${pickingMove.name}`,
+                        pickingMove.shortName ? `${strength}${pickingMove.shortName}` : undefined,
                       )
                     }
                   />
-                ) : (
-                  <p style={styles.emptyHint}>
-                    上の「強度選択」で強度を選ぶと、その強度で使う特殊性能を登録できます（強度ごとに個別に登録します）
-                  </p>
-                )}
-              </>
-            )}
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {!pickingMove.hasFlatVariants && (
+            <fieldset style={styles.fieldset}>
+              <legend style={styles.legend}>呼び名（木のノード上の表示用・省略可・「｜」で改行）</legend>
+              <input
+                type="text"
+                className="input-field"
+                style={styles.addInput}
+                placeholder={`例: ${pickingMove.name}｜Lv.1（改行したい位置に｜）`}
+                value={pickingMove.shortName ?? ''}
+                onChange={(event) =>
+                  setMoveDefinitionShortName(characterId, pickingMove.id, event.target.value)
+                }
+              />
+            </fieldset>
+          )}
+
+          <fieldset style={styles.fieldset}>
+            <legend style={styles.legend}>強度に依存しない技</legend>
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={pickingMove.hasFlatVariants ?? false}
+                onChange={(event) =>
+                  setMoveDefinitionHasFlatVariants(characterId, pickingMove.id, event.target.checked)
+                }
+              />
+              強度を分けず、下の選択肢から直接選べるようにする（イングリッドのビーム等）
+            </label>
           </fieldset>
+
+          {pickingMove.hasFlatVariants ? (
+            <fieldset style={styles.fieldset}>
+              <legend style={styles.legend}>選択肢</legend>
+              <SpecialVariantRegistration
+                options={pickingMove.specialVariantOptions ?? []}
+                activeVariant={pickingMoveMatch?.subLevel ?? null}
+                onSelectVariant={(variant) => onChange(`${pickingMove.name}(${variant})`, variant)}
+                onOptionsChange={(next) =>
+                  setMoveDefinitionSpecialVariantOptions(characterId, pickingMove.id, next)
+                }
+              />
+            </fieldset>
+          ) : (
+            <fieldset style={styles.fieldset}>
+              <legend style={styles.legend}>特殊性能（省略可）</legend>
+              <label style={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={pickingMove.hasSpecialVariant ?? false}
+                  onChange={(event) =>
+                    setMoveDefinitionHasSpecialVariant(characterId, pickingMove.id, event.target.checked)
+                  }
+                />
+                特殊性能あり
+              </label>
+
+              {pickingMove.hasSpecialVariant &&
+                (() => {
+                  const strength = pickingMoveMatch?.strength ?? null;
+                  if (!strength) {
+                    return (
+                      <p style={styles.emptyHint}>
+                        上の「強度選択」で強度を選ぶと、その強度で使う特殊性能を登録できます（強度ごとに個別に登録します）
+                      </p>
+                    );
+                  }
+                  return (
+                    <SpecialVariantRegistration
+                      options={pickingMove.specialVariantsByStrength?.[strength] ?? []}
+                      activeVariant={pickingMoveMatch?.subLevel ?? null}
+                      onSelectVariant={(variant) => onChange(`${strength}${pickingMove.name}(${variant})`, variant)}
+                      onOptionsChange={(next) =>
+                        setMoveDefinitionSpecialVariantsForStrength(characterId, pickingMove.id, strength, next)
+                      }
+                    />
+                  );
+                })()}
+            </fieldset>
+          )}
         </>
       )}
 

@@ -15,6 +15,7 @@ import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
+import { nodeWidthFor } from '../utils/nodeSizing';
 import {
   computeTreeLayout,
   useNodeHeights,
@@ -69,6 +70,14 @@ function shiftPositions(
   const shifted = new Map<string, NodePosition>();
   positions.forEach((pos, id) => shifted.set(id, { ...pos, y: pos.y + offsetY }));
   return shifted;
+}
+
+// computeTreeLayoutへ渡すノードごとの幅の上書き。特殊記入があるノードだけ
+// nodeWidthForが広めの値を返すため、木のレイアウト計算とMoveNodeCircleの実際の
+// 見た目がズレないようにする
+function collectNodeWidths(node: MoveNode, widths: Record<string, number>): void {
+  widths[node.id] = nodeWidthFor(node);
+  node.children.forEach((child) => collectNodeWidths(child, widths));
 }
 
 export function ComboTreePage() {
@@ -222,7 +231,8 @@ export function ComboTreePage() {
     ],
   );
 
-  // ── 画面比率（ズーム）
+  // ── 画面比率（ズーム）。デフォルトは100%のまま
+  // （ノードが大きすぎる問題はズームではなくノード自体の寸法を縮小して対応。nodeSizing.ts参照）
   const [zoom, setZoom] = useState(1);
 
   // ── ドラッグで画面を動かす（パン）
@@ -306,7 +316,9 @@ export function ComboTreePage() {
       groupView.pillMetaById.forEach((meta, id) => pillMetaById.set(id, meta));
       groupView.expandedGroupStartMetaById.forEach((meta, id) => expandedGroupStartMetaById.set(id, meta));
 
-      const layout = computeTreeLayout(viewRoot, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG);
+      const nodeWidths: Record<string, number> = {};
+      collectNodeWidths(viewRoot, nodeWidths);
+      const layout = computeTreeLayout(viewRoot, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG, nodeWidths);
 
       const columns: TaggedColumn[] = [];
       const visit = (node: MoveNode, depth: number) => {

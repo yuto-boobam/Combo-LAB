@@ -7,7 +7,7 @@
 // D&D先としての子ノード追加は受け付けない（展開すれば実ノードに対して通常通り行える）。
 // 位置移動（自分をドラッグして並び替える）自体はグループ区間ごと正しく動くため許可する。
 
-import { NODE_WIDTH, NODE_DEFAULT_HEIGHT } from './MoveNodeCircle';
+import { NODE_WIDTH, NODE_DEFAULT_HEIGHT } from '../utils/nodeSizing';
 
 type Props = {
   id: string;

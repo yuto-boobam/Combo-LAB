@@ -3,6 +3,8 @@ import {
   calculateBranchDGaugeChange,
   calculateBranchDamage,
   calculateBranchSaGaugeChange,
+  calculateOdLevelConstraint,
+  calculateOdLevelConstraintForVariant,
   calculateRequiredStartHitCondition,
 } from './comboGaugeCalc';
 import type {
@@ -583,5 +585,135 @@ describe('calculateRequiredStartHitCondition', () => {
   it('対象ノードが木の中に存在しなければnullを返す', () => {
     const starter = makeNode('starter', '2中K');
     expect(calculateRequiredStartHitCondition(starter, '存在しないID')).toBeNull();
+  });
+});
+
+const BEAM_MOVE_LIST: MoveDefinition[] = [
+  {
+    id: 'beam',
+    name: 'サンフレア',
+    category: 'special',
+    hasSpecialVariant: true,
+    specialVariantsByStrength: {
+      中: ['ビーム|Lv. 0'],
+      強: ['ビーム|Lv. 1', 'ビーム|Lv. 2', 'ビーム|Lv. 3'],
+    },
+  },
+];
+
+describe('calculateOdLevelConstraint', () => {
+  it('最小Lv.は通常版のみ選べる(normalOnly)', () => {
+    const node = makeNode('n', '中サンフレア(ビーム|Lv. 0)');
+    expect(calculateOdLevelConstraint(node, BEAM_MOVE_LIST)).toBe('normalOnly');
+  });
+
+  it('最大Lv.はOD版のみ選べる(odOnly)', () => {
+    const node = makeNode('n', '強サンフレア(ビーム|Lv. 3)');
+    expect(calculateOdLevelConstraint(node, BEAM_MOVE_LIST)).toBe('odOnly');
+  });
+
+  it('中間のLv.は通常/OD版どちらも選べる(either)', () => {
+    expect(calculateOdLevelConstraint(makeNode('n1', '強サンフレア(ビーム|Lv. 1)'), BEAM_MOVE_LIST)).toBe(
+      'either',
+    );
+    expect(calculateOdLevelConstraint(makeNode('n2', '強サンフレア(ビーム|Lv. 2)'), BEAM_MOVE_LIST)).toBe(
+      'either',
+    );
+  });
+
+  it('Lv.を含まない技名は対象外(null)', () => {
+    const node = makeNode('n', '強P');
+    expect(calculateOdLevelConstraint(node, BEAM_MOVE_LIST)).toBeNull();
+  });
+
+  it('moveListに対応する技が見つからなければnull', () => {
+    const node = makeNode('n', '未知の技(ビーム|Lv. 1)');
+    expect(calculateOdLevelConstraint(node, BEAM_MOVE_LIST)).toBeNull();
+  });
+});
+
+describe('calculateOdLevelConstraintForVariant', () => {
+  const move = BEAM_MOVE_LIST[0];
+
+  it('最小Lv.はnormalOnly、最大Lv.はodOnly、中間はeitherを返す（技マスタ側の行生成で使う）', () => {
+    expect(calculateOdLevelConstraintForVariant('ビーム|Lv. 0', move)).toBe('normalOnly');
+    expect(calculateOdLevelConstraintForVariant('ビーム|Lv. 1', move)).toBe('either');
+    expect(calculateOdLevelConstraintForVariant('ビーム|Lv. 2', move)).toBe('either');
+    expect(calculateOdLevelConstraintForVariant('ビーム|Lv. 3', move)).toBe('odOnly');
+  });
+
+  it('Lv.を含まない選択肢（チャージ等）はnull', () => {
+    expect(calculateOdLevelConstraintForVariant('チャージ', move)).toBeNull();
+  });
+
+  it('技が指定されていなければnull', () => {
+    expect(calculateOdLevelConstraintForVariant('ビーム|Lv. 1', undefined)).toBeNull();
+  });
+});
+
+describe('usesODによる参照キーの切り替え（OD版は同じLv.の別データを直接参照する）', () => {
+  it('usesODが付いたノードは、同じLv.のまま「OD」が前置された登録済みデータを参照する', () => {
+    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 1)', { usesOD: true });
+    const starter = makeNode('starter', '強P', { children: [beam] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 900 })]),
+        '強サンフレア(ビーム|Lv. 1)': makeStats([makeHit({ damage: 1100 })]),
+        '強サンフレア(ODビーム|Lv. 1)': makeStats([makeHit({ damage: 1100, dGaugeGain: 0 })]),
+      },
+    };
+
+    // usesOD:trueなので、「ビーム|Lv. 1」ではなく「ODビーム|Lv. 1」の登録済みデータが使われる
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, BEAM_MOVE_LIST, starter, 'beam')).toBe(2000);
+  });
+
+  it('usesODが付いていなければ、OD無しのキーのデータをそのまま使う', () => {
+    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 1)');
+    const starter = makeNode('starter', '強P', { children: [beam] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 900 })]),
+        '強サンフレア(ビーム|Lv. 1)': makeStats([makeHit({ damage: 1100 })]),
+        '強サンフレア(ODビーム|Lv. 1)': makeStats([makeHit({ damage: 9999 })]),
+      },
+    };
+
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, BEAM_MOVE_LIST, starter, 'beam')).toBe(2000);
+  });
+
+  it('OD専用データが登録されていない場合はnull（未登録扱い）になる', () => {
+    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 2)', { usesOD: true });
+    const starter = makeNode('starter', '強P', { children: [beam] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ damage: 900 })]),
+        '強サンフレア(ビーム|Lv. 2)': makeStats([makeHit({ damage: 1350 })]),
+        // 「ODビーム|Lv. 2」は未登録
+      },
+    };
+
+    // ビーム自体が技データ未登録扱いになりdamage0(位置のみ消費)。強P分の900のみ
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, BEAM_MOVE_LIST, starter, 'beam')).toBe(900);
+  });
+
+  it('SAゲージ・Dゲージの自動計算でも同じくOD専用のキーを参照する', () => {
+    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 1)', { usesOD: true });
+    const starter = makeNode('starter', '強P', { children: [beam] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ saGaugeGain: 100, dGaugeGain: 500 })]),
+        '強サンフレア(ビーム|Lv. 1)': makeStats([makeHit({ saGaugeGain: 800, dGaugeGain: 2000 })]),
+        '強サンフレア(ODビーム|Lv. 1)': makeStats([makeHit({ saGaugeGain: 800, dGaugeGain: 0 })]),
+      },
+    };
+
+    expect(calculateBranchSaGaugeChange('ingrid', moveStatsDatabase, starter, 'beam')).toBe(900);
+    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, BEAM_MOVE_LIST, starter, 'beam')).toBe(
+      500,
+    );
   });
 });

@@ -85,6 +85,7 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
       ? node.children.map((child) => normalizeMoveNode(child as Partial<MoveNode>))
       : [],
     groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
+    usesOD: node.usesOD === true ? true : undefined,
   };
 }
 
@@ -128,6 +129,8 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     specialVariantOptions: specialVariantOptions.length > 0 ? specialVariantOptions : undefined,
     specialVariantsByStrength:
       Object.keys(specialVariantsByStrength).length > 0 ? specialVariantsByStrength : undefined,
+    finishesComboOnSelect: move.finishesComboOnSelect === true ? true : undefined,
+    hasFlatVariants: move.hasFlatVariants === true ? true : undefined,
   };
 }
 
@@ -377,6 +380,15 @@ export type AppState = {
     moveId: string,
     finishesComboOnSelect: boolean,
   ) => void;
+  /**
+   * 必殺技が「強度に依存しないフラットな選択肢」かどうかを編集する。trueなら
+   * specialVariantOptionsから直接選ばせ、技名にも強度を含めない
+   */
+  setMoveDefinitionHasFlatVariants: (
+    characterId: string,
+    moveId: string,
+    hasFlatVariants: boolean,
+  ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
   createComboTree: (characterId: string, label: string, displayName?: string) => string;
@@ -438,6 +450,9 @@ export type AppState = {
     nodeId: string,
     branchStats: ComboBranchStats | null,
   ) => void;
+
+  /** 「OD版はレベル+1相当の性能になる」技（イングリッドのビーム等）で、OD版を使ったかどうか */
+  setNodeUsesOD: (characterId: string, treeId: string, nodeId: string, usesOD: boolean) => void;
 
   // ──「枝を選んでまとめてコピー」機能 ─────────────────────────────────
   // コピーモード: あるノード（起点）を選び、そこから続く枝（子孫ごと）を
@@ -750,6 +765,22 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      setMoveDefinitionHasFlatVariants: (characterId, moveId, hasFlatVariants) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId ? { ...move, hasFlatVariants } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
       setMoveDefinitionSpecialVariantOptions: (characterId, moveId, options) => {
         set((state) => ({
           characters: state.characters.map((character) =>
@@ -988,6 +1019,14 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({ ...node, branchStats })),
+          ),
+        }));
+      },
+
+      setNodeUsesOD: (characterId, treeId, nodeId, usesOD) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({ ...node, usesOD: usesOD ? true : undefined })),
           ),
         }));
       },
