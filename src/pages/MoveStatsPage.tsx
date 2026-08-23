@@ -35,6 +35,9 @@ import { calculateOdLevelConstraintForVariant } from '../utils/comboGaugeCalc';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
+// 数値ではなく自由記述の文字列として保存するフィールド（modifierと有利フレームの2種）
+const TEXT_HIT_FIELDS = new Set<keyof MoveHitStats>(['modifier', 'groundPlusFrame', 'airPlusFrame']);
+
 const EMPTY_HIT: MoveHitStats = {
   damage: null,
   modifier: '',
@@ -44,8 +47,15 @@ const EMPTY_HIT: MoveHitStats = {
   dGaugeChipPunishCounter: null,
   minDamageGuaranteePercent: null,
   dGaugeGainDuringRush: null,
+  groundPlusFrame: '',
+  airPlusFrame: '',
 };
-const EMPTY_STATS: MoveStats = { isMultiHit: false, hits: [EMPTY_HIT], cancelableSuperArtNames: [] };
+const EMPTY_STATS: MoveStats = {
+  isMultiHit: false,
+  hits: [EMPTY_HIT],
+  cancelableSuperArtNames: [],
+  sharesModifierAcrossHits: false,
+};
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
 
@@ -260,6 +270,14 @@ function MoveStatsTable({
     );
   };
 
+  const toggleSharesModifierAcrossHits = (moveName: string) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    setMoveStats(characterId, moveName, {
+      ...current,
+      sharesModifierAcrossHits: !current.sharesModifierAcrossHits,
+    });
+  };
+
   const toggleCancelableSuperArt = (moveName: string, superArtName: string) => {
     const current = moveStats[moveName] ?? EMPTY_STATS;
     const next = current.cancelableSuperArtNames.includes(superArtName)
@@ -275,7 +293,7 @@ function MoveStatsTable({
     rawValue: string,
   ) => {
     const current = moveStats[moveName] ?? EMPTY_STATS;
-    const value = field === 'modifier' ? rawValue : rawValue === '' ? null : Number(rawValue);
+    const value = TEXT_HIT_FIELDS.has(field) ? rawValue : rawValue === '' ? null : Number(rawValue);
     setMoveStats(characterId, moveName, {
       ...current,
       hits: current.hits.map((hit, index) => (index === hitIndex ? { ...hit, [field]: value } : hit)),
@@ -297,13 +315,13 @@ function MoveStatsTable({
   };
 
   const extraColumnCount = [showMinGuaranteeColumn, showDuringRushColumn].filter(Boolean).length;
-  const rowGridStyle =
-    extraColumnCount > 0
-      ? {
-          ...styles.hitRow,
-          gridTemplateColumns: `54px 84px minmax(120px, 1fr) repeat(${4 + extraColumnCount}, 84px) 20px`,
-        }
-      : styles.hitRow;
+  // repeat(0, ...)はCSS的に不正な値になり、grid-template-columns全体が無視されて
+  // レイアウトが崩れる（全項目が縦積みになる）ため、0件の時は丸ごと省略する
+  const extraColumnsTemplate = extraColumnCount > 0 ? ` repeat(${extraColumnCount}, 84px)` : '';
+  const rowGridStyle = {
+    ...styles.hitRow,
+    gridTemplateColumns: `54px 84px minmax(120px, 1fr) repeat(6, 84px)${extraColumnsTemplate} 20px`,
+  };
 
   return (
     <div style={styles.moveList}>
@@ -315,6 +333,8 @@ function MoveStatsTable({
         <span style={styles.numHeaderCell}>{saGaugeColumnLabel}</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（ガード）</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（{lastChipColumnLabel}）</span>
+        <span style={styles.numHeaderCell}>有利フレーム<br />（地上ヒット）</span>
+        <span style={styles.numHeaderCell}>有利フレーム<br />（空中ヒット）</span>
         {showMinGuaranteeColumn && (
           <span style={styles.numHeaderCell}>最低保証値<br />（%）</span>
         )}
@@ -340,6 +360,18 @@ function MoveStatsTable({
                 />
                 複数ヒット
               </label>
+
+              {stats.isMultiHit && (
+                <label style={styles.multiHitLabel} title="同じ技が複数回ヒットしているだけの場合はオン（強Kの1・2段目等）。別々の技を繋いだターゲットコンボの場合はオフのまま">
+                  <input
+                    type="checkbox"
+                    checked={stats.sharesModifierAcrossHits}
+                    disabled={readOnly}
+                    onChange={() => toggleSharesModifierAcrossHits(moveName)}
+                  />
+                  段ごとに補正を分けない
+                </label>
+              )}
             </div>
 
             {cancelableSuperArtOptions.length > 0 && (
@@ -437,13 +469,21 @@ function HitFields({
   showDuringRushColumn?: boolean;
   onChange: (field: keyof MoveHitStats, rawValue: string) => void;
 }) {
-  const numberFields: { key: keyof MoveHitStats }[] = [
+  const baseNumberFields: { key: keyof MoveHitStats }[] = [
     { key: 'dGaugeGain' },
     { key: 'saGaugeGain' },
     { key: 'dGaugeChip' },
     { key: 'dGaugeChipPunishCounter' },
+  ];
+  const extraNumberFields: { key: keyof MoveHitStats }[] = [
     ...(showMinGuaranteeColumn ? [{ key: 'minDamageGuaranteePercent' as const }] : []),
     ...(showDuringRushColumn ? [{ key: 'dGaugeGainDuringRush' as const }] : []),
+  ];
+  // 有利フレームは単一値・幅のある表記（例:「+2~+4」）のどちらも自由記述で入力する
+  // （modifierと同じ考え方。詳細はtypes.tsのMoveHitStats.groundPlusFrame参照）
+  const plusFrameFields: { key: 'groundPlusFrame' | 'airPlusFrame' }[] = [
+    { key: 'groundPlusFrame' },
+    { key: 'airPlusFrame' },
   ];
 
   return (
@@ -465,7 +505,30 @@ function HitFields({
         readOnly={readOnly}
         onChange={(event) => onChange('modifier', event.target.value)}
       />
-      {numberFields.map(({ key }) => (
+      {baseNumberFields.map(({ key }) => (
+        <input
+          key={key}
+          type="number"
+          className="input-field"
+          style={styles.numInput}
+          value={hit[key] ?? ''}
+          readOnly={readOnly}
+          onChange={(event) => onChange(key, event.target.value)}
+        />
+      ))}
+      {plusFrameFields.map(({ key }) => (
+        <input
+          key={key}
+          type="text"
+          className="input-field"
+          style={styles.numInput}
+          placeholder="+2~+4 など"
+          value={hit[key]}
+          readOnly={readOnly}
+          onChange={(event) => onChange(key, event.target.value)}
+        />
+      ))}
+      {extraNumberFields.map(({ key }) => (
         <input
           key={key}
           type="number"

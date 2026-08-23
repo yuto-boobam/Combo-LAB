@@ -53,7 +53,15 @@ type Props = {
   onChangeOdUsage?: (nodeId: string, next: boolean) => void;
 };
 
-const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
+// 「通常」ボタンは出さない（カウンター/パニカンをどちらもオフにすれば同じ状態に戻せるため）。
+// パニカンは表示スペースが空いた分、フルの「パニッシュカウンター」表記にする
+const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['カウンター', 'パニカン'];
+
+const START_HIT_CONDITION_LABELS: Record<BranchStartHitCondition, string> = {
+  通常: '通常',
+  カウンター: 'カウンター',
+  パニカン: 'パニッシュカウンター',
+};
 
 const START_HIT_CONDITION_RANK: Record<BranchStartHitCondition, number> = {
   通常: 0,
@@ -257,8 +265,8 @@ export function BranchStatsEditor({
         始動条件
         {requiredStartHitCondition && (
           <span style={styles.requiredHint}>
-            経路上に「{requiredStartHitCondition}以上」でないと繋がらないノードがあるため、
-            {requiredStartHitCondition}未満は選べません
+            経路上に「{START_HIT_CONDITION_LABELS[requiredStartHitCondition]}以上」でないと繋がらないノードがあるため、
+            {START_HIT_CONDITION_LABELS[requiredStartHitCondition]}未満は選べません
           </span>
         )}
         <div style={{ display: 'flex', gap: 4 }}>
@@ -283,7 +291,7 @@ export function BranchStatsEditor({
                   opacity: belowRequirement ? 0.4 : 1,
                 }}
               >
-                {condition}
+                {START_HIT_CONDITION_LABELS[condition]}
               </button>
             );
           })}
@@ -308,16 +316,6 @@ export function BranchStatsEditor({
           onChange={(event) => update({ isRushStart: event.target.checked })}
         />
         ラッシュ始動
-      </label>
-
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.usesCA ?? false}
-          disabled={readOnly}
-          onChange={(event) => update({ usesCA: event.target.checked })}
-        />
-        CA使用
       </label>
 
       {!finishingSuperArtMove && finishingSuperArtOptions.length > 0 && (

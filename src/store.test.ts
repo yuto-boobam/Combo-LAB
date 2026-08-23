@@ -220,6 +220,31 @@ describe('setNodeUsesOD', () => {
   });
 });
 
+describe('setNodeRecordsBranchStats', () => {
+  beforeEach(() => {
+    useAppStore.setState({ characters: createInitialCharacterRoster() });
+  });
+
+  it('葉ノードでない指定ノードだけrecordsBranchStatsが切り替わり、他のノードには影響しない', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '小P始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+    const childId = store.addChildNode(characterId, treeId, rootId, '中P');
+    store.addChildNode(characterId, treeId, childId, '強P'); // 中Pを葉ノードでなくする
+
+    store.setNodeRecordsBranchStats(characterId, treeId, childId, true);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.recordsBranchStats).toBeUndefined();
+    expect(findNodeByMoveName(tree.root, '中P').recordsBranchStats).toBe(true);
+
+    store.setNodeRecordsBranchStats(characterId, treeId, childId, false);
+    const treeAfterUncheck = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(treeAfterUncheck.root, '中P').recordsBranchStats).toBeUndefined();
+  });
+});
+
 describe('共通区間を名前付きグループとして折りたたむ機能', () => {
   beforeEach(() => {
     useAppStore.setState({
@@ -536,9 +561,12 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeChipPunishCounter: -50,
           minDamageGuaranteePercent: null,
           dGaugeGainDuringRush: null,
+          groundPlusFrame: '',
+          airPlusFrame: '',
         },
       ],
       cancelableSuperArtNames: [],
+      sharesModifierAcrossHits: false,
     });
 
     expect(useAppStore.getState().moveStatsDatabase[charA.id]['弱P'].hits[0].damage).toBe(300);
@@ -552,11 +580,12 @@ describe('技データベース（moveStatsDatabase）', () => {
     useAppStore.getState().setMoveStats(char.id, '中K', {
       isMultiHit: true,
       hits: [
-        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
-        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
-        { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '' },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '' },
+        { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '' },
       ],
       cancelableSuperArtNames: [],
+      sharesModifierAcrossHits: false,
     });
 
     const stats = useAppStore.getState().moveStatsDatabase[char.id]['中K'];
@@ -594,9 +623,12 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeChipPunishCounter: null,
           minDamageGuaranteePercent: null,
           dGaugeGainDuringRush: null,
+          groundPlusFrame: '',
+          airPlusFrame: '',
         },
       ],
       cancelableSuperArtNames: [],
+      sharesModifierAcrossHits: false,
     });
     // hitsが空配列で保存されていても、読み込み後は最低1要素に補完される
     expect(db[char.id]['2強K'].hits).toHaveLength(1);
@@ -621,6 +653,23 @@ describe('技データベース（moveStatsDatabase）', () => {
     ]);
   });
 
+  it('有利フレーム（地上/空中ヒット）は幅のある表記も含めて自由記述の文字列のまま保持し、未入力・不正値は空文字に正規化する', () => {
+    const [char] = useAppStore.getState().characters;
+
+    useAppStore.getState().restoreMoveStatsDatabase({
+      [char.id]: {
+        '強P': {
+          isMultiHit: false,
+          hits: [{ damage: 900, groundPlusFrame: '+2~+4', airPlusFrame: 42 }],
+        },
+      },
+    });
+
+    const hit = useAppStore.getState().moveStatsDatabase[char.id]['強P'].hits[0];
+    expect(hit.groundPlusFrame).toBe('+2~+4');
+    expect(hit.airPlusFrame).toBe('');
+  });
+
   it('壊れたJSON（配列やnull）を読み込んでも空のデータベースにフォールバックする', () => {
     useAppStore.getState().setMoveStats(useAppStore.getState().characters[0].id, '弱P', {
       isMultiHit: false,
@@ -634,9 +683,12 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeChipPunishCounter: null,
           minDamageGuaranteePercent: null,
           dGaugeGainDuringRush: null,
+          groundPlusFrame: '',
+          airPlusFrame: '',
         },
       ],
       cancelableSuperArtNames: [],
+      sharesModifierAcrossHits: false,
     });
 
     useAppStore.getState().restoreMoveStatsDatabase(null);

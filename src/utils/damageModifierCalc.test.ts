@@ -103,6 +103,39 @@ describe('calculateDamageScalingPath', () => {
     expect(calculateDamageScalingPath(hits, 2)).toEqual([100, null]);
   });
 
+  it('sharesTableStepWithPrevious: 同じ技の2段目（強Kの2段目等）は新たに段を進めず、1段目と同じ%になる', () => {
+    // 通常技(起点) → 強K1段目(100%の段) → 強K2段目(sharesTableStepWithPrevious) → 次の技
+    // 強K1段目・2段目はどちらも同じ100%の段のまま。次の技は「強Kぶんで1段だけ」前倒しされる(80%)
+    const hits = [
+      damageHit(''),
+      damageHit(''),
+      damageHit('', { sharesTableStepWithPrevious: true }),
+      damageHit(''),
+    ];
+    expect(calculateDamageScalingPath(hits, null)).toEqual([100, 100, 100, 80]);
+  });
+
+  it('sharesTableStepWithPrevious付きのヒットも、自身の即時補正だけは反映される', () => {
+    const hits = [
+      damageHit(''),
+      damageHit(''),
+      damageHit('即時補正10%', { sharesTableStepWithPrevious: true }),
+    ];
+    // 2段目(グループの基準=100%)自身には即時補正が効かないため100%のまま
+    // 3段目はグループの基準値100%から、自身の即時補正10%を引いた90%
+    expect(calculateDamageScalingPath(hits, null)).toEqual([100, 100, 90]);
+  });
+
+  it('sharesTableStepWithPreviousは起点(1発目)が複数ヒット技の場合にも効き、どちらも起点の基準値になる', () => {
+    const hits = [
+      damageHit(''),
+      damageHit('', { sharesTableStepWithPrevious: true }),
+      damageHit(''),
+    ];
+    // 起点2段ぶんはどちらもstartBase(120)のまま。3発目は起点ぶん1段だけ前倒し(100%)
+    expect(calculateDamageScalingPath(hits, null, 120)).toEqual([120, 120, 100]);
+  });
+
   it('弱P→弱K→中サンライズの実機確認済みの例（100%→80%→70%）を再現する', () => {
     // 弱P(始動補正20%,起点)→弱K(始動補正20%だが起点ではないため無視される)→
     // 中サンライズ(コンボ補正20%だが後続が無いため使われない)
@@ -164,6 +197,35 @@ describe('calculateDamageScalingPath', () => {
   it('ラッシュありコンボは8%を下回らない', () => {
     const hits = [damageHit(''), damageHit('乗算補正99%'), damageHit('')];
     expect(calculateDamageScalingPath(hits, 3)).toEqual([100, 100, 8]);
+  });
+
+  it('技固有の補正がテーブルの区切りと噛み合わない場合、区切りに丸めず%ポイントをそのまま直接引く（実機確認済みの回帰例）', () => {
+    // 実機で「7,8,9発目=29%,21%,12%」と確認されたコンボの再現。5発目のコンボ補正15%は
+    // テーブルの区切り(50→40→30、10刻み)に噛み合わないため、以前は誤って区切りの30%まで
+    // 前倒しされてしまい(7発目が25%になる不具合)、以降のヒットも連鎖してズレていた
+    const hits = [
+      damageHit('始動補正20%'), // 1発目 起点
+      damageHit('', { isSystemAction: true }), // 2発目 キャンセルラッシュ
+      damageHit(''), // 3発目
+      damageHit('始動補正20%＋コンボ補正20%'), // 4発目
+      damageHit('始動補正30%＋コンボ補正15%'), // 5発目（区切りと噛み合わないコンボ補正15%）
+      damageHit('', { isSystemAction: true }), // 6発目 生ラッシュ
+      damageHit(''), // 7発目
+      damageHit(''), // 8発目
+      damageHit('コンボ補正20%'), // 9発目
+    ];
+
+    expect(calculateDamageScalingPath(hits, 2, 120)).toEqual([
+      120,
+      null,
+      68,
+      59,
+      42,
+      null,
+      29,
+      21,
+      12,
+    ]);
   });
 
   it('実際に登録済みのイングリッドの補正表記をすべて解釈できる', () => {

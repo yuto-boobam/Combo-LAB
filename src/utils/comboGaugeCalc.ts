@@ -442,6 +442,9 @@ function buildFlatDamageHits(
           isSuperArt,
           minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
           isSystemAction: isRushMove || hit.damage === 0,
+          // 同じ技の複数ヒット(強Kの2段目等)は、登録時にsharesModifierAcrossHitsが立って
+          // いれば1段目とテーブルの段を共有する（詳細はdamageModifierCalc.ts参照）
+          sharesTableStepWithPrevious: stats.sharesModifierAcrossHits && hitIndex > 0,
           moveName: node.moveName,
           hitLabel: stats.isMultiHit ? `${node.moveName}(${hitIndex + 1}/${stats.hits.length}段目)` : node.moveName,
         });
