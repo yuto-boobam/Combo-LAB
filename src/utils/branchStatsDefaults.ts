@@ -22,4 +22,5 @@ export const DEFAULT_BRANCH_STATS: ComboBranchStats = {
   usesCA: false,
   finishingSpecialVariant: null,
   includesEarlyDGaugeRecovery: true,
+  finishingSuperArtName: null,
 };

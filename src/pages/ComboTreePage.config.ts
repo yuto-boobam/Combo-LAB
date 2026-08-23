@@ -10,7 +10,10 @@ export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
   rootWidth: NODE_WIDTH,
   // NODE_WIDTHの縮小(88→68px)に合わせて列間隔も同程度縮め、間延びして見えないようにする
   gapX: 28,
-  dropZoneHeight: 10,
+  // 縦方向の「隙間」の実体。分岐なし(子1つ)のノードでも子の前後2箇所ぶん(=2倍)が
+  // 積み上がるため、深い一本道のコンボほど本来のノード高さ以上に間延びしやすい。
+  // 10pxだとその累積が無視できないサイズになっていたため縮小した(ユーザー指摘により調整)
+  dropZoneHeight: 4,
   defaultNodeHeight: NODE_DEFAULT_HEIGHT,
   defaultRootHeight: NODE_DEFAULT_HEIGHT,
 };

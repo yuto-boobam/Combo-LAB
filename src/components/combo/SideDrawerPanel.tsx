@@ -454,6 +454,7 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
     stats.usesCA,
     stats.finishingSpecialVariant !== null,
     stats.includesEarlyDGaugeRecovery === false, // デフォルトはtrueなので、外した時だけ数える
+    stats.finishingSuperArtName !== null,
   ].filter(Boolean).length;
 }
 
@@ -468,6 +469,14 @@ function findFinishingSuperArtMove(
     (item) => item.category === 'superArt' && item.hasSpecialVariant && item.name === moveName,
   );
   return move ? { name: move.name, specialVariantOptions: move.specialVariantOptions ?? [] } : null;
+}
+
+// 「SAで締める」の選択肢に出す、特殊性能なしの単純なSAの名前一覧。特殊性能ありのSAは
+// findFinishingSuperArtMove側の仕組み（このノード自身がそのSAである場合）で扱うため対象外
+function findFinishingSuperArtOptions(moveList: MoveDefinition[]): string[] {
+  return moveList
+    .filter((move) => move.category === 'superArt' && !move.hasSpecialVariant)
+    .map((move) => move.name);
 }
 
 function ReadOnlyNodeView({
@@ -511,6 +520,7 @@ function ReadOnlyNodeView({
     ? calculateRequiredStartHitCondition(root, selectedNode.id)
     : null;
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
+  const finishingSuperArtOptions = findFinishingSuperArtOptions(moveList);
   const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
   const effectiveUsesOD =
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
@@ -535,6 +545,7 @@ function ReadOnlyNodeView({
             autoDGaugeChange={autoDGaugeChange}
             autoDamage={autoDamage}
             finishingSuperArtMove={finishingSuperArtMove}
+            finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
               nodeId: node.id,
               label: node.displayName ?? node.moveName,
@@ -714,6 +725,7 @@ function NodeEditor({
   );
   const requiredStartHitCondition = calculateRequiredStartHitCondition(root, selectedNode.id);
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
+  const finishingSuperArtOptions = findFinishingSuperArtOptions(moveList);
   const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
   const usesOD = selectedNode.usesOD ?? false;
   // root〜選択中ノードの経路上にあるOD関連ノード（このノード自身が末端でなくても、経路の
@@ -776,6 +788,7 @@ function NodeEditor({
             autoDamage={autoDamage}
             damageBreakdown={damageBreakdown}
             finishingSuperArtMove={finishingSuperArtMove}
+            finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
               nodeId: node.id,
               label: node.displayName ?? node.moveName,

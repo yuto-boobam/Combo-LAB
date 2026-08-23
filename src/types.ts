@@ -149,6 +149,17 @@ export type ComboBranchStats = {
    * 未設定（true相当）なら従来通り経路全体をそのまま合計する
    */
   includesEarlyDGaugeRecovery: boolean;
+
+  /**
+   * この末端ノードの直後にSA(superArt)へ繋いで締める場合、その技名（例:「SA3」）。
+   * null = SAに繋がない（このノード自身で終わる）。末端ノード自身はSAではないが、
+   * 実際にはSAの直前の技でコンボを終えることも多いため、木にSAのノードを追加しなくても
+   * ダメージ・SAゲージ・Dゲージの自動計算にそのSAぶんを合成して反映できるようにする
+   * （ユーザー要望。詳細はcomboGaugeCalc.tsのwithFinishingSuperArt参照）。対象は
+   * 特殊性能なし(hasSpecialVariantが立っていない)の単純なSAのみ。特殊性能ありのSAで
+   * 終わる場合はfinishesComboOnSelect/finishingSpecialVariantの仕組みを使う
+   */
+  finishingSuperArtName: string | null;
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────
