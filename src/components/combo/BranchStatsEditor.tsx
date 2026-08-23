@@ -40,6 +40,11 @@ type Props = {
   // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
   // 選ばせるUIを表示し、finishingSpecialVariantに保存する（呼び出し側の判定はSideDrawerPanel参照）
   finishingSuperArtMove?: { name: string; specialVariantOptions: string[] } | null;
+  // このキャラに登録済みの、特殊性能なしの単純なSAの名前一覧。1件以上あれば「このノードの
+  // 直後にSAへ繋いで終わる」場合の選択肢として表示する（木にSAのノードを追加しなくても
+  // ダメージ・ゲージ計算に反映できるようにする機能。finishingSuperArtMoveと同時には
+  // 出さない：このノード自身が既にSAである場合は対象外のため）
+  finishingSuperArtOptions?: string[];
   // root〜このノードの経路上にある「OD版はレベル+1相当の性能になる」技（ビーム等）の一覧。
   // 末端ノードの「コンボの情報」欄から、経路の途中にあるノードのOD使用もまとめて確認・
   // 変更できるようにする（選択中のノードを1つずつ辿らなくても、最終的なゲージを見ている
@@ -66,6 +71,7 @@ export function BranchStatsEditor({
   autoDamage = null,
   damageBreakdown = null,
   finishingSuperArtMove = null,
+  finishingSuperArtOptions = [],
   odUsagesOnPath = [],
   onChangeOdUsage,
 }: Props) {
@@ -313,6 +319,52 @@ export function BranchStatsEditor({
         />
         CA使用
       </label>
+
+      {!finishingSuperArtMove && finishingSuperArtOptions.length > 0 && (
+        <div style={styles.fieldLabel}>
+          SAで締める
+          <span style={styles.requiredHint}>
+            この技の直後にSAへ繋いで終える場合に選びます。木にSAのノードを追加しなくても、
+            ダメージ・ゲージの自動計算に反映されます
+          </span>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => update({ finishingSuperArtName: null })}
+              disabled={readOnly}
+              style={{
+                ...styles.conditionButton,
+                borderColor: stats.finishingSuperArtName === null ? 'var(--accent)' : 'var(--border)',
+                background: stats.finishingSuperArtName === null ? 'var(--accent)' : 'var(--bg-elevated)',
+                color: stats.finishingSuperArtName === null ? '#fff' : 'var(--text-secondary)',
+                cursor: readOnly ? 'default' : 'pointer',
+              }}
+            >
+              使わない
+            </button>
+            {finishingSuperArtOptions.map((name) => {
+              const active = stats.finishingSuperArtName === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => update({ finishingSuperArtName: active ? null : name })}
+                  disabled={readOnly}
+                  style={{
+                    ...styles.conditionButton,
+                    borderColor: active ? 'var(--accent)' : 'var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: active ? '#fff' : 'var(--text-secondary)',
+                    cursor: readOnly ? 'default' : 'pointer',
+                  }}
+                >
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {finishingSuperArtMove && finishingSuperArtMove.specialVariantOptions.length > 0 && (
         <div style={styles.fieldLabel}>

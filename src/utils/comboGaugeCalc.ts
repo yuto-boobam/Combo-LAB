@@ -73,6 +73,37 @@ function effectiveStartHitCondition(
   return START_HIT_CONDITION_RANK[stored] >= START_HIT_CONDITION_RANK[required] ? stored : required;
 }
 
+/**
+ * 末端ノードのbranchStats.finishingSuperArtNameが設定されている場合、経路の最後に
+ * そのSAぶんの合成ノードを1つ追加した配列を返す（実データには一切手を入れない）。
+ * SAの直前の技でコンボを終えることも多いが、その場合でも木にSAのノードを追加しなくて
+ * 済むよう、末端ノードの「コンボの情報」欄からSAを選べるようにする機能で使う
+ * （src/components/combo/BranchStatsEditor.tsx参照）。
+ *
+ * 合成ノードのbranchStatsは元の末端ノードのものをそのまま共有する。始動条件
+ * (startHitCondition等)やincludesEarlyDGaugeRecoveryは「この枝全体」の設定であり、
+ * SAを合成した後も末端ノードとして扱われる側（配列の最後）から読まれるため、これに
+ * よって各calc関数側の特別な分岐が不要になる
+ */
+function withFinishingSuperArt(path: MoveNode[]): MoveNode[] {
+  const targetNode = path[path.length - 1];
+  const finishingSuperArtName = targetNode.branchStats?.finishingSuperArtName;
+  if (!finishingSuperArtName) return path;
+
+  const superArtNode: MoveNode = {
+    id: `${targetNode.id}__finishingSuperArt`,
+    moveName: finishingSuperArtName,
+    attributes: [],
+    specialNote: '',
+    branchStats: targetNode.branchStats,
+    createdBy: targetNode.createdBy,
+    createdAt: targetNode.createdAt,
+    children: [],
+  };
+
+  return [...path, superArtNode];
+}
+
 function sumSaGaugeGain(stats: MoveStats): number {
   return stats.hits.reduce((sum, hit) => sum + (hit.saGaugeGain ?? 0), 0);
 }
@@ -232,8 +263,9 @@ export function calculateBranchSaGaugeChange(
   root: MoveNode,
   targetNodeId: string,
 ): number | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
@@ -288,8 +320,9 @@ export function calculateBranchDGaugeChange(
   root: MoveNode,
   targetNodeId: string,
 ): number | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
@@ -456,8 +489,9 @@ export function calculateBranchDamage(
   root: MoveNode,
   targetNodeId: string,
 ): number | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;
@@ -504,8 +538,9 @@ export function calculateBranchDamageBreakdown(
   root: MoveNode,
   targetNodeId: string,
 ): DamageBreakdown | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;

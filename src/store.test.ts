@@ -477,6 +477,7 @@ describe('一致箇所への一括反映機能', () => {
       usesCA: false,
       finishingSpecialVariant: null,
       includesEarlyDGaugeRecovery: true,
+      finishingSuperArtName: null,
     });
 
     useAppStore.getState().startMatchMode(source.ids[0]);

@@ -35,6 +35,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     usesCA: false,
     finishingSpecialVariant: null,
     includesEarlyDGaugeRecovery: true,
+    finishingSuperArtName: null,
     ...overrides,
   };
 }
@@ -623,6 +624,99 @@ describe('calculateBranchDamage', () => {
   it('技データが1件も登録されていない経路ではnullを返す', () => {
     const node = makeNode('a', '未登録の技');
     expect(calculateBranchDamage('ryu', {}, [], node, 'a')).toBeNull();
+  });
+});
+
+describe('finishingSuperArtName（末端の直後、木にノードを追加せずSAで締める）', () => {
+  it('末端ノードがfinishingSuperArtNameを持つ場合、ダメージ計算にそのSAぶんが合成される', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({ finishingSuperArtName: 'SA3' }),
+    });
+    const starter = makeNode('starter', '中K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中K': makeStats([makeHit({ damage: 500 })]),
+        '強P': makeStats([makeHit({ damage: 700 })]),
+        SA3: makeStats([makeHit({ damage: 4000, minDamageGuaranteePercent: 50 })]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('SA3', 'superArt')];
+
+    // 中K:500(100%) + 強P:700(2発目=100%) + SA3:3発目=80%、自然計算80%は保証50%を上回るため
+    // そのまま採用 → 4000*0.8=3200 → 合計 500+700+3200=4400
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(4400);
+  });
+
+  it('finishingSuperArtNameが未設定(null)なら、これまで通り末端ノードだけで計算する', () => {
+    const after = makeNode('after', '強P', { branchStats: makeBranchStats() });
+    const starter = makeNode('starter', '中K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中K': makeStats([makeHit({ damage: 500 })]),
+        '強P': makeStats([makeHit({ damage: 700 })]),
+        SA3: makeStats([makeHit({ damage: 4000 })]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('SA3', 'superArt')];
+
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(1200);
+  });
+
+  it('SAゲージ計算にも合成したSAの消費量(負の値)が反映される', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({ finishingSuperArtName: 'SA3' }),
+    });
+    const starter = makeNode('starter', '中K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中K': makeStats([makeHit({ saGaugeGain: 200 })]),
+        '強P': makeStats([makeHit({ saGaugeGain: 300 })]),
+        SA3: makeStats([makeHit({ saGaugeGain: -6000 })]),
+      },
+    };
+
+    expect(calculateBranchSaGaugeChange('ryu', moveStatsDatabase, starter, 'after')).toBe(-5500);
+  });
+
+  it('Dゲージ計算では、末端ノードのincludesEarlyDGaugeRecoveryが合成したSAにも引き継がれて効く', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({
+        finishingSuperArtName: 'SA3',
+        includesEarlyDGaugeRecovery: false,
+      }),
+    });
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [after] });
+    const starter = makeNode('starter', '中K', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中K': makeStats([makeHit({ dGaugeGain: 999 })]), // ラッシュ消費より前なので除かれる
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -3000 })]),
+        '強P': makeStats([makeHit({ dGaugeGain: 500 })]), // ラッシュ中の通常技は回復0
+        SA3: makeStats([makeHit({ dGaugeGain: 100, dGaugeGainDuringRush: 400 })]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('SA3', 'superArt')];
+
+    // 中K(除外) + キャンセルラッシュ:-3000 + 強P:0(ラッシュ中の通常技) + SA3:400(dGaugeGainDuringRush)
+    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(-2600);
+  });
+
+  it('合成したSAの技データが未登録でも、他のノードの合計は保たれる', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({ finishingSuperArtName: '未登録SA' }),
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '強P': makeStats([makeHit({ damage: 700 })]),
+      },
+    };
+
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], after, 'after')).toBe(700);
   });
 });
 
