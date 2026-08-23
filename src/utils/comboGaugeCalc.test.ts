@@ -34,6 +34,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     isRushStart: false,
     usesCA: false,
     finishingSpecialVariant: null,
+    includesEarlyDGaugeRecovery: true,
     ...overrides,
   };
 }
@@ -287,6 +288,76 @@ describe('calculateBranchDGaugeChange', () => {
   it('技データが1件も登録されていない経路ではnullを返す', () => {
     const node = makeNode('a', '未登録の技');
     expect(calculateBranchDGaugeChange('ingrid', {}, [], node, 'a')).toBeNull();
+  });
+
+  it('includesEarlyDGaugeRecoveryがfalseだと、最初のゲージ消費(キャンセルラッシュ)より前の回復を除いて合計する', () => {
+    const afterRush = makeNode('after', '中K', {
+      branchStats: makeBranchStats({ includesEarlyDGaugeRecovery: false }),
+    });
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [afterRush] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeGain: 3000 })]),
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -2000 })]),
+        '中K': makeStats([makeHit({ dGaugeGain: 2000 })]),
+      },
+    };
+
+    // 強P(3000)はキャンセルラッシュより前の回復なので除外。
+    // キャンセルラッシュ自身(-2000、消費技本体)以降だけを合計する → -2000 + 0(ラッシュ後の中Kは回復しない) = -2000
+    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'after')).toBe(-2000);
+  });
+
+  it('includesEarlyDGaugeRecoveryがfalseでも、消費技が経路上に無ければ従来通り全体を合計する', () => {
+    const b = makeNode('b', '中P', {
+      branchStats: makeBranchStats({ includesEarlyDGaugeRecovery: false }),
+    });
+    const a = makeNode('a', '弱P', { children: [b] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ dGaugeGain: 250 })]),
+        '中P': makeStats([makeHit({ dGaugeGain: 1500 })]),
+      },
+    };
+
+    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, [], a, 'b')).toBe(1750);
+  });
+
+  it('includesEarlyDGaugeRecoveryを省略(未設定)すると、これまで通り経路全体をそのまま合計する', () => {
+    const afterRush = makeNode('after', '中K'); // branchStats未設定
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [afterRush] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeGain: 3000 })]),
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -2000 })]),
+        '中K': makeStats([makeHit({ dGaugeGain: 2000 })]),
+      },
+    };
+
+    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'after')).toBe(1000);
+  });
+
+  it('includesEarlyDGaugeRecoveryがfalseの場合、usesODが付いたノードも「消費技」として扱われる', () => {
+    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 2)', {
+      usesOD: true,
+      branchStats: makeBranchStats({ includesEarlyDGaugeRecovery: false }),
+    });
+    const starter = makeNode('starter', '強P', { children: [beam] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeGain: 3000 })]),
+        '強サンフレア(ODビーム|Lv. 2)': makeStats([makeHit({ dGaugeGain: -20000 })]),
+      },
+    };
+
+    // 強P(3000)はビーム(OD使用=消費技)より前の回復なので除外し、ビーム自身の-20000だけになる
+    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'beam')).toBe(-20000);
   });
 });
 
@@ -714,6 +785,30 @@ describe('usesODによる参照キーの切り替え（OD版は同じLv.の別�
     expect(calculateBranchSaGaugeChange('ingrid', moveStatsDatabase, starter, 'beam')).toBe(900);
     expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, BEAM_MOVE_LIST, starter, 'beam')).toBe(
       500,
+    );
+  });
+
+  it('キャンセルラッシュ後でも、usesODが付いたノードのDゲージ値は握りつぶされず加算される（回帰）', () => {
+    // 強P → キャンセルラッシュ → ビーム(OD使用、-20000のOD発動コスト込み)
+    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 2)', { usesOD: true });
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [beam] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeGain: 3000 })]),
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -2000 })]),
+        '強サンフレア(ビーム|Lv. 2)': makeStats([makeHit({ dGaugeGain: 3000 })]),
+        '強サンフレア(ODビーム|Lv. 2)': makeStats([makeHit({ dGaugeGain: -20000 })]),
+      },
+    };
+
+    // 3000(強P) + (-2000)(ラッシュ消費) + (-20000)(OD版の値がそのまま加算される。
+    // ラッシュ後は非SA技を0にする既存ルールの対象外になるべき) = -19000
+    // 以前は「ラッシュ後の非SA技は0」ルールがusesODより優先されてしまい、-20000が
+    // 握りつぶされ1000になっていた
+    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, BEAM_MOVE_LIST, starter, 'beam')).toBe(
+      -19000,
     );
   });
 });

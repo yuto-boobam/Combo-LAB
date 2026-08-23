@@ -274,6 +274,10 @@ const RUSH_MOVE_NAMES = new Set([CANCEL_RUSH_MOVE_NAME, RAW_RUSH_MOVE_NAME]);
  * - 歩行の実時間ベースの回復量そのものの算出（フレーム数→回復量の換算）、ラッシュ終了2秒後の
  *   回復再開はスコープ外（このツールはコンボを技の並びとして記録するもので、実時間の経過を
  *   扱う仕組みが無いため。歩きノードの技データが登録されていれば、その値をそのまま使う）
+ * - 末端ノードの`branchStats.includesEarlyDGaugeRecovery`がfalseの場合、経路上で最初に
+ *   ゲージを消費する技（キャンセルラッシュ/生ラッシュ、またはusesODが付いたノード）より前に
+ *   得た回復は合計から除く（Dゲージが元々MAXの状態から始めた場合、最初に何かを消費するまでの
+ *   回復分は溢れて実際には得られないため。消費技自身とそれ以降は通常通り合計する）
  *
  * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
  */
@@ -290,42 +294,66 @@ export function calculateBranchDGaugeChange(
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
 
-  let total = 0;
   let hasAnyData = false;
   let inRush = false;
+  const contributions: number[] = [];
+  let firstConsumptionIndex: number | null = null;
 
   path.forEach((node, index) => {
     const isTargetNode = index === path.length - 1;
     const stats = characterStats[lookupMoveName(node, isTargetNode)];
+    const isConsumingNode = RUSH_MOVE_NAMES.has(node.moveName) || (node.usesOD ?? false);
+    if (isConsumingNode && firstConsumptionIndex === null) firstConsumptionIndex = index;
 
     if (RUSH_MOVE_NAMES.has(node.moveName)) {
+      let contribution = 0;
       if (stats) {
         hasAnyData = true;
-        total += stats.hits.reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
+        contribution = stats.hits.reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
       }
+      contributions.push(contribution);
       if (node.moveName === CANCEL_RUSH_MOVE_NAME) inRush = true;
       return;
     }
 
-    if (node.attributes.some((attribute) => attribute.type === 'whiff')) return;
-    if (node.attributes.some((attribute) => attribute.type === 'guard')) return; // ガード回復量は未実装
+    if (node.attributes.some((attribute) => attribute.type === 'whiff')) {
+      contributions.push(0);
+      return;
+    }
+    if (node.attributes.some((attribute) => attribute.type === 'guard')) {
+      contributions.push(0); // ガード回復量は未実装
+      return;
+    }
 
-    if (!stats) return;
+    if (!stats) {
+      contributions.push(0);
+      return;
+    }
     hasAnyData = true;
 
     const isSuperArt = moveList.some(
       (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
     );
-    // 歩きはラッシュ中でも例外的に回復できる（実機確認済み）
+    // 歩きはラッシュ中でも例外的に回復できる（実機確認済み）。usesODが付いたノードも、
+    // OD版として登録された数値（例: OD発動コストを織り込んだ-20000）自体が実際の
+    // 収支そのものなので、ラッシュ中の「非SA技は回復0」ルールの対象外にする
+    // （そうしないとOD使用時の値が握りつぶされ、ODチェックが効かなくなってしまう）
     const isWalkMove = node.moveName.includes('歩き');
 
-    total += stats.hits.reduce((sum, hit) => {
-      if (!inRush || isWalkMove) return sum + (hit.dGaugeGain ?? 0);
+    const contribution = stats.hits.reduce((sum, hit) => {
+      if (!inRush || isWalkMove || node.usesOD) return sum + (hit.dGaugeGain ?? 0);
       return sum + (isSuperArt ? (hit.dGaugeGainDuringRush ?? 0) : 0);
     }, 0);
+    contributions.push(contribution);
   });
 
-  return hasAnyData ? total : null;
+  if (!hasAnyData) return null;
+
+  const targetNode = path[path.length - 1];
+  const includesEarlyRecovery = targetNode.branchStats?.includesEarlyDGaugeRecovery ?? true;
+  const startIndex = includesEarlyRecovery || firstConsumptionIndex === null ? 0 : firstConsumptionIndex;
+
+  return contributions.slice(startIndex).reduce((sum, value) => sum + value, 0);
 }
 
 function startBaseFromPath(path: MoveNode[]): number {

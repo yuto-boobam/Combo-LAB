@@ -21,4 +21,5 @@ export const DEFAULT_BRANCH_STATS: ComboBranchStats = {
   isRushStart: false,
   usesCA: false,
   finishingSpecialVariant: null,
+  includesEarlyDGaugeRecovery: true,
 };

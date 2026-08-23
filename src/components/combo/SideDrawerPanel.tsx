@@ -453,6 +453,7 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
     stats.isRushStart,
     stats.usesCA,
     stats.finishingSpecialVariant !== null,
+    stats.includesEarlyDGaugeRecovery === false, // デフォルトはtrueなので、外した時だけ数える
   ].filter(Boolean).length;
 }
 

@@ -165,7 +165,24 @@
                 "displayName": "中ライズ",
                 "attributes": [],
                 "specialNote": "",
-                "branchStats": null,
+                "branchStats": {
+                  "damage": 1380,
+                  "dGaugeChange": null,
+                  "saGaugeGain": null,
+                  "damageRating": null,
+                  "dGaugeRating": null,
+                  "saGaugeRating": null,
+                  "overallRating": null,
+                  "plusFrame": null,
+                  "isThrowRange": false,
+                  "canOkizeme": false,
+                  "startHitCondition": null,
+                  "isJustParryStart": false,
+                  "isRushStart": false,
+                  "usesCA": false,
+                  "finishingSpecialVariant": null,
+                  "includesEarlyDGaugeRecovery": true
+                },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-15T03:49:37.977Z",
                 "children": []
@@ -417,7 +434,24 @@
                 "displayName": "チャージ",
                 "attributes": [],
                 "specialNote": "",
-                "branchStats": null,
+                "branchStats": {
+                  "damage": null,
+                  "dGaugeChange": null,
+                  "saGaugeGain": null,
+                  "damageRating": null,
+                  "dGaugeRating": null,
+                  "saGaugeRating": null,
+                  "overallRating": null,
+                  "plusFrame": null,
+                  "isThrowRange": false,
+                  "canOkizeme": false,
+                  "startHitCondition": "カウンター",
+                  "isJustParryStart": false,
+                  "isRushStart": false,
+                  "usesCA": false,
+                  "finishingSpecialVariant": null,
+                  "includesEarlyDGaugeRecovery": true
+                },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-18T09:13:10.576Z",
                 "children": []
@@ -477,7 +511,24 @@
                             "moveName": "SA3",
                             "attributes": [],
                             "specialNote": "",
-                            "branchStats": null,
+                            "branchStats": {
+                              "damage": null,
+                              "dGaugeChange": null,
+                              "saGaugeGain": null,
+                              "damageRating": null,
+                              "dGaugeRating": null,
+                              "saGaugeRating": null,
+                              "overallRating": null,
+                              "plusFrame": null,
+                              "isThrowRange": false,
+                              "canOkizeme": false,
+                              "startHitCondition": null,
+                              "isJustParryStart": false,
+                              "isRushStart": false,
+                              "usesCA": false,
+                              "finishingSpecialVariant": null,
+                              "includesEarlyDGaugeRecovery": true
+                            },
                             "createdBy": "ローカル",
                             "createdAt": "2026-08-17T08:21:00.710Z",
                             "children": []
@@ -649,7 +700,23 @@
                                     "displayName": "中ライズ",
                                     "attributes": [],
                                     "specialNote": "",
-                                    "branchStats": null,
+                                    "branchStats": {
+                                      "damage": null,
+                                      "dGaugeChange": null,
+                                      "saGaugeGain": null,
+                                      "damageRating": null,
+                                      "dGaugeRating": null,
+                                      "saGaugeRating": null,
+                                      "overallRating": null,
+                                      "plusFrame": null,
+                                      "isThrowRange": false,
+                                      "canOkizeme": false,
+                                      "startHitCondition": "カウンター",
+                                      "isJustParryStart": false,
+                                      "isRushStart": false,
+                                      "usesCA": false,
+                                      "finishingSpecialVariant": null
+                                    },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T10:52:27.781Z",
                                     "children": []
@@ -825,8 +892,8 @@
             "children": [
               {
                 "id": "msx55z2vu2mveygv8j",
-                "moveName": "サンフレア",
-                "displayName": "強ビーム",
+                "moveName": "サンフレア(ビーム|Lv. 0)",
+                "displayName": "ビーム|Lv. 0",
                 "attributes": [],
                 "specialNote": "",
                 "branchStats": {
@@ -917,5 +984,5 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-22T06:39:59.423Z"
+  "updatedAt": "2026-08-23T05:21:10.711Z"
 }

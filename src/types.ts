@@ -140,6 +140,15 @@ export type ComboBranchStats = {
    * `${末端ノードのmoveName}(${finishingSpecialVariant})`になる
    */
   finishingSpecialVariant: string | null;
+
+  /**
+   * Dゲージ自動計算で、経路上の最初のゲージ消費技（キャンセルラッシュ/生ラッシュ、または
+   * usesODが付いたノード）より前に得た回復を合計に含めるかどうか。Dゲージが元々MAXの
+   * 状態から始めた場合、最初に何かを消費するまでの回復分は溢れて実際には得られないため、
+   * falseにするとその回復分を除いて計算する（消費技自身とそれ以降は通常通り合計する）。
+   * 未設定（true相当）なら従来通り経路全体をそのまま合計する
+   */
+  includesEarlyDGaugeRecovery: boolean;
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────

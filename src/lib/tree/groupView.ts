@@ -28,7 +28,7 @@ export type GroupView = {
 };
 
 /** node から続く同じgroupIdの一本道を辿り、区間のメンバーID一覧と末尾ノードを返す */
-function collectGroupChain(node: MoveNode, groupId: string): { memberIds: string[]; tail: MoveNode } {
+export function collectGroupChain(node: MoveNode, groupId: string): { memberIds: string[]; tail: MoveNode } {
   const memberIds: string[] = [];
   let cursor = node;
 
