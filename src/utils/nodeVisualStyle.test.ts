@@ -45,10 +45,18 @@ describe('resolveNodeVisualStyle', () => {
     },
   );
 
-  it('技名が「キャンセルラッシュ」の場合のみ、属性に関わらず枠線色（≒接続線色）も固定で緑になる', () => {
+  it('技名が「キャンセルラッシュ」の場合のみ、カウンター/パニッシュカウンター属性が無ければ枠線色（≒接続線色）も緑になる', () => {
     expect(style('キャンセルラッシュ').borderColorKind).toBe('rush');
-    // パニッシュカウンターのような優先度の高い属性を持っていても、緑を優先する
-    expect(style('キャンセルラッシュ', [attr('punishCounter')]).borderColorKind).toBe('rush');
+  });
+
+  it('キャンセルラッシュにカウンター/パニッシュカウンター属性を付けると、緑ではなくその色を優先する（「カウンター時にキャンセルラッシュした」を表現するため）', () => {
+    expect(style('キャンセルラッシュ', [attr('counter')]).borderColorKind).toBe('counter');
+    expect(style('キャンセルラッシュ', [attr('punishCounter')]).borderColorKind).toBe('punishCounter');
+    expect(style('キャンセルラッシュ', [attr('counter'), attr('punishCounter')]).borderColorKind).toBe(
+      'punishCounter',
+    );
+    // 本体色は引き続きラッシュの緑のまま（カウンター等はあくまで枠線・接続線だけに影響する）
+    expect(style('キャンセルラッシュ', [attr('counter')]).bodyColorKind).toBe('rush');
   });
 
   it('技名が「生ラッシュ」の場合は、本体色は緑になるが枠線色（≒接続線色）は通常のまま変わらない', () => {

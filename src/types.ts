@@ -48,6 +48,23 @@ export type MoveDefinition = {
    * プレーンな `${強度}${技名}` のまま確定する
    */
   specialVariantsByStrength?: Partial<Record<MoveStrength, string[]>>;
+  /**
+   * SA(superArt)・特殊性能ありの技のみで使う。trueなら「この技は常にコンボの締め（末端）で
+   * 使う」という前提とし、特殊性能を選んだ時にノード名へ焼き込まず（技名は素のまま、
+   * 例:「SA1」）、代わりに末端ノードの`ComboBranchStats.finishingSpecialVariant`へ直接
+   * セットする（MoveNamePicker/SideDrawerPanel参照）。falseまたは未設定なら従来通り
+   * `${技名}(${特殊性能})`をノード名に焼き込む（この後さらに技を繋げる可能性がある技向け）
+   */
+  finishesComboOnSelect?: boolean;
+  /**
+   * 必殺技(special)のみで使う。trueなら、この技は強度（弱/中/強/OD）による選択肢の違いが
+   * 実質無く、`specialVariantOptions`のフラットな一覧から直接選ばせる（SA(superArt)と同じ
+   * 選び方）。技名も`${技名}(${特殊性能})`のように強度を含めずに確定する（例:
+   * 「サンフレア(ビーム|Lv. 1)」。イングリッドのビーム系(チャージ→Lv.0〜3)のように、
+   * 強度ボタンとLv.が実質無関係で「強度選択」という手順自体が不要な技向け。
+   * falseまたは未設定なら従来通り`specialVariantsByStrength`を使う強度ベースの選択のまま
+   */
+  hasFlatVariants?: boolean;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
@@ -114,6 +131,35 @@ export type ComboBranchStats = {
   isJustParryStart: boolean; // ジャストパリィ始動か
   isRushStart: boolean; // (ドライブ)ラッシュ始動か
   usesCA: boolean; // CA（クリティカルアーツ）を使うコンボか
+
+  /**
+   * この枝がSA(superArt、特殊性能あり)で終わる場合に、実際に使った特殊性能（例:「Lv. 1」）。
+   * ノード自体は特殊性能を選ばず技名だけ（例:「SA1」）で置いたまま、この枝の終端でどのLv.を
+   * 使ったかだけを記録したいケース用（ノード側で既に`SA1(Lv. 1)`のように特殊性能込みで確定
+   * している場合や、SAで終わらない枝ではnullのまま）。技データの参照キーは
+   * `${末端ノードのmoveName}(${finishingSpecialVariant})`になる
+   */
+  finishingSpecialVariant: string | null;
+
+  /**
+   * Dゲージ自動計算で、経路上の最初のゲージ消費技（キャンセルラッシュ/生ラッシュ、または
+   * usesODが付いたノード）より前に得た回復を合計に含めるかどうか。Dゲージが元々MAXの
+   * 状態から始めた場合、最初に何かを消費するまでの回復分は溢れて実際には得られないため、
+   * falseにするとその回復分を除いて計算する（消費技自身とそれ以降は通常通り合計する）。
+   * 未設定（true相当）なら従来通り経路全体をそのまま合計する
+   */
+  includesEarlyDGaugeRecovery: boolean;
+
+  /**
+   * この末端ノードの直後にSA(superArt)へ繋いで締める場合、その技名（例:「SA3」）。
+   * null = SAに繋がない（このノード自身で終わる）。末端ノード自身はSAではないが、
+   * 実際にはSAの直前の技でコンボを終えることも多いため、木にSAのノードを追加しなくても
+   * ダメージ・SAゲージ・Dゲージの自動計算にそのSAぶんを合成して反映できるようにする
+   * （ユーザー要望。詳細はcomboGaugeCalc.tsのwithFinishingSuperArt参照）。対象は
+   * 特殊性能なし(hasSpecialVariantが立っていない)の単純なSAのみ。特殊性能ありのSAで
+   * 終わる場合はfinishesComboOnSelect/finishingSpecialVariantの仕組みを使う
+   */
+  finishingSuperArtName: string | null;
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────
@@ -121,7 +167,8 @@ export type ComboBranchStats = {
 export type MoveNode = {
   id: string;
   moveName: string; // 技名（技マスタから選んだ時点のスナップショット）。ドロワー・見出し・エクスポート等で使う正式名称
-  // 木のノード上の表示用（必殺技の呼び名選択時のスナップショット）。未設定なら moveName を使う
+  // 木のノード上の表示用（必殺技の呼び名選択時・SAの特殊性能選択時のスナップショット）。
+  // 未設定なら moveName を使う
   displayName?: string;
   attributes: NodeAttribute[];
   specialNote: string; // 「ディレイ~F」のような特殊記入。基本は空文字
@@ -143,13 +190,24 @@ export type MoveNode = {
   groupId?: string;
 
   /**
-   * この技をヒット/ガードさせてもDゲージが回復しない、という個別ノードの記録。
-   * Dゲージは通常ヒット・ガードで回復するが、バーンアウト後のクールタイム中等、
-   * 回復しない状況もあるため（詳細な条件分けは未実装）、まずはノード単位で除外
-   * できるようにする。将来のDゲージ自動計算で、この印が付いたノードのdGaugeGainを
-   * 合計から除く想定（葉ノードに限らず、経路上のどのノードにも付けられる）。
+   * 「OD版はレベル+1相当の性能になる」技（イングリッドのビーム等）で、実際にOD版を使ったか
+   * どうか。技データの参照キーは、このノードのmoveNameに含まれるLv.番号+1の登録済みデータを
+   * 参照するようになる（登録済みの最大Lv.の場合はそれ以上シフトしない。詳細は
+   * src/utils/comboGaugeCalc.ts の calculateOdLevelConstraint / 経路計算参照）。
+   * 木構造上のどのノードにも付けられる（末端に限らない。技データベース上、最小Lv.の技は
+   * 通常版でしか存在せず、最大Lv.の技はOD版でしか存在しないため、UI側でLv.に応じて選択を
+   * 制限する）
    */
-  dGaugeRecoveryBlocked?: boolean;
+  usesOD?: boolean;
+
+  /**
+   * 葉ノードでもガード/空振り属性でもないノードにも、任意で「コンボの情報」欄
+   * （branchStats・自動計算ダメージ等）を表示・記録できるようにするフラグ。
+   * 例: A→B→C→Dの経路で、あえてCで止めて別の行動をするケースを記録したい場合に使う
+   * （trueにすると、Cが葉でなくてもコンボの情報欄が出るようになる。SideDrawerPanel参照）。
+   * 未設定(false相当)なら従来通り葉ノード/ガード/空振りの時だけ表示する
+   */
+  recordsBranchStats?: boolean;
 };
 
 // ── 技ごとの基礎数値 ──────────────────────────────────────────────────────
@@ -168,6 +226,13 @@ export type MoveHitStats = {
   // キャンセルラッシュ中にこの技をヒットさせた時のDゲージ回復量。SA以外は一律0として扱うため、
   // SA技だけ個別の値（SA1/2は0、SA3は通常時と異なる値、等）を登録する。null = 未入力
   dGaugeGainDuringRush: number | null;
+
+  // 有利フレーム（地上ヒット時）の自由記述。単一の値（例:「+3」）だけでなく、技表通り幅を
+  // 持たせた表記（例:「+2~+4」）もそのまま入力できるようにmodifierと同じ文字列型にしている。
+  // 末端ノード側で締めの技に応じてこの範囲を表示する機能の元データになる想定。基本は空文字
+  groundPlusFrame: string;
+  // 有利フレーム（空中ヒット時）の自由記述。地上ヒットとは別に登録できるよう分けている
+  airPlusFrame: string;
 };
 
 /**
@@ -182,6 +247,23 @@ export type MoveHitStats = {
 export type MoveStats = {
   isMultiHit: boolean;
   hits: MoveHitStats[];
+  /**
+   * この技からキャンセル可能なSA(superArt)の名前一覧（例:["SA3"]）。末端ノードの
+   * 「コンボの情報」欄にある「SAで締める」選択肢は、このノードで実際に使っている技が
+   * 対象のSAへキャンセル可能な場合だけ選べるようにする（実機の技によって当然キャンセル
+   * 先が異なるため。技表を見ながらここで技ごとに登録する）。対象は特殊性能なしの単純な
+   * SAのみ（finishingSuperArtNameと同じ制約。詳細はcomboGaugeCalc.tsとMoveStatsPage.tsx参照）
+   */
+  cancelableSuperArtNames: string[];
+  /**
+   * trueの場合、複数ヒット(isMultiHit)の各段は「同じ技が複数回ヒットしているだけ」として
+   * 扱い、ダメージ補正の標準テーブルの段を1段目以降は消費しない（1段目と同じ%をそのまま
+   * 使う。例: 強Kの1段目・2段目）。ターゲットコンボ（「4中K->強P」のように別々の技を
+   * 繋いだもの）は、そのつなぎの各技が本当に別々にテーブルを消費するのが実機通りのため、
+   * この項目に関わらず対象外（この技はisMultiHitではなくノードの技名側で表現する）。
+   * 未設定(false相当)なら従来通り段ごとに個別消費する
+   */
+  sharesModifierAcrossHits: boolean;
 };
 
 /**

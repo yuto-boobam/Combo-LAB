@@ -6,12 +6,18 @@ import type { NodePosition, DropZoneSpec, TreeLayout, TreeLayoutConfig, TreeNode
  * 実測したカード高さを元に、各ノードの座標を計算する。
  * 子を持つノードは「自分の子ノード群の中心」に縦位置を合わせ、葉ノードは
  * 木全体で重ならないよう順番に積み上げる（いわゆる tidy tree レイアウト）。
+ *
+ * widths は個別ノードの幅の上書き（例: 特殊記入のあるノードだけ少し横に広げたい場合）。
+ * 列（深さ）ごとに揃える必要があるため、同じ深さに幅の異なるノードが混在する場合は
+ * その列で最大の幅に揃え、次の列以降のx座標もその分だけ後ろにずれる。指定が無いノードは
+ * config.cardWidth（ルートはrootWidth）にフォールバックする。
  */
 export function computeTreeLayout<T extends TreeNodeLike>(
   root: T,
   collapsedSet: Set<string>,
   heights: Record<string, number>,
   config: TreeLayoutConfig,
+  widths: Record<string, number> = {},
 ): TreeLayout {
   const {
     cardWidth,
@@ -25,10 +31,34 @@ export function computeTreeLayout<T extends TreeNodeLike>(
   const heightOf = (id: string, isRoot: boolean) =>
     heights[id] ?? (isRoot ? defaultRootHeight : defaultNodeHeight);
 
-  const depthX = (depth: number) =>
-    depth === 0 ? 0 : rootWidth + gapX + (depth - 1) * (cardWidth + gapX);
+  const widthOf = (id: string, isRoot: boolean) =>
+    widths[id] ?? (isRoot ? rootWidth : cardWidth);
 
   const isExpanded = (node: TreeNodeLike) => !collapsedSet.has(node.id);
+
+  // 0段目: 表示対象（閉じたノードの子孫は除く）の各深さで最大の幅を集計し、
+  // 深さごとの開始x座標を前もって求める
+  const columnWidth: number[] = [];
+  let maxColumnDepth = 0;
+
+  const collectColumnWidths = (node: TreeNodeLike, depth: number) => {
+    maxColumnDepth = Math.max(maxColumnDepth, depth);
+    const w = widthOf(node.id, depth === 0);
+    columnWidth[depth] = Math.max(columnWidth[depth] ?? 0, w);
+
+    if (isExpanded(node)) {
+      node.children.forEach((child) => collectColumnWidths(child, depth + 1));
+    }
+  };
+
+  collectColumnWidths(root, 0);
+
+  const columnStartX: number[] = [0];
+  for (let depth = 1; depth <= maxColumnDepth; depth += 1) {
+    columnStartX[depth] = columnStartX[depth - 1] + columnWidth[depth - 1] + gapX;
+  }
+
+  const depthX = (depth: number) => columnStartX[depth];
 
   const requiredCache = new Map<string, number>();
 
@@ -127,8 +157,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
   assign(root, 0, 0);
 
   const totalHeight = requiredCache.get(root.id) ?? heightOf(root.id, true);
-  const totalWidth =
-    depthX(maxDepth) + (maxDepth === 0 ? rootWidth : cardWidth);
+  const totalWidth = depthX(maxDepth) + columnWidth[maxDepth];
 
   return { positions, dropZones, width: totalWidth, height: totalHeight };
 }

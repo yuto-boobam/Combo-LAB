@@ -85,7 +85,8 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
       ? node.children.map((child) => normalizeMoveNode(child as Partial<MoveNode>))
       : [],
     groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
-    dGaugeRecoveryBlocked: node.dGaugeRecoveryBlocked === true ? true : undefined,
+    usesOD: node.usesOD === true ? true : undefined,
+    recordsBranchStats: node.recordsBranchStats === true ? true : undefined,
   };
 }
 
@@ -129,6 +130,8 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     specialVariantOptions: specialVariantOptions.length > 0 ? specialVariantOptions : undefined,
     specialVariantsByStrength:
       Object.keys(specialVariantsByStrength).length > 0 ? specialVariantsByStrength : undefined,
+    finishesComboOnSelect: move.finishesComboOnSelect === true ? true : undefined,
+    hasFlatVariants: move.hasFlatVariants === true ? true : undefined,
   };
 }
 
@@ -154,6 +157,8 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
     minDamageGuaranteePercent: toNullableNumber(s.minDamageGuaranteePercent),
     dGaugeGainDuringRush: toNullableNumber(s.dGaugeGainDuringRush),
+    groundPlusFrame: typeof s.groundPlusFrame === 'string' ? s.groundPlusFrame : '',
+    airPlusFrame: typeof s.airPlusFrame === 'string' ? s.airPlusFrame : '',
   };
 }
 
@@ -163,6 +168,10 @@ function normalizeMoveStatsEntry(value: unknown): MoveStats {
   return {
     isMultiHit: s.isMultiHit === true,
     hits: hits.length > 0 ? hits : [normalizeMoveHitStats(undefined)],
+    cancelableSuperArtNames: Array.isArray(s.cancelableSuperArtNames)
+      ? s.cancelableSuperArtNames.filter((name): name is string => typeof name === 'string')
+      : [],
+    sharesModifierAcrossHits: s.sharesModifierAcrossHits === true,
   };
 }
 
@@ -369,6 +378,24 @@ export type AppState = {
     strength: MoveStrength,
     options: string[],
   ) => void;
+  /**
+   * SAが「常にコンボの締めで使う技」かどうかを編集する。trueなら特殊性能選択時に
+   * ノード名へ焼き込まず、末端ノードのbranchStats側で選ばせる方式になる
+   */
+  setMoveDefinitionFinishesComboOnSelect: (
+    characterId: string,
+    moveId: string,
+    finishesComboOnSelect: boolean,
+  ) => void;
+  /**
+   * 必殺技が「強度に依存しないフラットな選択肢」かどうかを編集する。trueなら
+   * specialVariantOptionsから直接選ばせ、技名にも強度を含めない
+   */
+  setMoveDefinitionHasFlatVariants: (
+    characterId: string,
+    moveId: string,
+    hasFlatVariants: boolean,
+  ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
   createComboTree: (characterId: string, label: string, displayName?: string) => string;
@@ -431,11 +458,15 @@ export type AppState = {
     branchStats: ComboBranchStats | null,
   ) => void;
 
-  setNodeDGaugeRecoveryBlocked: (
+  /** 「OD版はレベル+1相当の性能になる」技（イングリッドのビーム等）で、OD版を使ったかどうか */
+  setNodeUsesOD: (characterId: string, treeId: string, nodeId: string, usesOD: boolean) => void;
+
+  /** 葉ノードでなくても「コンボの情報」欄を表示・記録できるようにするフラグ（あえて途中で止めるケース用） */
+  setNodeRecordsBranchStats: (
     characterId: string,
     treeId: string,
     nodeId: string,
-    blocked: boolean,
+    recordsBranchStats: boolean,
   ) => void;
 
   // ──「枝を選んでまとめてコピー」機能 ─────────────────────────────────
@@ -733,6 +764,38 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      setMoveDefinitionFinishesComboOnSelect: (characterId, moveId, finishesComboOnSelect) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId ? { ...move, finishesComboOnSelect } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      setMoveDefinitionHasFlatVariants: (characterId, moveId, hasFlatVariants) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId ? { ...move, hasFlatVariants } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
       setMoveDefinitionSpecialVariantOptions: (characterId, moveId, options) => {
         set((state) => ({
           characters: state.characters.map((character) =>
@@ -975,12 +1038,20 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      setNodeDGaugeRecoveryBlocked: (characterId, treeId, nodeId, blocked) => {
+      setNodeUsesOD: (characterId, treeId, nodeId, usesOD) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({ ...node, usesOD: usesOD ? true : undefined })),
+          ),
+        }));
+      },
+
+      setNodeRecordsBranchStats: (characterId, treeId, nodeId, recordsBranchStats) => {
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({
               ...node,
-              dGaugeRecoveryBlocked: blocked ? true : undefined,
+              recordsBranchStats: recordsBranchStats ? true : undefined,
             })),
           ),
         }));

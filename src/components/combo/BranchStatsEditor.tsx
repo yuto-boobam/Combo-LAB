@@ -5,7 +5,16 @@
 import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
-import type { DamageBreakdown } from '../../utils/comboGaugeCalc';
+import type { DamageBreakdown, OdLevelConstraint } from '../../utils/comboGaugeCalc';
+import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
+import { OdLevelToggle } from './OdLevelToggle';
+
+export type OdUsageOnPath = {
+  nodeId: string;
+  label: string;
+  constraint: OdLevelConstraint;
+  usesOD: boolean;
+};
 
 type Props = {
   value: ComboBranchStats | null;
@@ -27,26 +36,32 @@ type Props = {
   // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。
   // 原因を特定したら、このpropとJSXごと削除する
   damageBreakdown?: DamageBreakdown | null;
+  // このノードがSA(superArt・特殊性能あり)で、まだ特殊性能を選ばず技名だけ（例:「SA1」）
+  // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
+  // 選ばせるUIを表示し、finishingSpecialVariantに保存する（呼び出し側の判定はSideDrawerPanel参照）
+  finishingSuperArtMove?: { name: string; specialVariantOptions: string[] } | null;
+  // このキャラに登録済みの、特殊性能なしの単純なSAの名前一覧。1件以上あれば「このノードの
+  // 直後にSAへ繋いで終わる」場合の選択肢として表示する（木にSAのノードを追加しなくても
+  // ダメージ・ゲージ計算に反映できるようにする機能。finishingSuperArtMoveと同時には
+  // 出さない：このノード自身が既にSAである場合は対象外のため）
+  finishingSuperArtOptions?: string[];
+  // root〜このノードの経路上にある「OD版はレベル+1相当の性能になる」技（ビーム等）の一覧。
+  // 末端ノードの「コンボの情報」欄から、経路の途中にあるノードのOD使用もまとめて確認・
+  // 変更できるようにする（選択中のノードを1つずつ辿らなくても、最終的なゲージを見ている
+  // 画面から直接調整できるようにしてほしい、というユーザー要望）
+  odUsagesOnPath?: OdUsageOnPath[];
+  onChangeOdUsage?: (nodeId: string, next: boolean) => void;
 };
 
-const DEFAULT_STATS: ComboBranchStats = {
-  damage: null,
-  dGaugeChange: null,
-  saGaugeGain: null,
-  damageRating: null,
-  dGaugeRating: null,
-  saGaugeRating: null,
-  overallRating: null,
-  plusFrame: null,
-  isThrowRange: false,
-  canOkizeme: false,
-  startHitCondition: null,
-  isJustParryStart: false,
-  isRushStart: false,
-  usesCA: false,
-};
+// 「通常」ボタンは出さない（カウンター/パニカンをどちらもオフにすれば同じ状態に戻せるため）。
+// パニカンは表示スペースが空いた分、フルの「パニッシュカウンター」表記にする
+const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['カウンター', 'パニカン'];
 
-const START_HIT_CONDITIONS: BranchStartHitCondition[] = ['通常', 'カウンター', 'パニカン'];
+const START_HIT_CONDITION_LABELS: Record<BranchStartHitCondition, string> = {
+  通常: '通常',
+  カウンター: 'カウンター',
+  パニカン: 'パニッシュカウンター',
+};
 
 const START_HIT_CONDITION_RANK: Record<BranchStartHitCondition, number> = {
   通常: 0,
@@ -63,8 +78,12 @@ export function BranchStatsEditor({
   autoDGaugeChange = null,
   autoDamage = null,
   damageBreakdown = null,
+  finishingSuperArtMove = null,
+  finishingSuperArtOptions = [],
+  odUsagesOnPath = [],
+  onChangeOdUsage,
 }: Props) {
-  const stats = value ?? DEFAULT_STATS;
+  const stats = value ?? DEFAULT_BRANCH_STATS;
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
@@ -121,11 +140,17 @@ export function BranchStatsEditor({
           {damageBreakdown.entries.map((entry) => (
             <div key={entry.position} style={styles.debugBreakdownRow}>
               {entry.position}発目 {entry.hitLabel}
-              {entry.isSuperArt && entry.minDamageGuaranteePercent !== null
-                ? ` : SA最低保証${entry.minDamageGuaranteePercent}%`
-                : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
+              {entry.isSystemAction
+                ? ' : 敵にヒットしない行動のため補正対象外'
+                : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
+                  ? entry.percent === entry.minDamageGuaranteePercent
+                    ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
+                    : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
+                  : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
               {' → '}
-              {entry.damage} × {entry.percent}% = {Math.round(entry.contribution)}
+              {entry.isSystemAction
+                ? 'ダメージ0（位置のみ消費）'
+                : `${entry.damage} × ${entry.percent}% = ${Math.round(entry.contribution)}`}
             </div>
           ))}
           <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
@@ -152,6 +177,17 @@ export function BranchStatsEditor({
           )}
         </div>
       )}
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.includesEarlyDGaugeRecovery ?? true}
+          disabled={readOnly}
+          onChange={(event) => update({ includesEarlyDGaugeRecovery: event.target.checked })}
+        />
+        Dゲージを使うまでの技の回復を含む
+      </label>
+
       <NumberField
         label="SAゲージ増加"
         value={stats.saGaugeGain}
@@ -229,8 +265,8 @@ export function BranchStatsEditor({
         始動条件
         {requiredStartHitCondition && (
           <span style={styles.requiredHint}>
-            経路上に「{requiredStartHitCondition}以上」でないと繋がらないノードがあるため、
-            {requiredStartHitCondition}未満は選べません
+            経路上に「{START_HIT_CONDITION_LABELS[requiredStartHitCondition]}以上」でないと繋がらないノードがあるため、
+            {START_HIT_CONDITION_LABELS[requiredStartHitCondition]}未満は選べません
           </span>
         )}
         <div style={{ display: 'flex', gap: 4 }}>
@@ -255,7 +291,7 @@ export function BranchStatsEditor({
                   opacity: belowRequirement ? 0.4 : 1,
                 }}
               >
-                {condition}
+                {START_HIT_CONDITION_LABELS[condition]}
               </button>
             );
           })}
@@ -282,15 +318,95 @@ export function BranchStatsEditor({
         ラッシュ始動
       </label>
 
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.usesCA ?? false}
-          disabled={readOnly}
-          onChange={(event) => update({ usesCA: event.target.checked })}
-        />
-        CA使用
-      </label>
+      {!finishingSuperArtMove && finishingSuperArtOptions.length > 0 && (
+        <div style={styles.fieldLabel}>
+          SAで締める
+          <span style={styles.requiredHint}>
+            この技の直後にSAへ繋いで終える場合に選びます。木にSAのノードを追加しなくても、
+            ダメージ・ゲージの自動計算に反映されます
+          </span>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => update({ finishingSuperArtName: null })}
+              disabled={readOnly}
+              style={{
+                ...styles.conditionButton,
+                borderColor: stats.finishingSuperArtName === null ? 'var(--accent)' : 'var(--border)',
+                background: stats.finishingSuperArtName === null ? 'var(--accent)' : 'var(--bg-elevated)',
+                color: stats.finishingSuperArtName === null ? '#fff' : 'var(--text-secondary)',
+                cursor: readOnly ? 'default' : 'pointer',
+              }}
+            >
+              使わない
+            </button>
+            {finishingSuperArtOptions.map((name) => {
+              const active = stats.finishingSuperArtName === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => update({ finishingSuperArtName: active ? null : name })}
+                  disabled={readOnly}
+                  style={{
+                    ...styles.conditionButton,
+                    borderColor: active ? 'var(--accent)' : 'var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: active ? '#fff' : 'var(--text-secondary)',
+                    cursor: readOnly ? 'default' : 'pointer',
+                  }}
+                >
+                  {name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {finishingSuperArtMove && finishingSuperArtMove.specialVariantOptions.length > 0 && (
+        <div style={styles.fieldLabel}>
+          使用した{finishingSuperArtMove.name}の特殊性能
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {finishingSuperArtMove.specialVariantOptions.map((variant) => {
+              const active = (stats.finishingSpecialVariant ?? null) === variant;
+              return (
+                <button
+                  key={variant}
+                  type="button"
+                  onClick={() => update({ finishingSpecialVariant: active ? null : variant })}
+                  disabled={readOnly}
+                  style={{
+                    ...styles.conditionButton,
+                    borderColor: active ? 'var(--accent)' : 'var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: active ? '#fff' : 'var(--text-secondary)',
+                    cursor: readOnly ? 'default' : 'pointer',
+                  }}
+                >
+                  {variant}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {odUsagesOnPath.length > 0 && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={styles.fieldLabel}>経路上のOD使用</div>
+          {odUsagesOnPath.map((entry) => (
+            <OdLevelToggle
+              key={entry.nodeId}
+              label={entry.label}
+              constraint={entry.constraint}
+              usesOD={entry.usesOD}
+              onChange={(next) => onChangeOdUsage?.(entry.nodeId, next)}
+              readOnly={readOnly || !onChangeOdUsage}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

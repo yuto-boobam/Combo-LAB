@@ -6,7 +6,7 @@
 // 1キャラは始動技ごとに複数の木（森）を持つ。すべての木は1本ずつのカード画面に分けず、
 // この1つのキャンバス内に縦に並べて同時表示する（木ごとにラベルを付けて見分ける）。
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import { MoveNodeCircle } from '../components/MoveNodeCircle';
@@ -15,12 +15,14 @@ import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
+import { nodeWidthFor } from '../utils/nodeSizing';
 import {
   computeTreeLayout,
   useNodeHeights,
   useTreeExpandAnimation,
   buildParentMap,
   buildGroupView,
+  findGroupOccurrences,
   ConnectionsOverlay,
   type DropZoneSpec,
   type GroupPillMeta,
@@ -71,6 +73,14 @@ function shiftPositions(
   return shifted;
 }
 
+// computeTreeLayoutへ渡すノードごとの幅の上書き。特殊記入があるノードだけ
+// nodeWidthForが広めの値を返すため、木のレイアウト計算とMoveNodeCircleの実際の
+// 見た目がズレないようにする
+function collectNodeWidths(node: MoveNode, widths: Record<string, number>): void {
+  widths[node.id] = nodeWidthFor(node);
+  node.children.forEach((child) => collectNodeWidths(child, widths));
+}
+
 export function ComboTreePage() {
   const characters = useVisibleCharacters();
   const isGuest = useAppStore((state) => state.isGuest);
@@ -98,6 +108,7 @@ export function ComboTreePage() {
   const setMatchSelectedIds = useAppStore((state) => state.setMatchSelectedIds);
   const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
   const startEditingMatch = useAppStore((state) => state.startEditingMatch);
+  const startCopyMode = useAppStore((state) => state.startCopyMode);
 
   const character = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId) ?? null,
@@ -222,8 +233,51 @@ export function ComboTreePage() {
     ],
   );
 
-  // ── 画面比率（ズーム）
+  // ── 画面比率（ズーム）。デフォルトは100%のまま
+  // （ノードが大きすぎる問題はズームではなくノード自体の寸法を縮小して対応。nodeSizing.ts参照）
   const [zoom, setZoom] = useState(1);
+
+  // ── コンボ/グループ表示モードの切り替え。「グループ」は名前付きグループの
+  // 全出現箇所だけを一覧する読み取り中心のビュー（実データはcomboTreesのまま）
+  const [treeViewMode, setTreeViewMode] = useState<'combo' | 'group'>('combo');
+
+  // グループ表示モードの「コピー開始」「ジャンプ」ボタンで、コンボ表示モードへ
+  // 切り替えた直後に該当ノードまでスクロールするための予約
+  const [pendingJumpNodeId, setPendingJumpNodeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (treeViewMode !== 'combo' || !pendingJumpNodeId) return;
+
+    const id = pendingJumpNodeId;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(`node-${id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'center',
+      });
+      setPendingJumpNodeId(null);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [treeViewMode, pendingJumpNodeId]);
+
+  const jumpToNodeInComboView = useCallback(
+    (nodeId: string) => {
+      setTreeViewMode('combo');
+      selectNode(nodeId);
+      setPendingJumpNodeId(nodeId);
+    },
+    [selectNode],
+  );
+
+  const startCopyFromGroupView = useCallback(
+    (nodeId: string) => {
+      setTreeViewMode('combo');
+      startCopyMode(nodeId);
+      setPendingJumpNodeId(nodeId);
+    },
+    [startCopyMode],
+  );
 
   // ── ドラッグで画面を動かす（パン）
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -306,7 +360,9 @@ export function ComboTreePage() {
       groupView.pillMetaById.forEach((meta, id) => pillMetaById.set(id, meta));
       groupView.expandedGroupStartMetaById.forEach((meta, id) => expandedGroupStartMetaById.set(id, meta));
 
-      const layout = computeTreeLayout(viewRoot, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG);
+      const nodeWidths: Record<string, number> = {};
+      collectNodeWidths(viewRoot, nodeWidths);
+      const layout = computeTreeLayout(viewRoot, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG, nodeWidths);
 
       const columns: TaggedColumn[] = [];
       const visit = (node: MoveNode, depth: number) => {
@@ -345,9 +401,69 @@ export function ComboTreePage() {
     };
   }, [trees, collapsedSet, nodeHeights, groupNameById, expandedGroupSet]);
 
+  // ── グループ表示モード: 名前付きグループの全出現箇所を、木を横断して集めて
+  // 1出現=1本道として並べる（実データには手を入れない。詳細は groupOccurrences.ts 参照）
+  const groupOccurrences = useMemo(
+    () => findGroupOccurrences(trees, groupNameById),
+    [trees, groupNameById],
+  );
+
+  const groupForest = useMemo(() => {
+    let cursorY = 0;
+    let maxWidth = 0;
+    const blocks: TreeBlock[] = [];
+    const positions = new Map<string, NodePosition>();
+    const dropZones: TaggedDropZone[] = [];
+    const parentOf = new Map<string, string>();
+
+    groupOccurrences.forEach((occurrence) => {
+      const viewRoot = occurrence.root;
+      // TreeBlockと同じ形に収めるための表示専用の合成データ。実際のcomboTreesには存在しない
+      const syntheticTree: ComboTree = {
+        id: `group-occurrence-${occurrence.memberIds[0]}`,
+        label: `${occurrence.groupName} ・ ${occurrence.treeLabel}`,
+        root: viewRoot,
+      };
+
+      const nodeWidths: Record<string, number> = {};
+      collectNodeWidths(viewRoot, nodeWidths);
+      const layout = computeTreeLayout(viewRoot, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG, nodeWidths);
+
+      const columns: TaggedColumn[] = [];
+      const visit = (node: MoveNode, depth: number) => {
+        if (node.children.length === 0) return;
+        if (collapsedSet.has(node.id)) return;
+
+        columns.push({ parentId: node.id, nodes: node.children, depth, treeId: syntheticTree.id });
+        for (const child of node.children) {
+          visit(child, depth + 1);
+        }
+      };
+      visit(viewRoot, 0);
+
+      const offsetY = cursorY;
+      shiftPositions(layout.positions, offsetY).forEach((pos, id) => positions.set(id, pos));
+      layout.dropZones.forEach((dropZone) =>
+        dropZones.push({ ...dropZone, y: dropZone.y + offsetY, treeId: syntheticTree.id }),
+      );
+      buildParentMap(viewRoot).forEach((parentId, id) => parentOf.set(id, parentId));
+
+      blocks.push({ tree: syntheticTree, viewRoot, offsetY, columns });
+      maxWidth = Math.max(maxWidth, layout.width);
+      cursorY += layout.height + TREE_BLOCK_GAP;
+    });
+
+    const totalHeight = blocks.length > 0 ? cursorY - TREE_BLOCK_GAP : 0;
+    const layout: TreeLayout = { positions, dropZones, width: maxWidth, height: totalHeight };
+
+    return { blocks, layout, parentOf, columns: blocks.flatMap((block) => block.columns) };
+  }, [groupOccurrences, collapsedSet, nodeHeights]);
+
+  const activeForest = treeViewMode === 'group' ? groupForest : forest;
+
   const { exitingNodes, enteringNodes } = useTreeExpandAnimation(
-    forest.layout,
-    forest.parentOf,
+    activeForest.layout,
+    activeForest.parentOf,
     EXIT_TRANSITION_MS,
   );
 
@@ -369,27 +485,38 @@ export function ComboTreePage() {
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
       <Header
         onLogoClick={goToCharacterSelect}
-        title={`${character.name} のコンボ — ${trees.length}本`}
+        title={
+          treeViewMode === 'combo'
+            ? `${character.name} のコンボ — ${trees.length}本`
+            : `${character.name} のグループ — ${groupOccurrences.length}箇所`
+        }
         character={character}
-        rightSlot={<ZoomBar zoom={zoom} onChange={setZoom} />}
+        rightSlot={
+          <>
+            <ViewModeTabs mode={treeViewMode} onChange={setTreeViewMode} />
+            <ZoomBar zoom={zoom} onChange={setZoom} />
+          </>
+        }
       />
 
       <div className="flex-1 flex overflow-hidden">
         {/* ── ツリービュー本体 */}
         <div ref={scrollRef} className="flex-1 overflow-auto" style={{ position: 'relative' }}>
-          {trees.length === 0 ? (
+          {(treeViewMode === 'combo' ? trees.length === 0 : groupOccurrences.length === 0) ? (
             <div className="flex flex-col items-center justify-center gap-4 h-full">
               <div className="text-6xl">🌳</div>
               <p style={{ color: 'var(--text-secondary)' }}>
-                まだコンボの木がありません。右のパネルから始動技を入力して作成しましょう。
+                {treeViewMode === 'combo'
+                  ? 'まだコンボの木がありません。右のパネルから始動技を入力して作成しましょう。'
+                  : 'まだ名前付きグループがありません。木の中で一本道を選んで「グループ化」すると、ここに一覧できます。'}
               </p>
             </div>
           ) : (
             <div
               style={{
                 position: 'relative',
-                width: (forest.layout.width + CANVAS_PADDING * 2) * zoom,
-                height: (forest.layout.height + CANVAS_PADDING * 2) * zoom,
+                width: (activeForest.layout.width + CANVAS_PADDING * 2) * zoom,
+                height: (activeForest.layout.height + CANVAS_PADDING * 2) * zoom,
               }}
             >
               <div
@@ -398,14 +525,29 @@ export function ComboTreePage() {
                   position: 'absolute',
                   top: 0,
                   left: 0,
-                  width: forest.layout.width + CANVAS_PADDING * 2,
-                  height: forest.layout.height + CANVAS_PADDING * 2,
+                  width: activeForest.layout.width + CANVAS_PADDING * 2,
+                  height: activeForest.layout.height + CANVAS_PADDING * 2,
                   transform: `scale(${zoom})`,
                   transformOrigin: 'top left',
                   cursor: isPanning ? 'grabbing' : 'grab',
                   userSelect: isPanning ? 'none' : undefined,
                 }}
               >
+                {treeViewMode === 'group' && (
+                  <GroupOverviewContent
+                    groupForest={groupForest}
+                    zoom={zoom}
+                    collapsedSet={collapsedSet}
+                    selectedNodeId={selectedNodeId}
+                    onSelectNode={selectNode}
+                    onToggleExpand={toggleNodeExpanded}
+                    onStartCopyFrom={startCopyFromGroupView}
+                    onJumpTo={jumpToNodeInComboView}
+                  />
+                )}
+
+                {treeViewMode === 'combo' && (
+                <>
                 <ConnectionsOverlay
                   columns={forest.columns}
                   zoom={zoom}
@@ -667,6 +809,8 @@ export function ComboTreePage() {
                       </div>
                     );
                   })}
+                </>
+                )}
               </div>
             </div>
           )}
@@ -916,6 +1060,238 @@ function ZoomBar({
         title="100%に戻す"
       >
         {Math.round(zoom * 100)}%
+      </button>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// コンボ/グループ表示モード切り替えタブ
+// ────────────────────────────────────────────────────────────
+
+function ViewModeTabs({
+  mode,
+  onChange,
+}: {
+  mode: 'combo' | 'group';
+  onChange: (mode: 'combo' | 'group') => void;
+}) {
+  return (
+    <div
+      className="flex-shrink-0 flex items-center"
+      style={{
+        height: 32,
+        padding: 3,
+        gap: 2,
+        borderRadius: 11,
+        background: 'rgba(15, 23, 42, 0.85)',
+        border: '1px solid rgba(148, 163, 184, 0.2)',
+      }}
+    >
+      <ViewModeTabButton label="コンボ" active={mode === 'combo'} onClick={() => onChange('combo')} />
+      <ViewModeTabButton label="グループ" active={mode === 'group'} onClick={() => onChange('group')} />
+    </div>
+  );
+}
+
+function ViewModeTabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        height: 26,
+        padding: '0 12px',
+        borderRadius: 8,
+        border: 'none',
+        background: active ? 'var(--accent)' : 'transparent',
+        color: active ? '#fff' : '#94a3b8',
+        fontSize: 12,
+        fontWeight: 800,
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// グループ表示モード: 名前付きグループの全出現箇所の一覧
+// ────────────────────────────────────────────────────────────
+
+type GroupForestLike = {
+  blocks: TreeBlock[];
+  layout: TreeLayout;
+  columns: TaggedColumn[];
+};
+
+function GroupOverviewContent({
+  groupForest,
+  zoom,
+  collapsedSet,
+  selectedNodeId,
+  onSelectNode,
+  onToggleExpand,
+  onStartCopyFrom,
+  onJumpTo,
+}: {
+  groupForest: GroupForestLike;
+  zoom: number;
+  collapsedSet: Set<string>;
+  selectedNodeId: string | null;
+  onSelectNode: (nodeId: string) => void;
+  onToggleExpand: (nodeId: string) => void;
+  onStartCopyFrom: (nodeId: string) => void;
+  onJumpTo: (nodeId: string) => void;
+}) {
+  return (
+    <>
+      <ConnectionsOverlay
+        columns={groupForest.columns}
+        zoom={zoom}
+        layout={groupForest.layout}
+        getLinkColor={getBranchLineColor}
+      />
+
+      {groupForest.blocks.map((block) => {
+        const rootPos = groupForest.layout.positions.get(block.viewRoot.id);
+        if (!rootPos) return null;
+
+        const rootId = block.viewRoot.id;
+
+        return (
+          <div key={block.tree.id}>
+            <GroupOccurrenceHeader
+              label={block.tree.label}
+              x={rootPos.x}
+              offsetY={block.offsetY}
+              onStartCopy={() => onStartCopyFrom(rootId)}
+              onJump={() => onJumpTo(rootId)}
+            />
+
+            <div
+              style={{
+                position: 'absolute',
+                left: CANVAS_PADDING,
+                top: CANVAS_PADDING,
+                width: ROOT_WIDTH,
+                transform: `translate(${rootPos.x}px, ${rootPos.y}px)`,
+                transition: 'transform 220ms ease',
+              }}
+            >
+              <MoveNodeCircle
+                node={block.viewRoot}
+                isRoot
+                isSelected={selectedNodeId === rootId}
+                onClick={() => onSelectNode(rootId)}
+                isExpanded={!collapsedSet.has(rootId)}
+                onToggleExpand={
+                  block.viewRoot.children.length > 0 ? () => onToggleExpand(rootId) : undefined
+                }
+                parentId={null}
+                dragIndex={0}
+                readOnly
+                onDrop={() => {
+                  // グループ表示モードでは並び替え不可
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      {groupForest.columns.flatMap((column) =>
+        column.nodes.map((node, nodeIndex) => {
+          const pos = groupForest.layout.positions.get(node.id);
+          if (!pos) return null;
+
+          return (
+            <div
+              key={node.id}
+              style={{
+                position: 'absolute',
+                left: CANVAS_PADDING,
+                top: CANVAS_PADDING,
+                width: NODE_WIDTH,
+                transform: `translate(${pos.x}px, ${pos.y}px)`,
+                transition: 'transform 220ms ease',
+              }}
+            >
+              <MoveNodeCircle
+                node={node}
+                isSelected={selectedNodeId === node.id}
+                onClick={() => onSelectNode(node.id)}
+                isExpanded={!collapsedSet.has(node.id)}
+                onToggleExpand={node.children.length > 0 ? () => onToggleExpand(node.id) : undefined}
+                parentId={column.parentId}
+                dragIndex={nodeIndex}
+                readOnly
+                onDrop={() => {
+                  // グループ表示モードでは並び替え不可
+                }}
+              />
+            </div>
+          );
+        }),
+      )}
+    </>
+  );
+}
+
+function GroupOccurrenceHeader({
+  label,
+  x,
+  offsetY,
+  onStartCopy,
+  onJump,
+}: {
+  label: string;
+  x: number;
+  offsetY: number;
+  onStartCopy: () => void;
+  onJump: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: CANVAS_PADDING + x,
+        top: CANVAS_PADDING + offsetY - 34,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>{label}</span>
+
+      <button
+        type="button"
+        className="btn-icon"
+        onClick={onStartCopy}
+        title="ここからコピー開始（コンボ表示モードへ切り替わります）"
+        style={{ width: 20, height: 20, fontSize: 11 }}
+      >
+        📋
+      </button>
+
+      <button
+        type="button"
+        className="btn-icon"
+        onClick={onJump}
+        title="元のツリーへジャンプ（コンボ表示モードへ切り替わります）"
+        style={{ width: 20, height: 20, fontSize: 11 }}
+      >
+        →
       </button>
     </div>
   );
