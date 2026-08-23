@@ -163,6 +163,17 @@ export function BranchStatsEditor({
           )}
         </div>
       )}
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.includesEarlyDGaugeRecovery ?? true}
+          disabled={readOnly}
+          onChange={(event) => update({ includesEarlyDGaugeRecovery: event.target.checked })}
+        />
+        Dゲージを使うまでの技の回復を含む
+      </label>
+
       <NumberField
         label="SAゲージ増加"
         value={stats.saGaugeGain}
