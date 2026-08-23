@@ -70,31 +70,16 @@ export const NO_RUSH_MIN_DAMAGE_PERCENT = 10;
 export const RUSH_MIN_DAMAGE_PERCENT = 8;
 
 /**
- * 標準テーブルの「今何段目にいるか」を表すインデックス(0始まり)を1段進める。
- * extraReduction(%)が指定されている場合、自然な1段ぶんの減衰だけでは足りない分、
- * さらに段を進めて埋め合わせる（例: 自然な1段=0%しか減らないのに、技固有の始動補正が
- * 20%ある場合、その先の段まで追加で進めて20%ぶんの減衰を確保する）。
- *
- * 値そのもの（100,80,70…）ではなくインデックスで管理するのがポイント。テーブルの先頭に
- * 100が2つ並ぶため、値だけを見て「今どの段か」を判定すると1段目と2段目の区別が付かず、
- * 減衰が止まってしまう（実際にこの問題で3段目の計算を誤ったことがあるため、必ずインデックスで
- * 管理すること）。
+ * 与えられた%が標準テーブル上のどの段(インデックス、0始まり)に位置するかを値から逆算する。
+ * ちょうどテーブル上の値でなくても（技固有の補正でテーブルの区切りの途中に落ちても）、
+ * 「まだ下回っていない直近の段」を返す。100%（テーブル先頭の重複）は2つ目の段(index1)を
+ * 返す（以降の自然な1段ぶんの減衰が正しく機能するように、常に「もう1段目に居る」側を選ぶ）。
  */
-function advanceTableIndex(currentIndex: number, extraReduction: number): number {
-  let index = currentIndex;
-  let consumed = 0;
-
-  while (consumed < extraReduction && index < STANDARD_COMBO_TABLE.length - 1) {
-    const nextIndex = index + 1;
-    consumed += STANDARD_COMBO_TABLE[index] - STANDARD_COMBO_TABLE[nextIndex];
-    index = nextIndex;
+function indexForValue(value: number): number {
+  let index = 0;
+  for (let i = 0; i < STANDARD_COMBO_TABLE.length; i += 1) {
+    if (STANDARD_COMBO_TABLE[i] >= value) index = i;
   }
-
-  // extraReductionが0以下でも、最低1段は自然に進める
-  if (index === currentIndex) {
-    index = Math.min(currentIndex + 1, STANDARD_COMBO_TABLE.length - 1);
-  }
-
   return index;
 }
 
@@ -106,6 +91,10 @@ export type DamageHitInput = {
   // キャンセルラッシュ/生ラッシュ等、ダメージを持たないシステム動作。標準テーブルの段を
   // 進めない（現在の補正値をそのまま次のヒットへ引き継ぐ）が、位置(何発目か)は消費する
   isSystemAction?: boolean;
+  // 同じ技の直前のヒットと標準テーブルの段を共有する（強Kの2段目等）。trueの場合、
+  // このヒットは新たに段を進めず、このヒットが属するグループの1段目が使った%と同じ%を
+  // そのまま使う（自分の即時補正だけは反映する）。位置(何発目か)は通常通り消費する
+  sharesTableStepWithPrevious?: boolean;
 };
 
 function forwardAdditiveReduction(modifiers: ParsedModifier[], isStarter: boolean): number {
@@ -134,54 +123,88 @@ function forwardMultiplier(modifiers: ParsedModifier[]): number {
  * - 起点の始動補正・2発目以降のコンボ補正/即時補正/乗算補正は、いずれも"次につなぐ技"に
  *   効く（即時補正だけは、それに加えて自分自身にも効く）。実機確認済み
  * - 2発目以降の標準テーブル参照は、何発目かではなく「テーブルの何段目にいるか」を基準に
- *   1段ずつ進む（advanceTableIndex参照）。技固有の補正で前倒しに何段か進んだ場合、以降の
- *   自然減衰もその進んだ地点から続く
+ *   1段ずつ進む。技固有の始動補正・コンボ補正・即時補正がある場合は、テーブルの区切りに
+ *   関わらずその%ポイントぶんをそのまま直接引く（例: 50%の技に「コンボ補正15%」が付いて
+ *   いれば、次の技の基準値は35%。テーブルの区切り(50→40→30)に合わせて余分に引いたり
+ *   しない）。技固有の補正が無いヒットは、その時点の値が標準テーブル上どの段にあるかを
+ *   逆算し(indexForValue参照)、そこから自然に1段だけ減衰する
+ * - 技固有の補正で直接引いた結果、テーブルの区切りの途中（例:35%）に落ちることがある。
+ *   その状態のまま、次の無地の技は「今いる段からもう1段ぶんの減衰量」だけをそのまま直接
+ *   引く（テーブルのキリのいい値に巻き戻したりしない。実機確認済み：ここを丸め直すと、
+ *   コンボ補正の%がテーブルの区切りと噛み合わない技で誤差が出ることが判明した）
  * - システム動作（isSystemAction）は段を進めない（現在値をそのまま引き継ぐ）
  * - rushTriggerPosition以降（ラッシュ攻撃＝ラッシュ直後の技から）は、ラッシュが絡まない場合の
  *   計算結果に0.85を掛け、小数点以下切り捨てにする
  * - SA以外は、ラッシュを伴うコンボなら8%、伴わないコンボなら10%を下回らない
- * - SAは自身の`minDamageGuaranteePercent`をそのまま採用し、テーブル・ラッシュ倍率・下限の影響を受けない
+ * - SAは自身の`minDamageGuaranteePercent`を「これを下回らない」という下限として扱う（他の
+ *   補正と同じくテーブル・ラッシュ倍率による自然な計算は行った上で、その結果が保証値を
+ *   下回った時だけ保証値に引き上げる。自然計算が保証値を上回っている間は自然計算の方を使う。
+ *   実機確認済み：以前は無条件に保証値を採用していたが、自然計算が保証値を上回るケースで
+ *   ダメージを不当に下げてしまう不具合があった）
  */
 export function calculateDamageScalingPath(
   hits: DamageHitInput[],
   rushTriggerPosition: number | null,
   startBase: number = 100,
-): number[] {
-  const rawPercents: number[] = [];
-  // 次のヒットに引き継がれる「現在の補正値」と、テーブル上の現在地(インデックス)。
+): (number | null)[] {
+  // システム動作（isSystemAction）は敵にヒットする行動ではないため、そもそも「何%の
+  // 補正がかかったか」という概念自体が存在しない。percentはnull（対象外）を返す
+  const rawPercents: (number | null)[] = [];
+  // 次のヒットに引き継がれる「現在の補正値」と、標準テーブル上の現在地(インデックス、
+  // 「無地の技が来たら次にどれだけ自然減衰するか」を求めるためだけに使う)。
   // 起点の値・startBaseとは独立して、標準テーブルの段＋技固有の補正の累積で進んでいく
   let carry = STANDARD_COMBO_TABLE[0];
   let tableIndex = 0;
+  // sharesTableStepWithPreviousなヒット群が参照する「グループの基準値」（1段目がテーブルを
+  // 進める前のcarry、または起点ならstartBase）。1段目以外のヒットで更新されるまで保持する
+  let groupBaseValue: number | null = null;
+
+  // 技固有の始動補正/コンボ補正/即時補正ぶんを直接引く（無ければ、今いる段からの自然な
+  // 1段ぶんを直接引く）。乗算補正はその上で最後にまとめて掛ける
+  const advance = (extraReduction: number, modifiers: ParsedModifier[]) => {
+    let nextCarry: number;
+
+    if (extraReduction > 0) {
+      nextCarry = carry - extraReduction;
+      tableIndex = indexForValue(nextCarry);
+    } else {
+      const nextIndex = Math.min(tableIndex + 1, STANDARD_COMBO_TABLE.length - 1);
+      const naturalStep = STANDARD_COMBO_TABLE[tableIndex] - STANDARD_COMBO_TABLE[nextIndex];
+      nextCarry = carry - naturalStep;
+      tableIndex = nextIndex;
+    }
+
+    carry = nextCarry * forwardMultiplier(modifiers);
+  };
 
   hits.forEach((hit, index) => {
     const isStarter = index === 0;
-
-    if (hit.isSuperArt && hit.minDamageGuaranteePercent !== null) {
-      rawPercents.push(hit.minDamageGuaranteePercent);
-      // SA自身の補正欄は次のヒットへも影響させない（保証値がそのまま採用される特殊ケースのため）
-      return;
-    }
-
     const modifiers = parseModifierText(hit.modifierText);
 
     if (isStarter) {
       rawPercents.push(startBase); // 起点自身は始動補正の影響を受けない
-      tableIndex = advanceTableIndex(tableIndex, forwardAdditiveReduction(modifiers, true));
-      carry = STANDARD_COMBO_TABLE[tableIndex];
+      groupBaseValue = startBase;
+      advance(forwardAdditiveReduction(modifiers, true), modifiers);
       return;
     }
 
     if (hit.isSystemAction) {
-      rawPercents.push(carry); // 参考値（ダメージ0なので実際には使われない）
+      rawPercents.push(null); // 敵にヒットしない行動には補正の概念自体が無い
       // 段は進めない。技固有の補正欄も通常無いので何もしない
+      return;
+    }
+
+    if (hit.sharesTableStepWithPrevious && groupBaseValue !== null) {
+      // 同じ技の2段目以降（強Kの2段目等）: 新たに段を進めず、グループの基準値をそのまま使う
+      rawPercents.push(groupBaseValue - selfAdditiveReduction(modifiers));
       return;
     }
 
     const ownValue = carry - selfAdditiveReduction(modifiers);
     rawPercents.push(ownValue);
+    groupBaseValue = carry; // このヒットが新しいグループの1段目になる
 
-    tableIndex = advanceTableIndex(tableIndex, forwardAdditiveReduction(modifiers, false));
-    carry = STANDARD_COMBO_TABLE[tableIndex] * forwardMultiplier(modifiers);
+    advance(forwardAdditiveReduction(modifiers, false), modifiers);
   });
 
   const inRush = (position: number) => rushTriggerPosition !== null && position >= rushTriggerPosition;
@@ -189,10 +212,14 @@ export function calculateDamageScalingPath(
 
   return rawPercents.map((percent, index) => {
     const hit = hits[index];
-    if (hit.isSuperArt && hit.minDamageGuaranteePercent !== null) return percent; // SAは保証値をそのまま使う
+    if (hit.isSystemAction) return null; // 敵にヒットしない行動にラッシュ倍率・下限を適用しない
 
     const position = index + 1;
-    const withRush = inRush(position) ? Math.floor(percent * RUSH_DAMAGE_MULTIPLIER) : percent;
-    return Math.max(withRush, floor);
+    const withRush = inRush(position) ? Math.floor(percent! * RUSH_DAMAGE_MULTIPLIER) : percent!;
+    // SAは通常の8%/10%下限の代わりに、自身のminDamageGuaranteePercentを下限として使う
+    // （自然計算がそれを上回っていれば、そのまま自然計算の値を使う）
+    const effectiveFloor =
+      hit.isSuperArt && hit.minDamageGuaranteePercent !== null ? hit.minDamageGuaranteePercent : floor;
+    return Math.max(withRush, effectiveFloor);
   });
 }

@@ -73,8 +73,183 @@ function effectiveStartHitCondition(
   return START_HIT_CONDITION_RANK[stored] >= START_HIT_CONDITION_RANK[required] ? stored : required;
 }
 
+/**
+ * 末端ノードのbranchStats.finishingSuperArtNameが設定されている場合、経路の最後に
+ * そのSAぶんの合成ノードを1つ追加した配列を返す（実データには一切手を入れない）。
+ * SAの直前の技でコンボを終えることも多いが、その場合でも木にSAのノードを追加しなくて
+ * 済むよう、末端ノードの「コンボの情報」欄からSAを選べるようにする機能で使う
+ * （src/components/combo/BranchStatsEditor.tsx参照）。
+ *
+ * 合成ノードのbranchStatsは元の末端ノードのものをそのまま共有する。始動条件
+ * (startHitCondition等)やincludesEarlyDGaugeRecoveryは「この枝全体」の設定であり、
+ * SAを合成した後も末端ノードとして扱われる側（配列の最後）から読まれるため、これに
+ * よって各calc関数側の特別な分岐が不要になる
+ */
+function withFinishingSuperArt(path: MoveNode[]): MoveNode[] {
+  const targetNode = path[path.length - 1];
+  const finishingSuperArtName = targetNode.branchStats?.finishingSuperArtName;
+  if (!finishingSuperArtName) return path;
+
+  const superArtNode: MoveNode = {
+    id: `${targetNode.id}__finishingSuperArt`,
+    moveName: finishingSuperArtName,
+    attributes: [],
+    specialNote: '',
+    branchStats: targetNode.branchStats,
+    createdBy: targetNode.createdBy,
+    createdAt: targetNode.createdAt,
+    children: [],
+  };
+
+  return [...path, superArtNode];
+}
+
 function sumSaGaugeGain(stats: MoveStats): number {
   return stats.hits.reduce((sum, hit) => sum + (hit.saGaugeGain ?? 0), 0);
+}
+
+/**
+ * 技名や特殊性能文字列から「Lv. N」のNを取り出す。表記揺れ（大文字「LV.」等）にも
+ * 対応するため大文字小文字を区別しない
+ */
+function parseLevelFromText(text: string): number | null {
+  const match = text.match(/lv\.?\s*(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * node.moveNameに技名が含まれるMoveDefinitionを探す。複数の技名が部分一致しうる場合は、
+ * より具体的な（長い）名前を優先する
+ */
+function findMoveForNode(node: MoveNode, moveList: MoveDefinition[]): MoveDefinition | undefined {
+  return moveList
+    .filter((move) => node.moveName.includes(move.name))
+    .sort((a, b) => b.name.length - a.name.length)[0];
+}
+
+/**
+ * その技が使っているLv.の範囲(最小〜最大)を求める。強度ごとの一覧(specialVariantsByStrength)・
+ * フラットな一覧(specialVariantOptions、hasFlatVariantsな技用)の両方から集める。
+ * イングリッドのビームのように、最小Lv.は通常版でしか存在せず、最大Lv.はOD版でしか
+ * 存在しない技で、その境界を判定するために使う。Lv.を持たない技やLv.が1種類しか無い技
+ * （範囲で語る意味が無い）はnull
+ */
+function levelRangeForMove(move: MoveDefinition | undefined): { min: number; max: number } | null {
+  if (!move) return null;
+
+  const fromStrength = move.specialVariantsByStrength ? Object.values(move.specialVariantsByStrength).flat() : [];
+  const fromFlat = move.specialVariantOptions ?? [];
+
+  const levels = [...fromStrength, ...fromFlat]
+    .map((option) => parseLevelFromText(option))
+    .filter((level): level is number => level !== null);
+
+  if (levels.length < 2) return null;
+  return { min: Math.min(...levels), max: Math.max(...levels) };
+}
+
+export type OdLevelConstraint = 'normalOnly' | 'odOnly' | 'either';
+
+/**
+ * イングリッドのビーム等、通常版とOD版でLv.の範囲がずれている技で、指定した特殊性能文字列
+ * （例:「ビーム|Lv. 1」）のLv.から、通常版/OD版の選択がどう制限されるかを求める。
+ * 最小Lv.は通常版でしか存在せず、最大Lv.はOD版でしか存在しない（実機確認済み）。
+ * 対象の技がLv.を持たない・該当しない場合はnull。
+ * MoveStatsPage（技データ画面の行生成）とcalculateOdLevelConstraint（ノード側の判定）の
+ * 両方から使う共通ロジック
+ */
+export function calculateOdLevelConstraintForVariant(
+  variant: string,
+  move: MoveDefinition | undefined,
+): OdLevelConstraint | null {
+  const level = parseLevelFromText(variant);
+  if (level === null) return null;
+
+  const range = levelRangeForMove(move);
+  if (!range) return null;
+
+  if (level <= range.min) return 'normalOnly';
+  if (level >= range.max) return 'odOnly';
+  return 'either';
+}
+
+/**
+ * ノードのmoveNameから技を特定した上でcalculateOdLevelConstraintForVariantを呼ぶラッパー
+ * （コンボ木側のノード判定用。MoveStatsPageのような技マスタ側の判定にはVariant版を直接使う）
+ */
+export function calculateOdLevelConstraint(
+  node: MoveNode,
+  moveList: MoveDefinition[],
+): OdLevelConstraint | null {
+  return calculateOdLevelConstraintForVariant(node.moveName, findMoveForNode(node, moveList));
+}
+
+export type OdRelevantNode = {
+  node: MoveNode;
+  constraint: OdLevelConstraint;
+};
+
+/**
+ * root〜targetNodeId（両端含む）の経路上にある、OD/通常版の選択が関係する（Lv.を持つ）
+ * ノードだけを抜き出す。末端ノードの「コンボの情報」欄から、経路の途中にあるビーム等の
+ * OD使用もまとめて確認・変更できるようにするために使う（ユーザー確認済み：ビームの
+ * ノードを1つずつ選び直さなくても、最終的なゲージを見ている画面から直接調整したい）
+ */
+export function findOdRelevantNodesOnPath(
+  root: MoveNode,
+  targetNodeId: string,
+  moveList: MoveDefinition[],
+): OdRelevantNode[] {
+  const path = findPathToNode(root, targetNodeId);
+  if (!path) return [];
+
+  return path.reduce<OdRelevantNode[]>((result, node) => {
+    const constraint = calculateOdLevelConstraint(node, moveList);
+    if (constraint) result.push({ node, constraint });
+    return result;
+  }, []);
+}
+
+/**
+ * usesODが付いたノードの技データ参照キーを、OD版として事前に登録されたキーへ差し替える
+ * （例:「サンフレア(ビーム|Lv. 1)」→「サンフレア(ODビーム|Lv. 1)」）。OD版は通常版と
+ * ダメージ・ゲージ回収量等が異なる（Dゲージ回収が無い等）ため、Lv.番号はそのままに、
+ * 特殊性能欄の先頭に「OD」が付いた別データとして個別に登録してもらう方式にしている
+ * （実機確認済み。以前試した「Lv.+1のデータを流用する」方式は、通常版と数値が違う項目
+ * （Dゲージ回収）があったため廃止した）
+ */
+function applyOdVariantLookup(node: MoveNode, name: string): string {
+  if (!node.usesOD) return name;
+
+  const match = name.match(/^(.*)\((.+)\)$/);
+  if (!match) return name;
+
+  const [, prefix, variant] = match;
+  return `${prefix}(OD${variant})`;
+}
+
+/**
+ * 技データベースを引く際のキーを求める。末端ノード（targetNodeそのもの）が
+ * `branchStats.finishingSpecialVariant`を持っていれば、ノード自体は特殊性能を選ばず
+ * 技名だけ（例:「SA1」）で置かれているだけなので、実際に使った特殊性能を合成したキー
+ * （例:「SA1(Lv. 1)」）を使う。それ以外は従来通りnode.moveNameそのまま。
+ * さらに、usesODが付いていればapplyOdVariantLookupでOD版専用のキーへ差し替える
+ */
+function lookupMoveName(node: MoveNode, isTargetNode: boolean): string {
+  const variant = isTargetNode ? node.branchStats?.finishingSpecialVariant : null;
+  const baseName = variant ? `${node.moveName}(${variant})` : node.moveName;
+  return applyOdVariantLookup(node, baseName);
+}
+
+/**
+ * SA(superArt)判定用に、moveNameから特殊性能の`(...)`部分を取り除いた「素の技名」を返す。
+ * moveListに登録されているSAのMoveDefinition.nameは特殊性能を含まない素の名前
+ * （例:「SA1」）なので、ノードのmoveNameが`SA1(Lv. 1)`のように特殊性能込みで確定している
+ * 場合でも正しくSAとして検出できるようにする
+ */
+function baseMoveName(moveName: string): string {
+  const parenIndex = moveName.indexOf('(');
+  return parenIndex === -1 ? moveName : moveName.slice(0, parenIndex);
 }
 
 /**
@@ -88,8 +263,9 @@ export function calculateBranchSaGaugeChange(
   root: MoveNode,
   targetNodeId: string,
 ): number | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
@@ -97,12 +273,13 @@ export function calculateBranchSaGaugeChange(
   let total = 0;
   let hasAnyData = false;
 
-  for (const node of path) {
-    const stats = characterStats[node.moveName];
-    if (!stats) continue;
+  path.forEach((node, index) => {
+    const isTargetNode = index === path.length - 1;
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
+    if (!stats) return;
     hasAnyData = true;
     total += sumSaGaugeGain(stats);
-  }
+  });
 
   return hasAnyData ? total : null;
 }
@@ -117,15 +294,22 @@ const RUSH_MOVE_NAMES = new Set([CANCEL_RUSH_MOVE_NAME, RAW_RUSH_MOVE_NAME]);
  * root〜targetNodeId（両端含む）の経路上にある各ノードの技データから、Dゲージ増減の合計を求める。
  *
  * 実機確認済みの仕様に基づく簡略化:
- * - 「キャンセルラッシュ」ノードより後は、通常技のヒット回復が0になる
+ * - 「キャンセルラッシュ」ノードより後は、通常技のヒット回復が0になる。ラッシュ中に回復
+ *   できるのは「歩き」（moveNameに「歩き」を含むノード。技データが未登録なら結局寄与0）と
+ *   SA技（`dGaugeGainDuringRush`の値。CAも含む。未入力なら0）だけで、それ以外の手段は
+ *   無い（実機確認済み。以前あった`dGaugeRecoveryBlocked`という個別ノードの手動除外は
+ *   このルールだけで表現しきれるため廃止した）
  * - 「生ラッシュ」自体は回復抑制の対象外（inRushにしない）だが、生ラッシュ自身のコスト
  *   （マイナスのdGaugeGain）は、既にキャンセルラッシュ中でも常に加算される
- * - ラッシュ中でもSA技だけは`dGaugeGainDuringRush`の値を使う（未入力なら0）
  * - 空振り属性のノードは寄与0
- * - `dGaugeRecoveryBlocked`が付いたノード（連続ガード等、手動で判定してもらう）は寄与0
  * - ガード属性のノードは、ガード時回復量のデータが無いため現状は寄与0
- * - 待機/歩行による実時間ベースの回復、ラッシュ終了2秒後の回復再開はスコープ外
- *   （このツールはコンボを技の並びとして記録するもので、実時間の経過を扱う仕組みが無いため）
+ * - 歩行の実時間ベースの回復量そのものの算出（フレーム数→回復量の換算）、ラッシュ終了2秒後の
+ *   回復再開はスコープ外（このツールはコンボを技の並びとして記録するもので、実時間の経過を
+ *   扱う仕組みが無いため。歩きノードの技データが登録されていれば、その値をそのまま使う）
+ * - 末端ノードの`branchStats.includesEarlyDGaugeRecovery`がfalseの場合、経路上で最初に
+ *   ゲージを消費する技（キャンセルラッシュ/生ラッシュ、またはusesODが付いたノード）より前に
+ *   得た回復は合計から除く（Dゲージが元々MAXの状態から始めた場合、最初に何かを消費するまでの
+ *   回復分は溢れて実際には得られないため。消費技自身とそれ以降は通常通り合計する）
  *
  * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
  */
@@ -136,46 +320,73 @@ export function calculateBranchDGaugeChange(
   root: MoveNode,
   targetNodeId: string,
 ): number | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
 
-  let total = 0;
   let hasAnyData = false;
   let inRush = false;
+  const contributions: number[] = [];
+  let firstConsumptionIndex: number | null = null;
 
-  for (const node of path) {
-    const stats = characterStats[node.moveName];
+  path.forEach((node, index) => {
+    const isTargetNode = index === path.length - 1;
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
+    const isConsumingNode = RUSH_MOVE_NAMES.has(node.moveName) || (node.usesOD ?? false);
+    if (isConsumingNode && firstConsumptionIndex === null) firstConsumptionIndex = index;
 
     if (RUSH_MOVE_NAMES.has(node.moveName)) {
+      let contribution = 0;
       if (stats) {
         hasAnyData = true;
-        total += stats.hits.reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
+        contribution = stats.hits.reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
       }
+      contributions.push(contribution);
       if (node.moveName === CANCEL_RUSH_MOVE_NAME) inRush = true;
-      continue;
+      return;
     }
 
-    if (node.attributes.some((attribute) => attribute.type === 'whiff')) continue;
-    if (node.dGaugeRecoveryBlocked) continue;
-    if (node.attributes.some((attribute) => attribute.type === 'guard')) continue; // ガード回復量は未実装
+    if (node.attributes.some((attribute) => attribute.type === 'whiff')) {
+      contributions.push(0);
+      return;
+    }
+    if (node.attributes.some((attribute) => attribute.type === 'guard')) {
+      contributions.push(0); // ガード回復量は未実装
+      return;
+    }
 
-    if (!stats) continue;
+    if (!stats) {
+      contributions.push(0);
+      return;
+    }
     hasAnyData = true;
 
     const isSuperArt = moveList.some(
-      (move) => move.name === node.moveName && move.category === 'superArt',
+      (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
     );
+    // 歩きはラッシュ中でも例外的に回復できる（実機確認済み）。usesODが付いたノードも、
+    // OD版として登録された数値（例: OD発動コストを織り込んだ-20000）自体が実際の
+    // 収支そのものなので、ラッシュ中の「非SA技は回復0」ルールの対象外にする
+    // （そうしないとOD使用時の値が握りつぶされ、ODチェックが効かなくなってしまう）
+    const isWalkMove = node.moveName.includes('歩き');
 
-    total += stats.hits.reduce((sum, hit) => {
-      if (!inRush) return sum + (hit.dGaugeGain ?? 0);
+    const contribution = stats.hits.reduce((sum, hit) => {
+      if (!inRush || isWalkMove || node.usesOD) return sum + (hit.dGaugeGain ?? 0);
       return sum + (isSuperArt ? (hit.dGaugeGainDuringRush ?? 0) : 0);
     }, 0);
-  }
+    contributions.push(contribution);
+  });
 
-  return hasAnyData ? total : null;
+  if (!hasAnyData) return null;
+
+  const targetNode = path[path.length - 1];
+  const includesEarlyRecovery = targetNode.branchStats?.includesEarlyDGaugeRecovery ?? true;
+  const startIndex = includesEarlyRecovery || firstConsumptionIndex === null ? 0 : firstConsumptionIndex;
+
+  return contributions.slice(startIndex).reduce((sum, value) => sum + value, 0);
 }
 
 function startBaseFromPath(path: MoveNode[]): number {
@@ -206,13 +417,14 @@ function buildFlatDamageHits(
   let rushTriggerPosition: number | null = null;
   let hasAnyData = false;
 
-  for (const node of path) {
-    if (node.attributes.some((attribute) => attribute.type === 'whiff')) continue;
-    if (node.attributes.some((attribute) => attribute.type === 'guard')) continue; // ガードはダメージ0
+  path.forEach((node, index) => {
+    const isTargetNode = index === path.length - 1;
+    if (node.attributes.some((attribute) => attribute.type === 'whiff')) return;
+    if (node.attributes.some((attribute) => attribute.type === 'guard')) return; // ガードはダメージ0
 
-    const stats = characterStats[node.moveName];
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
     const isSuperArt = moveList.some(
-      (move) => move.name === node.moveName && move.category === 'superArt',
+      (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
     );
     // キャンセルラッシュ/生ラッシュは名前で判定するシステム動作。加えて、チャージ等の
     // 「技データにdamage:0と明示登録されている＝実際にはダメージが存在しない行動」も同じ
@@ -230,6 +442,9 @@ function buildFlatDamageHits(
           isSuperArt,
           minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
           isSystemAction: isRushMove || hit.damage === 0,
+          // 同じ技の複数ヒット(強Kの2段目等)は、登録時にsharesModifierAcrossHitsが立って
+          // いれば1段目とテーブルの段を共有する（詳細はdamageModifierCalc.ts参照）
+          sharesTableStepWithPrevious: stats.sharesModifierAcrossHits && hitIndex > 0,
           moveName: node.moveName,
           hitLabel: stats.isMultiHit ? `${node.moveName}(${hitIndex + 1}/${stats.hits.length}段目)` : node.moveName,
         });
@@ -251,7 +466,7 @@ function buildFlatDamageHits(
     if (RUSH_MOVE_NAMES.has(node.moveName) && rushTriggerPosition === null && flatHits.length > 1) {
       rushTriggerPosition = flatHits.length + 1;
     }
-  }
+  });
 
   if (!hasAnyData || flatHits.length === 0) return null;
 
@@ -277,15 +492,18 @@ export function calculateBranchDamage(
   root: MoveNode,
   targetNodeId: string,
 ): number | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;
 
   const { flatHits, rushTriggerPosition, startBase } = built;
   const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase);
-  const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * percents[index]) / 100, 0);
+  // システム動作(isSystemAction)はpercentがnull(補正対象外)。damageが常に0のためどちらにせよ
+  // 寄与は0だが、念のため明示的に0扱いする
+  const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * (percents[index] ?? 0)) / 100, 0);
 
   return Math.round(total);
 }
@@ -297,8 +515,11 @@ export type DamageBreakdownEntry = {
   modifierText: string;
   isSuperArt: boolean;
   minDamageGuaranteePercent: number | null;
+  // 敵にヒットしない行動（キャンセルラッシュ/生ラッシュ、damage:0で登録されたチャージ等）。
+  // 補正%という概念自体が無いため、percentはnullになる
+  isSystemAction: boolean;
   isRush: boolean;
-  percent: number;
+  percent: number | null;
   contribution: number;
 };
 
@@ -320,8 +541,9 @@ export function calculateBranchDamageBreakdown(
   root: MoveNode,
   targetNodeId: string,
 ): DamageBreakdown | null {
-  const path = findPathToNode(root, targetNodeId);
-  if (!path) return null;
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
 
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;
@@ -331,7 +553,7 @@ export function calculateBranchDamageBreakdown(
 
   const entries: DamageBreakdownEntry[] = flatHits.map((hit, index) => {
     const percent = percents[index];
-    const contribution = (hit.damage * percent) / 100;
+    const contribution = (hit.damage * (percent ?? 0)) / 100;
     return {
       position: index + 1,
       hitLabel: hit.hitLabel,
@@ -339,6 +561,7 @@ export function calculateBranchDamageBreakdown(
       modifierText: hit.modifierText,
       isSuperArt: hit.isSuperArt,
       minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
+      isSystemAction: hit.isSystemAction ?? false,
       isRush: rushTriggerPosition !== null && index + 1 >= rushTriggerPosition,
       percent,
       contribution,

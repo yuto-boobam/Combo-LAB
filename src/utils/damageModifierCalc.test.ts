@@ -91,10 +91,49 @@ describe('calculateDamageScalingPath', () => {
   it('始動補正は起点自身のダメージには影響せず、次につなぐ技にだけ効く（実機確認済みの訂正後の仕様）', () => {
     // 「始動補正20%の2中Kを起点に、2中K→キャンセルラッシュ→強Kとすると100%→68%になる」
     // という実機確認済みの例を再現する。起点(2中K)自身は100%のまま、キャンセルラッシュは
-    // システム動作なので段を進めず、強K(3発目)は始動補正ぶん前倒しで進んだ段(80%)にラッシュ
-    // 0.85倍を掛けた68%になる
+    // 敵にヒットしない行動なのでpercentがnull(補正対象外)になり、段も進めない。強K(3発目)は
+    // 始動補正ぶん前倒しで進んだ段(80%)にラッシュ0.85倍を掛けた68%になる
     const hits = [damageHit('始動補正20%'), damageHit('', { isSystemAction: true }), damageHit('')];
-    expect(calculateDamageScalingPath(hits, 3)).toEqual([100, 80, 68]);
+    expect(calculateDamageScalingPath(hits, 3)).toEqual([100, null, 68]);
+  });
+
+  it('システム動作(isSystemAction)はラッシュ発生後でも0.85倍・下限の対象にならずnullのまま', () => {
+    const hits = [damageHit(''), damageHit('', { isSystemAction: true })];
+    // ラッシュ発生位置を2発目からにしても、システム動作自身にはラッシュ倍率も下限も適用しない
+    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, null]);
+  });
+
+  it('sharesTableStepWithPrevious: 同じ技の2段目（強Kの2段目等）は新たに段を進めず、1段目と同じ%になる', () => {
+    // 通常技(起点) → 強K1段目(100%の段) → 強K2段目(sharesTableStepWithPrevious) → 次の技
+    // 強K1段目・2段目はどちらも同じ100%の段のまま。次の技は「強Kぶんで1段だけ」前倒しされる(80%)
+    const hits = [
+      damageHit(''),
+      damageHit(''),
+      damageHit('', { sharesTableStepWithPrevious: true }),
+      damageHit(''),
+    ];
+    expect(calculateDamageScalingPath(hits, null)).toEqual([100, 100, 100, 80]);
+  });
+
+  it('sharesTableStepWithPrevious付きのヒットも、自身の即時補正だけは反映される', () => {
+    const hits = [
+      damageHit(''),
+      damageHit(''),
+      damageHit('即時補正10%', { sharesTableStepWithPrevious: true }),
+    ];
+    // 2段目(グループの基準=100%)自身には即時補正が効かないため100%のまま
+    // 3段目はグループの基準値100%から、自身の即時補正10%を引いた90%
+    expect(calculateDamageScalingPath(hits, null)).toEqual([100, 100, 90]);
+  });
+
+  it('sharesTableStepWithPreviousは起点(1発目)が複数ヒット技の場合にも効き、どちらも起点の基準値になる', () => {
+    const hits = [
+      damageHit(''),
+      damageHit('', { sharesTableStepWithPrevious: true }),
+      damageHit(''),
+    ];
+    // 起点2段ぶんはどちらもstartBase(120)のまま。3発目は起点ぶん1段だけ前倒し(100%)
+    expect(calculateDamageScalingPath(hits, null, 120)).toEqual([120, 120, 100]);
   });
 
   it('弱P→弱K→中サンライズの実機確認済みの例（100%→80%→70%）を再現する', () => {
@@ -128,12 +167,26 @@ describe('calculateDamageScalingPath', () => {
     expect(calculateDamageScalingPath(hits, null)).toEqual([100, 100, 64]);
   });
 
-  it('SAは自身のminDamageGuaranteePercentをそのまま採用し、テーブル・ラッシュ・下限の影響を受けない', () => {
+  it('SAの自然計算値がminDamageGuaranteePercentを上回っている間は、自然計算の方をそのまま使う（実機確認済みの訂正後の仕様）', () => {
+    // 以前は無条件に保証値(50%)を採用していたが、自然計算(テーブル80%×ラッシュ0.85=85%)の方が
+    // 保証値より高いケースでダメージを不当に下げてしまう不具合があった。保証値はあくまで
+    // 「これを下回らない」という下限であり、自然計算が上回っていればそちらを使う
     const hits = [
       damageHit(''),
       damageHit('', { isSuperArt: true, minDamageGuaranteePercent: 50 }),
     ];
-    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, 50]);
+    expect(calculateDamageScalingPath(hits, 2)).toEqual([100, 85]);
+  });
+
+  it('SAの自然計算値がminDamageGuaranteePercentを下回った時だけ、保証値まで引き上げる', () => {
+    // 乗算補正80%で自然計算を大きく下げ(テーブル80%×0.2倍×ラッシュ0.85≒13%)、
+    // 保証値50%を下回るようにする → この場合だけ保証値50%が採用される
+    const hits = [
+      damageHit(''),
+      damageHit('乗算補正80%'),
+      damageHit('', { isSuperArt: true, minDamageGuaranteePercent: 50 }),
+    ];
+    expect(calculateDamageScalingPath(hits, 3)).toEqual([100, 100, 50]);
   });
 
   it('ラッシュ無しコンボは10%を下回らない', () => {
@@ -144,6 +197,35 @@ describe('calculateDamageScalingPath', () => {
   it('ラッシュありコンボは8%を下回らない', () => {
     const hits = [damageHit(''), damageHit('乗算補正99%'), damageHit('')];
     expect(calculateDamageScalingPath(hits, 3)).toEqual([100, 100, 8]);
+  });
+
+  it('技固有の補正がテーブルの区切りと噛み合わない場合、区切りに丸めず%ポイントをそのまま直接引く（実機確認済みの回帰例）', () => {
+    // 実機で「7,8,9発目=29%,21%,12%」と確認されたコンボの再現。5発目のコンボ補正15%は
+    // テーブルの区切り(50→40→30、10刻み)に噛み合わないため、以前は誤って区切りの30%まで
+    // 前倒しされてしまい(7発目が25%になる不具合)、以降のヒットも連鎖してズレていた
+    const hits = [
+      damageHit('始動補正20%'), // 1発目 起点
+      damageHit('', { isSystemAction: true }), // 2発目 キャンセルラッシュ
+      damageHit(''), // 3発目
+      damageHit('始動補正20%＋コンボ補正20%'), // 4発目
+      damageHit('始動補正30%＋コンボ補正15%'), // 5発目（区切りと噛み合わないコンボ補正15%）
+      damageHit('', { isSystemAction: true }), // 6発目 生ラッシュ
+      damageHit(''), // 7発目
+      damageHit(''), // 8発目
+      damageHit('コンボ補正20%'), // 9発目
+    ];
+
+    expect(calculateDamageScalingPath(hits, 2, 120)).toEqual([
+      120,
+      null,
+      68,
+      59,
+      42,
+      null,
+      29,
+      21,
+      12,
+    ]);
   });
 
   it('実際に登録済みのイングリッドの補正表記をすべて解釈できる', () => {

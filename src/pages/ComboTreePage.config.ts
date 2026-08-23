@@ -2,14 +2,18 @@
 // ComboTreePageの見た目に関する調整値。Rootedの TreePage.config.ts と同じ考え方。
 
 import type { TreeLayoutConfig } from '../lib/tree';
-import { NODE_WIDTH, NODE_DEFAULT_HEIGHT } from '../components/MoveNodeCircle';
+import { NODE_WIDTH, NODE_DEFAULT_HEIGHT } from '../utils/nodeSizing';
 
 /** 角丸長方形ノードのサイズ・列間隔など、木構造レイアウト計算に渡す寸法設定 */
 export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
   cardWidth: NODE_WIDTH,
   rootWidth: NODE_WIDTH,
-  gapX: 36,
-  dropZoneHeight: 10,
+  // NODE_WIDTHの縮小(88→68px)に合わせて列間隔も同程度縮め、間延びして見えないようにする
+  gapX: 28,
+  // 縦方向の「隙間」の実体。分岐なし(子1つ)のノードでも子の前後2箇所ぶん(=2倍)が
+  // 積み上がるため、深い一本道のコンボほど本来のノード高さ以上に間延びしやすい。
+  // 10pxだとその累積が無視できないサイズになっていたため縮小した(ユーザー指摘により調整)
+  dropZoneHeight: 4,
   defaultNodeHeight: NODE_DEFAULT_HEIGHT,
   defaultRootHeight: NODE_DEFAULT_HEIGHT,
 };

@@ -31,8 +31,12 @@ import type { MoveHitStats, MoveStats, MoveStrength } from '../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../data/commonMoves';
 import { canEditMoveStatsLocally } from '../utils/localEditAccess';
 import { getSpecialVariantOptions } from '../utils/specialVariant';
+import { calculateOdLevelConstraintForVariant } from '../utils/comboGaugeCalc';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
+
+// 数値ではなく自由記述の文字列として保存するフィールド（modifierと有利フレームの2種）
+const TEXT_HIT_FIELDS = new Set<keyof MoveHitStats>(['modifier', 'groundPlusFrame', 'airPlusFrame']);
 
 const EMPTY_HIT: MoveHitStats = {
   damage: null,
@@ -43,8 +47,15 @@ const EMPTY_HIT: MoveHitStats = {
   dGaugeChipPunishCounter: null,
   minDamageGuaranteePercent: null,
   dGaugeGainDuringRush: null,
+  groundPlusFrame: '',
+  airPlusFrame: '',
 };
-const EMPTY_STATS: MoveStats = { isMultiHit: false, hits: [EMPTY_HIT] };
+const EMPTY_STATS: MoveStats = {
+  isMultiHit: false,
+  hits: [EMPTY_HIT],
+  cancelableSuperArtNames: [],
+  sharesModifierAcrossHits: false,
+};
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
 
@@ -81,20 +92,43 @@ export function MoveStatsPage() {
   const normalMoveNames = [...NORMAL_MOVE_NAMES, ...uniqueMoves.map((move) => move.name)];
   // 特殊性能あり（hasSpecialVariant）の技は、強度ごとに登録された選択肢を持つ場合だけ
   // 実際にノードで確定する名前（`${強度}${技名}(${特殊性能})`）ごとに1行ずつ並べる。
-  // 選択肢がない強度は特殊性能なしのプレーンな1行のまま（src/utils/specialVariant.ts参照）
-  const specialMoveNames = specialMoves.flatMap((move) =>
-    SPECIAL_MOVE_STRENGTHS.flatMap((strength) => {
+  // 選択肢がない強度は特殊性能なしのプレーンな1行のまま（src/utils/specialVariant.ts参照）。
+  // hasFlatVariantsな技（イングリッドのビーム等、強度に依存しない技）は強度を挟まず
+  // specialVariantOptionsを直接展開する（SAと同じ考え方）。さらに、Lv.を含む選択肢は
+  // 「OD使用」時に別データを参照する仕組みになっているため、OD版の行もあわせて用意する
+  // （src/utils/comboGaugeCalc.ts の applyOdVariantLookup 参照）。ただし最小Lv.は通常版
+  // でしか、最大Lv.はOD版でしか実際には選べない（コンボ登録画面でボタンごと押せなく
+  // なっている）ため、その組み合わせの行はそもそも作らない
+  const specialMoveNames = specialMoves.flatMap((move) => {
+    if (move.hasFlatVariants) {
+      const options = move.specialVariantOptions ?? [];
+      return options.flatMap((variant) => {
+        const constraint = calculateOdLevelConstraintForVariant(variant, move);
+        const rows: string[] = [];
+        if (constraint !== 'odOnly') rows.push(`${move.name}(${variant})`);
+        if (constraint === 'either' || constraint === 'odOnly') rows.push(`${move.name}(OD${variant})`);
+        return rows;
+      });
+    }
+    return SPECIAL_MOVE_STRENGTHS.flatMap((strength) => {
       const options = move.hasSpecialVariant ? getSpecialVariantOptions(move, strength) : [];
       return options.length > 0
         ? options.map((variant) => `${strength}${move.name}(${variant})`)
         : [`${strength}${move.name}`];
-    }),
-  );
+    });
+  });
   const superArtMoveNames = superArtMoves.flatMap((move) =>
     move.hasSpecialVariant && move.specialVariantOptions && move.specialVariantOptions.length > 0
       ? move.specialVariantOptions.map((variant) => `${move.name}(${variant})`)
       : [move.name],
   );
+  // 「SAキャンセル」欄の選択肢。「SAで締める」機能（ノード側）と同じく、特殊性能なしの
+  // 単純なSAだけを対象にする（特殊性能ありのSAはfinishesComboOnSelectの仕組みが別にあるため）。
+  // CA（クリティカルアーツ）はSA3と同じ技のキャンセル可否になる（SA3へキャンセル可能なら
+  // CAへも可能）ため、独立したボタンは出さずSA3側のチェックだけで表す（ユーザー確認済み）
+  const cancelableSuperArtOptions = superArtMoves
+    .filter((move) => !move.hasSpecialVariant && move.name !== 'CA')
+    .map((move) => move.name);
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -127,6 +161,7 @@ export function MoveStatsPage() {
               moveNames={normalMoveNames}
               moveStats={moveStats}
               readOnly={readOnly}
+              cancelableSuperArtOptions={cancelableSuperArtOptions}
             />
           </AccordionSection>
 
@@ -143,6 +178,7 @@ export function MoveStatsPage() {
                 moveNames={specialMoveNames}
                 moveStats={moveStats}
                 readOnly={readOnly}
+                cancelableSuperArtOptions={cancelableSuperArtOptions}
               />
             ) : (
               <p style={styles.emptyHint}>
@@ -199,6 +235,7 @@ function MoveStatsTable({
   showMinGuaranteeColumn = false,
   showDuringRushColumn = false,
   saGaugeColumnLabel = 'SAゲージ回収',
+  cancelableSuperArtOptions = [],
 }: {
   characterId: string;
   moveNames: string[];
@@ -216,6 +253,9 @@ function MoveStatsTable({
   // SA自身は撃つとSAゲージを「消費」する（他の技のようにヒットで「回収」するわけではない）ため、
   // superArtセクションだけラベルを差し替えられるようにする
   saGaugeColumnLabel?: string;
+  // 「SAキャンセル」欄の選択肢。1件以上あれば技ごとにキャンセル可能なSAを選べるようにする。
+  // SA自身からSAへのキャンセルは無いため、superArt/systemセクションでは渡さない（空のまま）
+  cancelableSuperArtOptions?: string[];
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
@@ -225,9 +265,25 @@ function MoveStatsTable({
       characterId,
       moveName,
       current.isMultiHit
-        ? { isMultiHit: false, hits: [current.hits[0] ?? EMPTY_HIT] }
-        : { isMultiHit: true, hits: [current.hits[0] ?? EMPTY_HIT, EMPTY_HIT] },
+        ? { ...current, isMultiHit: false, hits: [current.hits[0] ?? EMPTY_HIT] }
+        : { ...current, isMultiHit: true, hits: [current.hits[0] ?? EMPTY_HIT, EMPTY_HIT] },
     );
+  };
+
+  const toggleSharesModifierAcrossHits = (moveName: string) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    setMoveStats(characterId, moveName, {
+      ...current,
+      sharesModifierAcrossHits: !current.sharesModifierAcrossHits,
+    });
+  };
+
+  const toggleCancelableSuperArt = (moveName: string, superArtName: string) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    const next = current.cancelableSuperArtNames.includes(superArtName)
+      ? current.cancelableSuperArtNames.filter((name) => name !== superArtName)
+      : [...current.cancelableSuperArtNames, superArtName];
+    setMoveStats(characterId, moveName, { ...current, cancelableSuperArtNames: next });
   };
 
   const updateHitField = (
@@ -237,7 +293,7 @@ function MoveStatsTable({
     rawValue: string,
   ) => {
     const current = moveStats[moveName] ?? EMPTY_STATS;
-    const value = field === 'modifier' ? rawValue : rawValue === '' ? null : Number(rawValue);
+    const value = TEXT_HIT_FIELDS.has(field) ? rawValue : rawValue === '' ? null : Number(rawValue);
     setMoveStats(characterId, moveName, {
       ...current,
       hits: current.hits.map((hit, index) => (index === hitIndex ? { ...hit, [field]: value } : hit)),
@@ -259,13 +315,13 @@ function MoveStatsTable({
   };
 
   const extraColumnCount = [showMinGuaranteeColumn, showDuringRushColumn].filter(Boolean).length;
-  const rowGridStyle =
-    extraColumnCount > 0
-      ? {
-          ...styles.hitRow,
-          gridTemplateColumns: `54px 84px minmax(120px, 1fr) repeat(${4 + extraColumnCount}, 84px) 20px`,
-        }
-      : styles.hitRow;
+  // repeat(0, ...)はCSS的に不正な値になり、grid-template-columns全体が無視されて
+  // レイアウトが崩れる（全項目が縦積みになる）ため、0件の時は丸ごと省略する
+  const extraColumnsTemplate = extraColumnCount > 0 ? ` repeat(${extraColumnCount}, 84px)` : '';
+  const rowGridStyle = {
+    ...styles.hitRow,
+    gridTemplateColumns: `54px 84px minmax(120px, 1fr) repeat(6, 84px)${extraColumnsTemplate} 20px`,
+  };
 
   return (
     <div style={styles.moveList}>
@@ -277,6 +333,8 @@ function MoveStatsTable({
         <span style={styles.numHeaderCell}>{saGaugeColumnLabel}</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（ガード）</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（{lastChipColumnLabel}）</span>
+        <span style={styles.numHeaderCell}>有利フレーム<br />（地上ヒット）</span>
+        <span style={styles.numHeaderCell}>有利フレーム<br />（空中ヒット）</span>
         {showMinGuaranteeColumn && (
           <span style={styles.numHeaderCell}>最低保証値<br />（%）</span>
         )}
@@ -302,7 +360,45 @@ function MoveStatsTable({
                 />
                 複数ヒット
               </label>
+
+              {stats.isMultiHit && (
+                <label style={styles.multiHitLabel} title="同じ技が複数回ヒットしているだけの場合はオン（強Kの1・2段目等）。別々の技を繋いだターゲットコンボの場合はオフのまま">
+                  <input
+                    type="checkbox"
+                    checked={stats.sharesModifierAcrossHits}
+                    disabled={readOnly}
+                    onChange={() => toggleSharesModifierAcrossHits(moveName)}
+                  />
+                  段ごとに補正を分けない
+                </label>
+              )}
             </div>
+
+            {cancelableSuperArtOptions.length > 0 && (
+              <div style={styles.cancelRow}>
+                <span style={styles.cancelRowLabel}>SAキャンセル</span>
+                {cancelableSuperArtOptions.map((superArtName) => {
+                  const active = stats.cancelableSuperArtNames.includes(superArtName);
+                  return (
+                    <button
+                      key={superArtName}
+                      type="button"
+                      disabled={readOnly}
+                      onClick={() => toggleCancelableSuperArt(moveName, superArtName)}
+                      style={{
+                        ...styles.cancelPill,
+                        borderColor: active ? 'var(--accent)' : 'var(--border)',
+                        background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                        color: active ? '#fff' : 'var(--text-secondary)',
+                        cursor: readOnly ? 'default' : 'pointer',
+                      }}
+                    >
+                      {superArtName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {stats.isMultiHit ? (
               <div style={styles.hitsBlock}>
@@ -373,13 +469,21 @@ function HitFields({
   showDuringRushColumn?: boolean;
   onChange: (field: keyof MoveHitStats, rawValue: string) => void;
 }) {
-  const numberFields: { key: keyof MoveHitStats }[] = [
+  const baseNumberFields: { key: keyof MoveHitStats }[] = [
     { key: 'dGaugeGain' },
     { key: 'saGaugeGain' },
     { key: 'dGaugeChip' },
     { key: 'dGaugeChipPunishCounter' },
+  ];
+  const extraNumberFields: { key: keyof MoveHitStats }[] = [
     ...(showMinGuaranteeColumn ? [{ key: 'minDamageGuaranteePercent' as const }] : []),
     ...(showDuringRushColumn ? [{ key: 'dGaugeGainDuringRush' as const }] : []),
+  ];
+  // 有利フレームは単一値・幅のある表記（例:「+2~+4」）のどちらも自由記述で入力する
+  // （modifierと同じ考え方。詳細はtypes.tsのMoveHitStats.groundPlusFrame参照）
+  const plusFrameFields: { key: 'groundPlusFrame' | 'airPlusFrame' }[] = [
+    { key: 'groundPlusFrame' },
+    { key: 'airPlusFrame' },
   ];
 
   return (
@@ -401,7 +505,30 @@ function HitFields({
         readOnly={readOnly}
         onChange={(event) => onChange('modifier', event.target.value)}
       />
-      {numberFields.map(({ key }) => (
+      {baseNumberFields.map(({ key }) => (
+        <input
+          key={key}
+          type="number"
+          className="input-field"
+          style={styles.numInput}
+          value={hit[key] ?? ''}
+          readOnly={readOnly}
+          onChange={(event) => onChange(key, event.target.value)}
+        />
+      ))}
+      {plusFrameFields.map(({ key }) => (
+        <input
+          key={key}
+          type="text"
+          className="input-field"
+          style={styles.numInput}
+          placeholder="+2~+4 など"
+          value={hit[key]}
+          readOnly={readOnly}
+          onChange={(event) => onChange(key, event.target.value)}
+        />
+      ))}
+      {extraNumberFields.map(({ key }) => (
         <input
           key={key}
           type="number"
@@ -480,6 +607,27 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     color: 'var(--text-muted)',
     whiteSpace: 'nowrap',
+  },
+  cancelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  cancelRowLabel: {
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    marginRight: 2,
+  },
+  cancelPill: {
+    height: 20,
+    padding: '0 8px',
+    borderRadius: 999,
+    border: '1.5px solid var(--border)',
+    fontSize: 11,
+    fontWeight: 700,
+    lineHeight: 1,
   },
   hitsBlock: {
     display: 'grid',

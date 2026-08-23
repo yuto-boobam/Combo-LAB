@@ -16,5 +16,7 @@ export { useNodeHeights } from './useNodeHeights';
 export { findNode, buildParentMap, findConvergenceTarget } from './treeUtils';
 export { useTreeExpandAnimation } from './useTreeExpandAnimation';
 export { ConnectionsOverlay } from './ConnectionsOverlay';
-export { buildGroupView } from './groupView';
+export { buildGroupView, collectGroupChain } from './groupView';
 export type { GroupPillMeta, GroupView } from './groupView';
+export { findGroupOccurrences } from './groupOccurrences';
+export type { GroupOccurrence } from './groupOccurrences';

@@ -9,9 +9,13 @@
 //   優先順位: パニッシュカウンター > カウンター > ラッシュ。
 //   接続線（親→このノード）もこのノード自身の枠線色に合わせる。つまり「2中P→2中Kがカウンターで
 //   つながる」場合は 2中K 側にカウンター属性を付ける（2中P側は通常のまま）。
+//   「キャンセルラッシュ」ノードの緑色もこの優先順位の中の「ラッシュ」相当として扱うため、
+//   カウンター/パニッシュカウンター属性を付ければそちらが優先される（「カウンター時に
+//   キャンセルラッシュした」という状況を表現できるようにするため。ユーザー確認済み）。
 // - 「キャンセルラッシュ」「生ラッシュ」ノードだけは目立たせるため、属性に関わらず
 //   本体色を常に緑にする（優先順位より上位の特例）。ただし枠線色・接続線色まで緑に
-//   するのは「キャンセルラッシュ」だけで、「生ラッシュ」の枠線・接続線は通常のまま。
+//   するのは「キャンセルラッシュ」だけで、「生ラッシュ」の枠線・接続線は通常のまま
+//   （かつ「キャンセルラッシュ」側も上記の通りカウンター/パニッシュカウンター属性には負ける）。
 // - 空振りは色に加えて点線枠にする（枠線色とは独立）。
 // - 枠線色が有効なノード・空振りノードは視認性のため枠線を太くする。
 // - ディレイは色ではなく、独立したディレイマーク（丸バッジ）のフラグにする。バッジにカーソルを
@@ -47,13 +51,18 @@ const BORDER_COLOR_PRIORITY: NodeAttributeType[] = ['punishCounter', 'counter', 
 
 /** 自分自身の技名・属性から、自分の枠線・接続線（親→自分）の色を決める */
 export function resolveBorderColorKind(moveName: string, attributes: NodeAttribute[]): NodeBorderColorKind {
+  const types = new Set(attributes.map((attribute) => attribute.type));
+  const fromAttribute = BORDER_COLOR_PRIORITY.find((type) => types.has(type)) as
+    | NodeBorderColorKind
+    | undefined;
+
+  // カウンター/パニッシュカウンター属性は、キャンセルラッシュの緑色より優先する
+  // （「カウンター時にキャンセルラッシュした」という状況を表現できるようにするため）
+  if (fromAttribute === 'punishCounter' || fromAttribute === 'counter') return fromAttribute;
+
   if (moveName === CANCEL_RUSH_MOVE_NAME) return 'rush';
 
-  const types = new Set(attributes.map((attribute) => attribute.type));
-  return (
-    (BORDER_COLOR_PRIORITY.find((type) => types.has(type)) as NodeBorderColorKind | undefined) ??
-    'default'
-  );
+  return fromAttribute ?? 'default';
 }
 
 export function resolveNodeVisualStyle(moveName: string, attributes: NodeAttribute[]): NodeVisualStyle {
