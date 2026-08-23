@@ -523,7 +523,8 @@ function ReadOnlyNodeView({
 
   const showStats =
     selectedNode.children.length === 0 ||
-    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
+    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff') ||
+    (selectedNode.recordsBranchStats ?? false);
 
   const autoSaGaugeChange = root
     ? calculateBranchSaGaugeChange(characterId, moveStatsDatabase, root, selectedNode.id)
@@ -671,6 +672,7 @@ function NodeEditor({
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
   const setNodeUsesOD = useAppStore((state) => state.setNodeUsesOD);
+  const setNodeRecordsBranchStats = useAppStore((state) => state.setNodeRecordsBranchStats);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const moveList = useAppStore(
     (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
@@ -711,10 +713,13 @@ function NodeEditor({
   const [isEditorOpen, setIsEditorOpen] = useState(true);
   const [isAddFormOpen, setIsAddFormOpen] = useState(true);
 
-  // 統計入力欄は「葉ノード（子を持たない）」または「ガード」「空振り」を選んだノードに表示する
-  const showStatsEditor =
+  // 統計入力欄は「葉ノード（子を持たない）」または「ガード」「空振り」を選んだノードに表示する。
+  // recordsBranchStatsがtrueなら、それ以外のノードでも任意で表示できる（あえて途中で
+  // 止めるケースを記録するための機能。詳細はtypes.tsのMoveNode.recordsBranchStats参照）
+  const isNaturalStatsEndpoint =
     selectedNode.children.length === 0 ||
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
+  const showStatsEditor = isNaturalStatsEndpoint || (selectedNode.recordsBranchStats ?? false);
 
   const autoSaGaugeChange = calculateBranchSaGaugeChange(
     characterId,
@@ -873,6 +878,19 @@ function NodeEditor({
               updateNodeSpecialNote(characterId, treeId, selectedNode.id, note)
             }
           />
+
+          {!isNaturalStatsEndpoint && (
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={selectedNode.recordsBranchStats ?? false}
+                onChange={(event) =>
+                  setNodeRecordsBranchStats(characterId, treeId, selectedNode.id, event.target.checked)
+                }
+              />
+              コンボ情報確認
+            </label>
+          )}
 
           {odConstraint && (
             <OdLevelToggle

@@ -64,12 +64,14 @@ function makeHit(overrides: Partial<MoveHitStats> = {}): MoveHitStats {
     dGaugeChipPunishCounter: null,
     minDamageGuaranteePercent: null,
     dGaugeGainDuringRush: null,
+    groundPlusFrame: '',
+    airPlusFrame: '',
     ...overrides,
   };
 }
 
-function makeStats(hits: MoveHitStats[], isMultiHit = false): MoveStats {
-  return { isMultiHit, hits, cancelableSuperArtNames: [] };
+function makeStats(hits: MoveHitStats[], isMultiHit = false, sharesModifierAcrossHits = false): MoveStats {
+  return { isMultiHit, hits, cancelableSuperArtNames: [], sharesModifierAcrossHits };
 }
 
 function makeMove(name: string, category: MoveCategory): MoveDefinition {
@@ -400,6 +402,46 @@ describe('calculateBranchDamage', () => {
 
     // 1発目:500*1.0 + 2発目:500*1.0(テーブル2発目=100%) + 3発目:1000*0.8(テーブル3発目=80%) = 500+500+800=1800
     expect(calculateBranchDamage('ryu', moveStatsDatabase, [], targetCombo, 'after')).toBe(1800);
+  });
+
+  it('sharesModifierAcrossHitsが立った複数ヒット技(強Kの1・2段目等)は、段ごとに補正を分けず同じ%を使う', () => {
+    // ターゲットコンボ(中P→中K)とは違い、同じ技(強K)が2回ヒットしているだけなので、
+    // 1段目・2段目は同じ%になり、次の技は「強Kぶんで1段だけ」前倒しされる
+    const after = makeNode('after', '中P');
+    const strongK = makeNode('sk', '強K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '強K': makeStats(
+          [makeHit({ damage: 500 }), makeHit({ damage: 400 })],
+          true,
+          true, // sharesModifierAcrossHits
+        ),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 1発目:500*1.0(起点=100%、テーブル1段目) + 2発目:400*1.0(強Kぶんで消費するのは1段だけなので
+    // 1発目と同じ100%、テーブル2段目もまだ100%) + 3発目:1000*1.0(強Kが1段しか消費していないため
+    // まだテーブル2段目=100%のまま) = 500+400+1000=1900
+    // （sharesModifierAcrossHitsが無い場合は3発目が80%まで落ちてしまい、合計が1700と低く出る。
+    // 次のテストで回帰確認）
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], strongK, 'after')).toBe(1900);
+  });
+
+  it('sharesModifierAcrossHitsが立っていない複数ヒット技は、従来通り段ごとに個別消費する（回帰確認）', () => {
+    const after = makeNode('after', '中P');
+    const strongK = makeNode('sk', '強K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '強K': makeStats([makeHit({ damage: 500 }), makeHit({ damage: 400 })], true),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 1発目:500*1.0 + 2発目:400*1.0(2発目のテーブル100%) + 3発目:1000*0.8(3発目のテーブル80%) = 500+400+800=1700
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], strongK, 'after')).toBe(1700);
   });
 
   it('SAの自然計算値が保証を下回った時だけ、minDamageGuaranteePercentまで引き上げる', () => {

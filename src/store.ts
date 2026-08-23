@@ -86,6 +86,7 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
       : [],
     groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
     usesOD: node.usesOD === true ? true : undefined,
+    recordsBranchStats: node.recordsBranchStats === true ? true : undefined,
   };
 }
 
@@ -156,6 +157,8 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
     minDamageGuaranteePercent: toNullableNumber(s.minDamageGuaranteePercent),
     dGaugeGainDuringRush: toNullableNumber(s.dGaugeGainDuringRush),
+    groundPlusFrame: typeof s.groundPlusFrame === 'string' ? s.groundPlusFrame : '',
+    airPlusFrame: typeof s.airPlusFrame === 'string' ? s.airPlusFrame : '',
   };
 }
 
@@ -168,6 +171,7 @@ function normalizeMoveStatsEntry(value: unknown): MoveStats {
     cancelableSuperArtNames: Array.isArray(s.cancelableSuperArtNames)
       ? s.cancelableSuperArtNames.filter((name): name is string => typeof name === 'string')
       : [],
+    sharesModifierAcrossHits: s.sharesModifierAcrossHits === true,
   };
 }
 
@@ -456,6 +460,14 @@ export type AppState = {
 
   /** 「OD版はレベル+1相当の性能になる」技（イングリッドのビーム等）で、OD版を使ったかどうか */
   setNodeUsesOD: (characterId: string, treeId: string, nodeId: string, usesOD: boolean) => void;
+
+  /** 葉ノードでなくても「コンボの情報」欄を表示・記録できるようにするフラグ（あえて途中で止めるケース用） */
+  setNodeRecordsBranchStats: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    recordsBranchStats: boolean,
+  ) => void;
 
   // ──「枝を選んでまとめてコピー」機能 ─────────────────────────────────
   // コピーモード: あるノード（起点）を選び、そこから続く枝（子孫ごと）を
@@ -1030,6 +1042,17 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({ ...node, usesOD: usesOD ? true : undefined })),
+          ),
+        }));
+      },
+
+      setNodeRecordsBranchStats: (characterId, treeId, nodeId, recordsBranchStats) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({
+              ...node,
+              recordsBranchStats: recordsBranchStats ? true : undefined,
+            })),
           ),
         }));
       },

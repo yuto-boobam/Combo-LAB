@@ -193,21 +193,28 @@
                 "displayName": "ODライズ",
                 "attributes": [],
                 "specialNote": "",
-                "branchStats": null,
+                "branchStats": {
+                  "damage": null,
+                  "dGaugeChange": null,
+                  "saGaugeGain": null,
+                  "damageRating": null,
+                  "dGaugeRating": null,
+                  "saGaugeRating": null,
+                  "overallRating": null,
+                  "plusFrame": null,
+                  "isThrowRange": false,
+                  "canOkizeme": false,
+                  "startHitCondition": null,
+                  "isJustParryStart": false,
+                  "isRushStart": false,
+                  "usesCA": false,
+                  "finishingSpecialVariant": null,
+                  "includesEarlyDGaugeRecovery": true,
+                  "finishingSuperArtName": null
+                },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-15T03:51:50.493Z",
-                "children": [
-                  {
-                    "id": "mswxrqf2bwzg82mmums",
-                    "moveName": "SA3",
-                    "attributes": [],
-                    "specialNote": "",
-                    "branchStats": null,
-                    "createdBy": "ローカル",
-                    "createdAt": "2026-08-17T07:52:34.430Z",
-                    "children": []
-                  }
-                ]
+                "children": []
               }
             ]
           }
@@ -404,31 +411,6 @@
             "createdAt": "2026-08-18T08:23:49.051Z",
             "children": [
               {
-                "id": "msyeepygj7kxpmocya",
-                "moveName": "SA3",
-                "attributes": [],
-                "specialNote": "",
-                "branchStats": {
-                  "damage": null,
-                  "dGaugeChange": null,
-                  "saGaugeGain": null,
-                  "damageRating": null,
-                  "dGaugeRating": null,
-                  "saGaugeRating": null,
-                  "overallRating": null,
-                  "plusFrame": null,
-                  "isThrowRange": false,
-                  "canOkizeme": false,
-                  "startHitCondition": "カウンター",
-                  "isJustParryStart": false,
-                  "isRushStart": false,
-                  "usesCA": false
-                },
-                "createdBy": "ローカル",
-                "createdAt": "2026-08-18T08:26:06.952Z",
-                "children": []
-              },
-              {
                 "id": "msyg38ogew5p0clmwkg",
                 "moveName": "サンフレア(チャージ)",
                 "displayName": "チャージ",
@@ -461,7 +443,11 @@
           {
             "id": "mswys7tdq4af1dn7hxo",
             "moveName": "キャンセルラッシュ",
-            "attributes": [],
+            "attributes": [
+              {
+                "type": "counter"
+              }
+            ],
             "specialNote": "",
             "branchStats": null,
             "createdBy": "ローカル",
@@ -505,33 +491,6 @@
                             "createdBy": "ローカル",
                             "createdAt": "2026-08-17T08:21:00.710Z",
                             "children": []
-                          },
-                          {
-                            "id": "mswysazq9xx0xkocg5g",
-                            "moveName": "SA3",
-                            "attributes": [],
-                            "specialNote": "",
-                            "branchStats": {
-                              "damage": null,
-                              "dGaugeChange": null,
-                              "saGaugeGain": null,
-                              "damageRating": null,
-                              "dGaugeRating": null,
-                              "saGaugeRating": null,
-                              "overallRating": null,
-                              "plusFrame": null,
-                              "isThrowRange": false,
-                              "canOkizeme": false,
-                              "startHitCondition": null,
-                              "isJustParryStart": false,
-                              "isRushStart": false,
-                              "usesCA": false,
-                              "finishingSpecialVariant": null,
-                              "includesEarlyDGaugeRecovery": true
-                            },
-                            "createdBy": "ローカル",
-                            "createdAt": "2026-08-17T08:21:00.710Z",
-                            "children": []
                           }
                         ]
                       }
@@ -544,7 +503,7 @@
                 "moveName": "2強P",
                 "attributes": [
                   {
-                    "type": "counter"
+                    "type": "rush"
                   }
                 ],
                 "specialNote": "",
@@ -687,13 +646,45 @@
                                   },
                                   {
                                     "type": "delay"
+                                  },
+                                  {
+                                    "type": "situational"
                                   }
                                 ],
-                                "specialNote": "",
+                                "specialNote": "ディレイ4~7F",
                                 "branchStats": null,
                                 "createdBy": "ローカル",
                                 "createdAt": "2026-08-18T10:52:19.127Z",
                                 "children": [
+                                  {
+                                    "id": "mt5p9fa3mv39jsts1y",
+                                    "moveName": "強サンシュート",
+                                    "displayName": "強弾",
+                                    "attributes": [],
+                                    "specialNote": "",
+                                    "branchStats": {
+                                      "damage": null,
+                                      "dGaugeChange": null,
+                                      "saGaugeGain": null,
+                                      "damageRating": null,
+                                      "dGaugeRating": null,
+                                      "saGaugeRating": null,
+                                      "overallRating": null,
+                                      "plusFrame": null,
+                                      "isThrowRange": false,
+                                      "canOkizeme": false,
+                                      "startHitCondition": "カウンター",
+                                      "isJustParryStart": false,
+                                      "isRushStart": false,
+                                      "usesCA": false,
+                                      "finishingSpecialVariant": null,
+                                      "includesEarlyDGaugeRecovery": true,
+                                      "finishingSuperArtName": null
+                                    },
+                                    "createdBy": "ローカル",
+                                    "createdAt": "2026-08-23T11:04:18.843Z",
+                                    "children": []
+                                  },
                                   {
                                     "id": "msyjmxad5qibqrbixhv",
                                     "moveName": "中サンライズ",
@@ -729,8 +720,8 @@
                       },
                       {
                         "id": "msyjxzn5abw89vdr2uk",
-                        "moveName": "ソーラーフレア(空中ビーム|Lv. 2)",
-                        "displayName": "空中ビーム|Lv. 2",
+                        "moveName": "ソーラーフレア(空中ビーム|Lv. 3)",
+                        "displayName": "空中ビーム|Lv. 3",
                         "attributes": [],
                         "specialNote": "",
                         "branchStats": null,
@@ -760,12 +751,59 @@
                                 "createdAt": "2026-08-18T11:02:15.463Z",
                                 "children": [
                                   {
+                                    "id": "mt5pa08as00vig35et",
+                                    "moveName": "強サンシュート",
+                                    "displayName": "強弾",
+                                    "attributes": [],
+                                    "specialNote": "",
+                                    "branchStats": {
+                                      "damage": null,
+                                      "dGaugeChange": null,
+                                      "saGaugeGain": null,
+                                      "damageRating": null,
+                                      "dGaugeRating": null,
+                                      "saGaugeRating": null,
+                                      "overallRating": null,
+                                      "plusFrame": null,
+                                      "isThrowRange": false,
+                                      "canOkizeme": false,
+                                      "startHitCondition": "カウンター",
+                                      "isJustParryStart": false,
+                                      "isRushStart": false,
+                                      "usesCA": false,
+                                      "finishingSpecialVariant": null,
+                                      "includesEarlyDGaugeRecovery": true,
+                                      "finishingSuperArtName": null
+                                    },
+                                    "createdBy": "ローカル",
+                                    "createdAt": "2026-08-23T11:04:45.994Z",
+                                    "children": []
+                                  },
+                                  {
                                     "id": "msyjziqvgpefjtle2lm",
                                     "moveName": "中サンライズ",
                                     "displayName": "中ライズ",
                                     "attributes": [],
                                     "specialNote": "",
-                                    "branchStats": null,
+                                    "branchStats": {
+                                      "damage": null,
+                                      "dGaugeChange": null,
+                                      "saGaugeGain": null,
+                                      "damageRating": null,
+                                      "dGaugeRating": null,
+                                      "saGaugeRating": null,
+                                      "overallRating": null,
+                                      "plusFrame": null,
+                                      "isThrowRange": false,
+                                      "canOkizeme": false,
+                                      "startHitCondition": "カウンター",
+                                      "isJustParryStart": false,
+                                      "isRushStart": false,
+                                      "usesCA": false,
+                                      "finishingSpecialVariant": null,
+                                      "includesEarlyDGaugeRecovery": true,
+                                      "finishingSuperArtName": null
+                                    },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T11:02:15.463Z",
                                     "children": []
@@ -786,21 +824,28 @@
                           }
                         ],
                         "specialNote": "",
-                        "branchStats": null,
+                        "branchStats": {
+                          "damage": null,
+                          "dGaugeChange": null,
+                          "saGaugeGain": null,
+                          "damageRating": null,
+                          "dGaugeRating": null,
+                          "saGaugeRating": null,
+                          "overallRating": null,
+                          "plusFrame": null,
+                          "isThrowRange": false,
+                          "canOkizeme": false,
+                          "startHitCondition": "カウンター",
+                          "isJustParryStart": false,
+                          "isRushStart": false,
+                          "usesCA": false,
+                          "finishingSpecialVariant": null,
+                          "includesEarlyDGaugeRecovery": true,
+                          "finishingSuperArtName": null
+                        },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-19T03:18:33.991Z",
-                        "children": [
-                          {
-                            "id": "mszivcst5fuzaemtbjh",
-                            "moveName": "SA3",
-                            "attributes": [],
-                            "specialNote": "",
-                            "branchStats": null,
-                            "createdBy": "ローカル",
-                            "createdAt": "2026-08-19T03:18:47.693Z",
-                            "children": []
-                          }
-                        ]
+                        "children": []
                       }
                     ]
                   }
@@ -916,6 +961,97 @@
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-17T11:19:36.151Z",
                 "children": []
+              },
+              {
+                "id": "mt5qnh33hy2kyolhebf",
+                "moveName": "キャンセルラッシュ",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": {
+                  "damage": null,
+                  "dGaugeChange": null,
+                  "saGaugeGain": null,
+                  "damageRating": null,
+                  "dGaugeRating": null,
+                  "saGaugeRating": null,
+                  "overallRating": null,
+                  "plusFrame": null,
+                  "isThrowRange": false,
+                  "canOkizeme": false,
+                  "startHitCondition": "カウンター",
+                  "isJustParryStart": false,
+                  "isRushStart": false,
+                  "usesCA": false,
+                  "finishingSpecialVariant": null,
+                  "includesEarlyDGaugeRecovery": true,
+                  "finishingSuperArtName": null
+                },
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-23T11:43:13.983Z",
+                "children": [
+                  {
+                    "id": "mt5qns29g58oj40n9f6",
+                    "moveName": "2強P",
+                    "attributes": [
+                      {
+                        "type": "rush"
+                      }
+                    ],
+                    "specialNote": "",
+                    "branchStats": {
+                      "damage": null,
+                      "dGaugeChange": null,
+                      "saGaugeGain": null,
+                      "damageRating": null,
+                      "dGaugeRating": null,
+                      "saGaugeRating": null,
+                      "overallRating": null,
+                      "plusFrame": null,
+                      "isThrowRange": false,
+                      "canOkizeme": false,
+                      "startHitCondition": "カウンター",
+                      "isJustParryStart": false,
+                      "isRushStart": false,
+                      "usesCA": false,
+                      "finishingSpecialVariant": null,
+                      "includesEarlyDGaugeRecovery": true,
+                      "finishingSuperArtName": null
+                    },
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-23T11:43:28.209Z",
+                    "children": [
+                      {
+                        "id": "mt5qnyyswxm8a1rkj2i",
+                        "moveName": "強サンライズ",
+                        "displayName": "強ライズ",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": {
+                          "damage": null,
+                          "dGaugeChange": null,
+                          "saGaugeGain": null,
+                          "damageRating": null,
+                          "dGaugeRating": null,
+                          "saGaugeRating": null,
+                          "overallRating": null,
+                          "plusFrame": null,
+                          "isThrowRange": false,
+                          "canOkizeme": false,
+                          "startHitCondition": "カウンター",
+                          "isJustParryStart": false,
+                          "isRushStart": false,
+                          "usesCA": false,
+                          "finishingSpecialVariant": null,
+                          "includesEarlyDGaugeRecovery": true,
+                          "finishingSuperArtName": null
+                        },
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-23T11:43:37.156Z",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -984,5 +1120,5 @@
   "namedComboGroups": [],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-23T05:36:43.996Z"
+  "updatedAt": "2026-08-23T12:14:34.873Z"
 }
