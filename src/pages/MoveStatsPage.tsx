@@ -45,7 +45,7 @@ const EMPTY_HIT: MoveHitStats = {
   minDamageGuaranteePercent: null,
   dGaugeGainDuringRush: null,
 };
-const EMPTY_STATS: MoveStats = { isMultiHit: false, hits: [EMPTY_HIT] };
+const EMPTY_STATS: MoveStats = { isMultiHit: false, hits: [EMPTY_HIT], cancelableSuperArtNames: [] };
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
 
@@ -112,6 +112,13 @@ export function MoveStatsPage() {
       ? move.specialVariantOptions.map((variant) => `${move.name}(${variant})`)
       : [move.name],
   );
+  // 「SAキャンセル」欄の選択肢。「SAで締める」機能（ノード側）と同じく、特殊性能なしの
+  // 単純なSAだけを対象にする（特殊性能ありのSAはfinishesComboOnSelectの仕組みが別にあるため）。
+  // CA（クリティカルアーツ）はSA3と同じ技のキャンセル可否になる（SA3へキャンセル可能なら
+  // CAへも可能）ため、独立したボタンは出さずSA3側のチェックだけで表す（ユーザー確認済み）
+  const cancelableSuperArtOptions = superArtMoves
+    .filter((move) => !move.hasSpecialVariant && move.name !== 'CA')
+    .map((move) => move.name);
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -144,6 +151,7 @@ export function MoveStatsPage() {
               moveNames={normalMoveNames}
               moveStats={moveStats}
               readOnly={readOnly}
+              cancelableSuperArtOptions={cancelableSuperArtOptions}
             />
           </AccordionSection>
 
@@ -160,6 +168,7 @@ export function MoveStatsPage() {
                 moveNames={specialMoveNames}
                 moveStats={moveStats}
                 readOnly={readOnly}
+                cancelableSuperArtOptions={cancelableSuperArtOptions}
               />
             ) : (
               <p style={styles.emptyHint}>
@@ -216,6 +225,7 @@ function MoveStatsTable({
   showMinGuaranteeColumn = false,
   showDuringRushColumn = false,
   saGaugeColumnLabel = 'SAゲージ回収',
+  cancelableSuperArtOptions = [],
 }: {
   characterId: string;
   moveNames: string[];
@@ -233,6 +243,9 @@ function MoveStatsTable({
   // SA自身は撃つとSAゲージを「消費」する（他の技のようにヒットで「回収」するわけではない）ため、
   // superArtセクションだけラベルを差し替えられるようにする
   saGaugeColumnLabel?: string;
+  // 「SAキャンセル」欄の選択肢。1件以上あれば技ごとにキャンセル可能なSAを選べるようにする。
+  // SA自身からSAへのキャンセルは無いため、superArt/systemセクションでは渡さない（空のまま）
+  cancelableSuperArtOptions?: string[];
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
@@ -242,9 +255,17 @@ function MoveStatsTable({
       characterId,
       moveName,
       current.isMultiHit
-        ? { isMultiHit: false, hits: [current.hits[0] ?? EMPTY_HIT] }
-        : { isMultiHit: true, hits: [current.hits[0] ?? EMPTY_HIT, EMPTY_HIT] },
+        ? { ...current, isMultiHit: false, hits: [current.hits[0] ?? EMPTY_HIT] }
+        : { ...current, isMultiHit: true, hits: [current.hits[0] ?? EMPTY_HIT, EMPTY_HIT] },
     );
+  };
+
+  const toggleCancelableSuperArt = (moveName: string, superArtName: string) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    const next = current.cancelableSuperArtNames.includes(superArtName)
+      ? current.cancelableSuperArtNames.filter((name) => name !== superArtName)
+      : [...current.cancelableSuperArtNames, superArtName];
+    setMoveStats(characterId, moveName, { ...current, cancelableSuperArtNames: next });
   };
 
   const updateHitField = (
@@ -320,6 +341,32 @@ function MoveStatsTable({
                 複数ヒット
               </label>
             </div>
+
+            {cancelableSuperArtOptions.length > 0 && (
+              <div style={styles.cancelRow}>
+                <span style={styles.cancelRowLabel}>SAキャンセル</span>
+                {cancelableSuperArtOptions.map((superArtName) => {
+                  const active = stats.cancelableSuperArtNames.includes(superArtName);
+                  return (
+                    <button
+                      key={superArtName}
+                      type="button"
+                      disabled={readOnly}
+                      onClick={() => toggleCancelableSuperArt(moveName, superArtName)}
+                      style={{
+                        ...styles.cancelPill,
+                        borderColor: active ? 'var(--accent)' : 'var(--border)',
+                        background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                        color: active ? '#fff' : 'var(--text-secondary)',
+                        cursor: readOnly ? 'default' : 'pointer',
+                      }}
+                    >
+                      {superArtName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {stats.isMultiHit ? (
               <div style={styles.hitsBlock}>
@@ -497,6 +544,27 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     color: 'var(--text-muted)',
     whiteSpace: 'nowrap',
+  },
+  cancelRow: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  cancelRowLabel: {
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'var(--text-muted)',
+    marginRight: 2,
+  },
+  cancelPill: {
+    height: 20,
+    padding: '0 8px',
+    borderRadius: 999,
+    border: '1.5px solid var(--border)',
+    fontSize: 11,
+    fontWeight: 700,
+    lineHeight: 1,
   },
   hitsBlock: {
     display: 'grid',

@@ -69,7 +69,7 @@ function makeHit(overrides: Partial<MoveHitStats> = {}): MoveHitStats {
 }
 
 function makeStats(hits: MoveHitStats[], isMultiHit = false): MoveStats {
-  return { isMultiHit, hits };
+  return { isMultiHit, hits, cancelableSuperArtNames: [] };
 }
 
 function makeMove(name: string, category: MoveCategory): MoveDefinition {

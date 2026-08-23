@@ -538,6 +538,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeGainDuringRush: null,
         },
       ],
+      cancelableSuperArtNames: [],
     });
 
     expect(useAppStore.getState().moveStatsDatabase[charA.id]['弱P'].hits[0].damage).toBe(300);
@@ -555,6 +556,7 @@ describe('技データベース（moveStatsDatabase）', () => {
         { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
         { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null },
       ],
+      cancelableSuperArtNames: [],
     });
 
     const stats = useAppStore.getState().moveStatsDatabase[char.id]['中K'];
@@ -594,9 +596,29 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeGainDuringRush: null,
         },
       ],
+      cancelableSuperArtNames: [],
     });
     // hitsが空配列で保存されていても、読み込み後は最低1要素に補完される
     expect(db[char.id]['2強K'].hits).toHaveLength(1);
+  });
+
+  it('restoreMoveStatsDatabaseはcancelableSuperArtNamesを保持しつつ、文字列以外の要素は取り除く', () => {
+    const [char] = useAppStore.getState().characters;
+
+    useAppStore.getState().restoreMoveStatsDatabase({
+      [char.id]: {
+        '強P': {
+          isMultiHit: false,
+          hits: [],
+          cancelableSuperArtNames: ['SA3', 42, null, 'SA1'],
+        },
+      },
+    });
+
+    expect(useAppStore.getState().moveStatsDatabase[char.id]['強P'].cancelableSuperArtNames).toEqual([
+      'SA3',
+      'SA1',
+    ]);
   });
 
   it('壊れたJSON（配列やnull）を読み込んでも空のデータベースにフォールバックする', () => {
@@ -614,6 +636,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeGainDuringRush: null,
         },
       ],
+      cancelableSuperArtNames: [],
     });
 
     useAppStore.getState().restoreMoveStatsDatabase(null);

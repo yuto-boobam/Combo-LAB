@@ -231,6 +231,14 @@ export type MoveHitStats = {
 export type MoveStats = {
   isMultiHit: boolean;
   hits: MoveHitStats[];
+  /**
+   * この技からキャンセル可能なSA(superArt)の名前一覧（例:["SA3"]）。末端ノードの
+   * 「コンボの情報」欄にある「SAで締める」選択肢は、このノードで実際に使っている技が
+   * 対象のSAへキャンセル可能な場合だけ選べるようにする（実機の技によって当然キャンセル
+   * 先が異なるため。技表を見ながらここで技ごとに登録する）。対象は特殊性能なしの単純な
+   * SAのみ（finishingSuperArtNameと同じ制約。詳細はcomboGaugeCalc.tsとMoveStatsPage.tsx参照）
+   */
+  cancelableSuperArtNames: string[];
 };
 
 /**
