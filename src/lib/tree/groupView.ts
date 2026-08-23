@@ -1,10 +1,11 @@
 // src/lib/tree/groupView.ts
 // 「共通区間を名前付きグループとして折りたたむ」機能の表示変換。
 //
-// MoveNode.groupId が分岐なし(children.length === 1)で連続する区間を、実データには
-// 一切手を加えず、描画直前だけ1個の合成ノード（ピル）にまとめた「表示用の木」に変換する。
-// 合成ノードの id は区間先頭ノードの実IDをそのまま使うため、layout.ts（{id, children}の
-// 形しか要求しない）・開閉アニメーション・接続線など既存の木描画の仕組みは無改造で動く。
+// MoveNode.groupId が連結された部分木全体（分岐があっても、分岐先の子が同じgroupIdなら
+// そのまま含める）を、実データには一切手を加えず、描画直前だけ1個の合成ノード（ピル）に
+// まとめた「表示用の木」に変換する。合成ノードの id は区間先頭ノードの実IDをそのまま使う
+// ため、layout.ts（{id, children}の形しか要求しない）・開閉アニメーション・接続線など
+// 既存の木描画の仕組みは無改造で動く。
 //
 // 展開表示中（expandedGroupIds に区間先頭IDが入っている）の区間はそのまま素通しする。
 // この場合は実ノードがそのまま描画されるため、選択・編集・D&D・コピー選択などの
@@ -27,20 +28,28 @@ export type GroupView = {
   expandedGroupStartMetaById: Map<string, GroupPillMeta>;
 };
 
-/** node から続く同じgroupIdの一本道を辿り、区間のメンバーID一覧と末尾ノードを返す */
-export function collectGroupChain(node: MoveNode, groupId: string): { memberIds: string[]; tail: MoveNode } {
+/** node から続く同じgroupIdの連結された部分木全体を辿り、区間のメンバーID一覧と、
+ * 区間の外に出た子ノード（分岐していれば複数になり得る）を返す */
+export function collectGroupChain(
+  node: MoveNode,
+  groupId: string,
+): { memberIds: string[]; boundaryChildren: MoveNode[] } {
   const memberIds: string[] = [];
-  let cursor = node;
+  const boundaryChildren: MoveNode[] = [];
 
-  while (cursor.groupId === groupId) {
-    memberIds.push(cursor.id);
-    if (cursor.children.length !== 1) break;
-    const next = cursor.children[0];
-    if (next.groupId !== groupId) break;
-    cursor = next;
-  }
+  const visit = (current: MoveNode) => {
+    memberIds.push(current.id);
+    current.children.forEach((child) => {
+      if (child.groupId === groupId) {
+        visit(child);
+      } else {
+        boundaryChildren.push(child);
+      }
+    });
+  };
 
-  return { memberIds, tail: cursor };
+  visit(node);
+  return { memberIds, boundaryChildren };
 }
 
 export function buildGroupView(
@@ -56,7 +65,7 @@ export function buildGroupView(
 
     if (startsNewGroup) {
       const groupId = node.groupId as string;
-      const { memberIds, tail } = collectGroupChain(node, groupId);
+      const { memberIds, boundaryChildren } = collectGroupChain(node, groupId);
       const meta: GroupPillMeta = {
         groupId,
         groupName: groupNameById.get(groupId) ?? '(不明なグループ)',
@@ -68,7 +77,7 @@ export function buildGroupView(
 
         return {
           ...node,
-          children: tail.children.map((child) => transform(child, undefined)),
+          children: boundaryChildren.map((child) => transform(child, undefined)),
         };
       }
 

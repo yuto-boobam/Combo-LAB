@@ -52,19 +52,41 @@ describe('buildGroupView', () => {
     expect(meta?.memberIds).toEqual(['b', 'c', 'd']);
   });
 
-  it('区間の途中に分岐があると、そこでグループが途切れる', () => {
-    // b -(g1)-> c -(g1)-> [d1, d2]  ※cが2子に分岐
+  it('分岐先の一方だけ同じgroupIdなら、そちらは吸収してもう一方だけ区間の外になる', () => {
+    // b -(g1)-> c -(g1)-> [d1(g1), d2(通常)]  ※cが2子に分岐
     const d1 = makeNode('d1', { groupId: 'g1' });
     const d2 = makeNode('d2');
     const c = makeNode('c', { groupId: 'g1', children: [d1, d2] });
     const b = makeNode('b', { groupId: 'g1', children: [c] });
     const root = makeNode('root', { children: [b] });
 
-    const { pillMetaById } = buildGroupView(root, new Map([['g1', 'コンボA']]), new Set());
+    const { viewRoot, pillMetaById } = buildGroupView(root, new Map([['g1', 'コンボA']]), new Set());
 
     const meta = pillMetaById.get('b');
-    // cで分岐するため、区間はb,cまで（d1はcの唯一の子ではないので含まれない）
-    expect(meta?.memberIds).toEqual(['b', 'c']);
+    // d1は同じgroupIdなので区間に吸収され、d2だけがピルの子(区間の外)になる
+    expect(meta?.memberIds).toEqual(['b', 'c', 'd1']);
+    const pill = viewRoot.children[0];
+    expect(pill.children.map((c) => c.id)).toEqual(['d2']);
+  });
+
+  it('分岐する部分木の全ノードが同じgroupIdなら、分岐ごと1個のピルにまとまる', () => {
+    // b -(g1)-> c -(g1)-> [d1(g1), d2(g1)]  ※cが2子とも同じgroupIdへ分岐
+    const d1 = makeNode('d1', { groupId: 'g1' });
+    const d2 = makeNode('d2', { groupId: 'g1' });
+    const c = makeNode('c', { groupId: 'g1', children: [d1, d2] });
+    const b = makeNode('b', { groupId: 'g1', children: [c] });
+    const root = makeNode('root', { children: [b] });
+
+    const { viewRoot, pillMetaById } = buildGroupView(root, new Map([['g1', 'コンボA']]), new Set());
+
+    // 分岐があっても1個のピルにまとまり、区間の外に出た子は無い(終端)
+    expect(viewRoot.children).toHaveLength(1);
+    const pill = viewRoot.children[0];
+    expect(pill.id).toBe('b');
+    expect(pill.children).toEqual([]);
+
+    const meta = pillMetaById.get('b');
+    expect(meta?.memberIds.sort()).toEqual(['b', 'c', 'd1', 'd2']);
   });
 
   it('expandedGroupIdsに区間先頭IDが入っていれば折りたたまず実ノードのまま描画する', () => {

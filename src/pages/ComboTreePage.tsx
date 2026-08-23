@@ -15,7 +15,7 @@ import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
-import { nodeWidthFor } from '../utils/nodeSizing';
+import { nodeWidthFor, GROUP_PILL_WIDTH } from '../utils/nodeSizing';
 import {
   computeTreeLayout,
   useNodeHeights,
@@ -73,12 +73,12 @@ function shiftPositions(
   return shifted;
 }
 
-// computeTreeLayoutへ渡すノードごとの幅の上書き。特殊記入があるノードだけ
-// nodeWidthForが広めの値を返すため、木のレイアウト計算とMoveNodeCircleの実際の
-// 見た目がズレないようにする
-function collectNodeWidths(node: MoveNode, widths: Record<string, number>): void {
-  widths[node.id] = nodeWidthFor(node);
-  node.children.forEach((child) => collectNodeWidths(child, widths));
+// computeTreeLayoutへ渡すノードごとの幅の上書き。特殊記入があるノードや
+// グループピル（pillIds）は広めの値を返すため、木のレイアウト計算と実際の
+// 見た目（MoveNodeCircle/GroupPillNode）がズレないようにする
+function collectNodeWidths(node: MoveNode, widths: Record<string, number>, pillIds?: Set<string>): void {
+  widths[node.id] = pillIds?.has(node.id) ? GROUP_PILL_WIDTH : nodeWidthFor(node);
+  node.children.forEach((child) => collectNodeWidths(child, widths, pillIds));
 }
 
 export function ComboTreePage() {
@@ -361,7 +361,7 @@ export function ComboTreePage() {
       groupView.expandedGroupStartMetaById.forEach((meta, id) => expandedGroupStartMetaById.set(id, meta));
 
       const nodeWidths: Record<string, number> = {};
-      collectNodeWidths(viewRoot, nodeWidths);
+      collectNodeWidths(viewRoot, nodeWidths, new Set(groupView.pillMetaById.keys()));
       const layout = computeTreeLayout(viewRoot, collapsedSet, nodeHeights, TREE_LAYOUT_CONFIG, nodeWidths);
 
       const columns: TaggedColumn[] = [];
@@ -612,14 +612,7 @@ export function ComboTreePage() {
                           id={rootId}
                           groupName={pillMeta.groupName}
                           memberCount={pillMeta.memberIds.length}
-                          hasChildren={block.viewRoot.children.length > 0}
-                          isExpanded={!collapsedSet.has(rootId)}
                           onExpand={() => toggleGroupExpanded(rootId)}
-                          onToggleExpand={
-                            block.viewRoot.children.length > 0
-                              ? () => toggleNodeExpanded(rootId)
-                              : undefined
-                          }
                           parentId={null}
                           dragIndex={0}
                           readOnly={isGuest}
@@ -691,12 +684,7 @@ export function ComboTreePage() {
                             id={node.id}
                             groupName={pillMeta.groupName}
                             memberCount={pillMeta.memberIds.length}
-                            hasChildren={node.children.length > 0}
-                            isExpanded={!collapsedSet.has(node.id)}
                             onExpand={() => toggleGroupExpanded(node.id)}
-                            onToggleExpand={
-                              node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
-                            }
                             parentId={column.parentId}
                             dragIndex={nodeIndex}
                             readOnly={isGuest}

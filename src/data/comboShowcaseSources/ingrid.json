@@ -545,7 +545,8 @@
                         },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-18T10:49:59.273Z",
-                        "children": []
+                        "children": [],
+                        "groupId": "mt5w8y69tao6a3rwmei"
                       },
                       {
                         "id": "msyjk8ldog41wgaemd",
@@ -571,7 +572,8 @@
                         },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-18T10:50:22.465Z",
-                        "children": []
+                        "children": [],
+                        "groupId": "mt5w8y69tao6a3rwmei"
                       },
                       {
                         "id": "msyjl1nfsvifxlheoda",
@@ -614,9 +616,11 @@
                             },
                             "createdBy": "ローカル",
                             "createdAt": "2026-08-18T10:51:11.044Z",
-                            "children": []
+                            "children": [],
+                            "groupId": "mt5w8y69tao6a3rwmei"
                           }
-                        ]
+                        ],
+                        "groupId": "mt5w8y69tao6a3rwmei"
                       },
                       {
                         "id": "msyjkou5fq3217b7k7t",
@@ -683,7 +687,8 @@
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-23T11:04:18.843Z",
-                                    "children": []
+                                    "children": [],
+                                    "groupId": "mt5w8y69tao6a3rwmei"
                                   },
                                   {
                                     "id": "msyjmxad5qibqrbixhv",
@@ -710,13 +715,17 @@
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T10:52:27.781Z",
-                                    "children": []
+                                    "children": [],
+                                    "groupId": "mt5w8y69tao6a3rwmei"
                                   }
-                                ]
+                                ],
+                                "groupId": "mt5w8y69tao6a3rwmei"
                               }
-                            ]
+                            ],
+                            "groupId": "mt5w8y69tao6a3rwmei"
                           }
-                        ]
+                        ],
+                        "groupId": "mt5w8y69tao6a3rwmei"
                       },
                       {
                         "id": "msyjxzn5abw89vdr2uk",
@@ -777,7 +786,8 @@
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-23T11:04:45.994Z",
-                                    "children": []
+                                    "children": [],
+                                    "groupId": "mt5w8y69tao6a3rwmei"
                                   },
                                   {
                                     "id": "msyjziqvgpefjtle2lm",
@@ -806,14 +816,18 @@
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T11:02:15.463Z",
-                                    "children": []
+                                    "children": [],
+                                    "groupId": "mt5w8y69tao6a3rwmei"
                                   }
-                                ]
+                                ],
+                                "groupId": "mt5w8y69tao6a3rwmei"
                               }
-                            ]
+                            ],
+                            "groupId": "mt5w8y69tao6a3rwmei"
                           }
                         ],
-                        "usesOD": true
+                        "usesOD": true,
+                        "groupId": "mt5w8y69tao6a3rwmei"
                       },
                       {
                         "id": "msziv287omeq39vqzk",
@@ -845,9 +859,11 @@
                         },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-19T03:18:33.991Z",
-                        "children": []
+                        "children": [],
+                        "groupId": "mt5w8y69tao6a3rwmei"
                       }
-                    ]
+                    ],
+                    "groupId": "mt5w8y69tao6a3rwmei"
                   }
                 ]
               },
@@ -1117,8 +1133,13 @@
       }
     }
   ],
-  "namedComboGroups": [],
+  "namedComboGroups": [
+    {
+      "id": "mt5w8y69tao6a3rwmei",
+      "name": "地上強ライズコンボ"
+    }
+  ],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-23T12:14:34.873Z"
+  "updatedAt": "2026-08-23T14:19:53.985Z"
 }

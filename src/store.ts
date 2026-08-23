@@ -26,7 +26,7 @@ import {
 import { MOVE_STATS_SEED } from './data/moveStatsSeed';
 import { canEditMoveStatsLocally } from './utils/localEditAccess';
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
-import { findNode, buildParentMap } from './lib/tree';
+import { findNode, buildParentMap, collectGroupChain } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
 import { collectChain, findMatchingChains } from './utils/chainMatch';
 
@@ -549,6 +549,25 @@ export type AppState = {
   startEditingMatch: (nodeId: string) => void;
   /** 選択中ノードの編集前後の差分を、他の一致箇所すべてに反映する。完了後は一覧ごと終了する */
   propagateMatchChanges: (characterId: string) => void;
+
+  // ── 一致箇所を丸ごと置換 ──────────────────────────────────────────────
+  // matchedAnchorIdsが確定している間、置換後にしたい内容の起点ノードを選んで
+  // startReplaceSelectionを呼ぶと、一本道クリック選択モードになる（matchModeAnchorIdと同じ操作感）。
+  // confirmReplaceSelectionで確定した内容(replacementChainIds)を、propagateReplaceChangesで
+  // 置換元以外の一致箇所すべてに複製する。各箇所が元々持っていた「置換範囲より下の続き」は保持する。
+  replaceModeAnchorId: string | null;
+  replaceSelectedIds: string[];
+  startReplaceSelection: (nodeId: string) => void;
+  setReplaceSelectedIds: (nodeIds: string[]) => void;
+  cancelReplaceSelection: () => void;
+
+  /** 選択範囲を置換内容として確定する（検索はせず、選択モードを終了するだけ） */
+  confirmReplaceSelection: () => void;
+  /** 確定済みの置換内容の起点ノードID一覧。nullなら未確定 */
+  replacementChainIds: string[] | null;
+  /** replacementChainIdsの内容を、matchedAnchorIdsのうち置換元以外の全箇所に複製する。
+   * 完了後は一致箇所の一覧ごと終了する */
+  propagateReplaceChanges: (characterId: string) => void;
 };
 
 // ── ストア本体 ─────────────────────────────────────────────────────────────
@@ -1075,6 +1094,9 @@ export const useAppStore = create<AppState>()(
           matchSelectedIds: [],
           matchedAnchorIds: null,
           matchEditBeforeSnapshot: null,
+          replaceModeAnchorId: null,
+          replaceSelectedIds: [],
+          replacementChainIds: null,
         });
       },
 
@@ -1178,6 +1200,9 @@ export const useAppStore = create<AppState>()(
           matchSelectedIds: [],
           matchedAnchorIds: null,
           matchEditBeforeSnapshot: null,
+          replaceModeAnchorId: null,
+          replaceSelectedIds: [],
+          replacementChainIds: null,
         });
       },
 
@@ -1223,6 +1248,9 @@ export const useAppStore = create<AppState>()(
             groupModeAnchorId: null,
             groupSelectedIds: [],
             groupModeRuns: [],
+            // グループ化の選択中に、途中にあった既存のピルを展開して通り抜けている
+            // ことがあるため、確定時に一旦すべて畳んだ状態へ戻す
+            expandedGroupIds: [],
           };
 
           // 今編集中の枝が残っていれば、確定済みの枝リストに含めてから一括で反映する
@@ -1306,11 +1334,30 @@ export const useAppStore = create<AppState>()(
       expandedGroupIds: [],
 
       toggleGroupExpanded: (pillId) => {
-        set((state) => ({
-          expandedGroupIds: state.expandedGroupIds.includes(pillId)
-            ? state.expandedGroupIds.filter((id) => id !== pillId)
-            : [...state.expandedGroupIds, pillId],
-        }));
+        set((state) => {
+          const isExpanding = !state.expandedGroupIds.includes(pillId);
+          const expandedGroupIds = isExpanding
+            ? [...state.expandedGroupIds, pillId]
+            : state.expandedGroupIds.filter((id) => id !== pillId);
+
+          if (!isExpanding) return { expandedGroupIds };
+
+          // 展開時は、区間内の実ノードが個別の折りたたみ状態のせいで一部隠れたまま
+          // にならないよう、区間のメンバー全員を強制的に開いた状態にする
+          let memberIds: string[] = [];
+          for (const character of state.characters) {
+            const found = findNodeInComboTrees(character.comboTrees, pillId);
+            if (found?.node.groupId) {
+              memberIds = collectGroupChain(found.node, found.node.groupId).memberIds;
+              break;
+            }
+          }
+
+          return {
+            expandedGroupIds,
+            collapsedNodeIds: state.collapsedNodeIds.filter((id) => !memberIds.includes(id)),
+          };
+        });
       },
 
       // ──「一致箇所への一括反映」機能 ────────────────────────────────
@@ -1332,6 +1379,9 @@ export const useAppStore = create<AppState>()(
           groupModeAnchorId: null,
           groupSelectedIds: [],
           groupModeRuns: [],
+          replaceModeAnchorId: null,
+          replaceSelectedIds: [],
+          replacementChainIds: null,
         });
       },
 
@@ -1346,6 +1396,9 @@ export const useAppStore = create<AppState>()(
           matchedAnchorIds: null,
           matchEditBeforeSnapshot: null,
           matchChainLength: 0,
+          replaceModeAnchorId: null,
+          replaceSelectedIds: [],
+          replacementChainIds: null,
         });
       },
 
@@ -1383,7 +1436,14 @@ export const useAppStore = create<AppState>()(
       },
 
       clearMatchResults: () => {
-        set({ matchedAnchorIds: null, matchEditBeforeSnapshot: null, matchChainLength: 0 });
+        set({
+          matchedAnchorIds: null,
+          matchEditBeforeSnapshot: null,
+          matchChainLength: 0,
+          replaceModeAnchorId: null,
+          replaceSelectedIds: [],
+          replacementChainIds: null,
+        });
       },
 
       matchEditBeforeSnapshot: null,
@@ -1487,6 +1547,100 @@ export const useAppStore = create<AppState>()(
 
                 return nextRoot;
               });
+            });
+
+          return { characters: nextCharacters, ...resetState };
+        });
+      },
+
+      // ── 一致箇所を丸ごと置換 ──────────────────────────────────────────
+
+      replaceModeAnchorId: null,
+      replaceSelectedIds: [],
+      replacementChainIds: null,
+
+      startReplaceSelection: (nodeId) => {
+        set({
+          replaceModeAnchorId: nodeId,
+          replaceSelectedIds: [],
+          replacementChainIds: null,
+          selectedNodeId: null,
+        });
+      },
+
+      setReplaceSelectedIds: (nodeIds) => {
+        set({ replaceSelectedIds: nodeIds });
+      },
+
+      cancelReplaceSelection: () => {
+        set({ replaceModeAnchorId: null, replaceSelectedIds: [], replacementChainIds: null });
+      },
+
+      confirmReplaceSelection: () => {
+        set((state) => {
+          if (!state.replaceModeAnchorId) return { replaceModeAnchorId: null, replaceSelectedIds: [] };
+
+          return {
+            replaceModeAnchorId: null,
+            replaceSelectedIds: [],
+            replacementChainIds: [state.replaceModeAnchorId, ...state.replaceSelectedIds],
+          };
+        });
+      },
+
+      propagateReplaceChanges: (characterId) => {
+        set((state) => {
+          const { matchedAnchorIds, matchChainLength, replacementChainIds } = state;
+          const resetState = {
+            matchedAnchorIds: null,
+            matchEditBeforeSnapshot: null,
+            matchChainLength: 0,
+            replacementChainIds: null,
+          };
+
+          if (!matchedAnchorIds || !replacementChainIds || replacementChainIds.length === 0) return resetState;
+
+          const character = state.characters.find((item) => item.id === characterId);
+          if (!character) return resetState;
+
+          const replacementChain = replacementChainIds
+            .map((id) => findNodeInComboTrees(character.comboTrees, id)?.node)
+            .filter((node): node is MoveNode => node !== undefined);
+          if (replacementChain.length !== replacementChainIds.length) return resetState;
+
+          const replacementSourceAnchorId = replacementChainIds[0];
+
+          const cloneAsSubtree = (chain: MoveNode[], tailChildren: MoveNode[]): MoveNode => {
+            const [head, ...rest] = chain;
+            return {
+              ...head,
+              id: makeId(),
+              branchStats: null,
+              children: rest.length > 0 ? [cloneAsSubtree(rest, tailChildren)] : tailChildren,
+            };
+          };
+
+          let nextCharacters = state.characters;
+
+          matchedAnchorIds
+            .filter((anchorId) => anchorId !== replacementSourceAnchorId)
+            .forEach((anchorId) => {
+              const currentCharacter = nextCharacters.find((item) => item.id === characterId);
+              const found = currentCharacter
+                ? findNodeInComboTrees(currentCharacter.comboTrees, anchorId)
+                : null;
+              if (!found) return;
+
+              const targetChain = collectChain(found.node, matchChainLength);
+              if (!targetChain) return;
+
+              // 置換範囲より下、各箇所が個別に持つ続き（枝分かれ後の内容）は保持する
+              const preservedChildren = targetChain[targetChain.length - 1].children;
+              const replacementSubtree = cloneAsSubtree(replacementChain, preservedChildren);
+
+              nextCharacters = updateComboTreeRoot(nextCharacters, characterId, found.tree.id, (root) =>
+                mapMoveNode(root, targetChain[0].id, () => replacementSubtree),
+              );
             });
 
           return { characters: nextCharacters, ...resetState };

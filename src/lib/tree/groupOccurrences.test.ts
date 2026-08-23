@@ -114,6 +114,30 @@ describe('findGroupOccurrences', () => {
     expect(occurrences.find((o) => o.groupId === 'g2')?.memberIds).toEqual(['c', 'd']);
   });
 
+  it('分岐する区間(両方の子が同じgroupId)は、occurrence.rootに分岐構造ごと複製される', () => {
+    // b(g1) -> c(g1) -> [d1(g1), d2(g1)]  ※cが2子とも同じgroupIdへ分岐
+    const d1 = makeNode('d1', { groupId: 'g1' });
+    const d2 = makeNode('d2', { groupId: 'g1' });
+    const c = makeNode('c', { groupId: 'g1', children: [d1, d2] });
+    const b = makeNode('b', { groupId: 'g1', children: [c] });
+    const root = makeNode('root', { children: [b] });
+
+    const occurrences = findGroupOccurrences(
+      [{ id: 't1', label: '木1', root }],
+      new Map([['g1', 'コンボA']]),
+    );
+
+    expect(occurrences).toHaveLength(1);
+    const occurrence = occurrences[0];
+    expect(occurrence.memberIds.sort()).toEqual(['b', 'c', 'd1', 'd2']);
+
+    // 表示用の木もb→c→[d1,d2]の分岐構造をそのまま保つ
+    expect(occurrence.root.id).toBe('b');
+    expect(occurrence.root.children[0].id).toBe('c');
+    expect(occurrence.root.children[0].children.map((n) => n.id).sort()).toEqual(['d1', 'd2']);
+    expect(occurrence.root.children[0].children[0].children).toEqual([]);
+  });
+
   it('グループ名の昇順(日本語)にソートして返す', () => {
     const rootA = makeNode('rootA', { children: [makeNode('a', { groupId: 'gZ' })] });
     const rootB = makeNode('rootB', { children: [makeNode('b', { groupId: 'gA' })] });
