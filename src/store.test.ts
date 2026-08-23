@@ -3,6 +3,7 @@ import { useAppStore } from './store';
 import type { Character, MoveNode } from './types';
 import { createInitialCharacterRoster } from './data/characterRoster';
 import { buildGroupView } from './lib/tree';
+import { findNodeInComboTrees } from './utils/comboTreeSearch';
 
 function getCharacter(id: string): Character {
   const character = useAppStore.getState().characters.find((c) => c.id === id);
@@ -442,6 +443,9 @@ describe('一致箇所への一括反映機能', () => {
       matchChainLength: 0,
       matchEditBeforeSnapshot: null,
       selectedNodeId: null,
+      replaceModeAnchorId: null,
+      replaceSelectedIds: [],
+      replacementChainIds: null,
     });
   });
 
@@ -538,6 +542,80 @@ describe('一致箇所への一括反映機能', () => {
     // 反映後はモードごと完全に終了する
     expect(useAppStore.getState().matchedAnchorIds).toBeNull();
     expect(useAppStore.getState().matchEditBeforeSnapshot).toBeNull();
+  });
+
+  it('一致箇所を丸ごと別の内容に置換しても、各箇所が個別に持つ続きは保持される', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const source = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+    const target = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+    const replaceSource = buildNamedChainTree(characterId, ['x', 'y']);
+
+    const store = useAppStore.getState();
+    // targetのr(末尾)に元々あった独自の続き。置換後も繋ぎ直されることを確認する対象
+    const preExistingId = store.addChildNode(characterId, target.treeId, target.ids[2], '既存の続き');
+
+    useAppStore.getState().startMatchMode(source.ids[0]);
+    useAppStore.getState().setMatchSelectedIds([source.ids[1], source.ids[2]]);
+    useAppStore.getState().confirmMatchSearch(characterId, false);
+    expect(useAppStore.getState().matchChainLength).toBe(3);
+
+    useAppStore.getState().startReplaceSelection(replaceSource.ids[0]);
+    useAppStore.getState().setReplaceSelectedIds([replaceSource.ids[1]]);
+    useAppStore.getState().confirmReplaceSelection();
+    expect(useAppStore.getState().replacementChainIds).toEqual([replaceSource.ids[0], replaceSource.ids[1]]);
+
+    useAppStore.getState().propagateReplaceChanges(characterId);
+
+    const character = getCharacter(characterId);
+
+    const sourceTree = character.comboTrees.find((t) => t.id === source.treeId)!;
+    const sourceX = findNodeByMoveName(sourceTree.root, 'x');
+    expect(sourceX.id).not.toBe(source.ids[0]); // 丸ごと差し替えなので新しいID
+    expect(sourceX.children).toHaveLength(1);
+    expect(sourceX.children[0].moveName).toBe('y');
+    expect(sourceX.children[0].children).toHaveLength(0); // 元々続きが無かった箇所は空のまま
+    expect(findNodeInComboTrees(character.comboTrees, source.ids[1])).toBeNull(); // 旧'q'は消える
+    expect(findNodeInComboTrees(character.comboTrees, source.ids[2])).toBeNull(); // 旧'r'は消える
+
+    const targetTree = character.comboTrees.find((t) => t.id === target.treeId)!;
+    const targetX = findNodeByMoveName(targetTree.root, 'x');
+    const targetY = targetX.children[0];
+    expect(targetY.moveName).toBe('y');
+    const preserved = targetY.children.find((c) => c.id === preExistingId);
+    expect(preserved?.moveName).toBe('既存の続き'); // 個別の続きはそのまま繋ぎ直される
+
+    // 置換内容のコピー元(replaceSource自身)は一致箇所ではないため変更されない
+    const replaceSourceTree = character.comboTrees.find((t) => t.id === replaceSource.treeId)!;
+    expect(findNodeByMoveName(replaceSourceTree.root, 'x').id).toBe(replaceSource.ids[0]);
+
+    // 反映後はモードごと完全に終了する
+    expect(useAppStore.getState().matchedAnchorIds).toBeNull();
+    expect(useAppStore.getState().replacementChainIds).toBeNull();
+  });
+
+  it('置換元として使ったノード自身が一致箇所に含まれる場合はスキップされる', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const source = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+    const target = buildNamedChainTree(characterId, ['p', 'q', 'r']);
+
+    useAppStore.getState().startMatchMode(source.ids[0]);
+    useAppStore.getState().setMatchSelectedIds([source.ids[1], source.ids[2]]);
+    useAppStore.getState().confirmMatchSearch(characterId, false);
+
+    // 一致箇所(source)自身を編集してから、置換内容として選ぶ
+    useAppStore.getState().updateNodeMoveName(characterId, source.treeId, source.ids[0], 'p改');
+    useAppStore.getState().startReplaceSelection(source.ids[0]);
+    useAppStore.getState().setReplaceSelectedIds([source.ids[1]]);
+    useAppStore.getState().confirmReplaceSelection();
+    useAppStore.getState().propagateReplaceChanges(characterId);
+
+    const character = getCharacter(characterId);
+    const sourceTree = character.comboTrees.find((t) => t.id === source.treeId)!;
+    // 置換元自身はスキップされ、編集した内容のまま(idも変わらない)
+    expect(findNodeByMoveName(sourceTree.root, 'p改').id).toBe(source.ids[0]);
+
+    const targetTree = character.comboTrees.find((t) => t.id === target.treeId)!;
+    expect(findNodeByMoveName(targetTree.root, 'p改').id).not.toBe(target.ids[0]);
   });
 });
 

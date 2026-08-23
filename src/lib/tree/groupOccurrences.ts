@@ -1,8 +1,8 @@
 // src/lib/tree/groupOccurrences.ts
 // 「グループ表示モード」用: 名前付きグループの全出現箇所を、木を横断して集める。
-// groupView.ts の buildGroupView と同じ「groupIdが分岐なしで連続する区間」判定
+// groupView.ts の buildGroupView と同じ「groupIdで連結された部分木全体」判定
 // (collectGroupChain) を使うが、ピルに折りたたむのではなく、区間そのものを
-// 「1本道の表示用の木」として取り出す（実データには一切手を入れない）。
+// 「分岐を保ったままの表示用の木」として取り出す（実データには一切手を入れない）。
 
 import type { MoveNode } from '../../types';
 import { collectGroupChain } from './groupView';
@@ -12,28 +12,22 @@ export type GroupOccurrence = {
   groupName: string;
   treeId: string;
   treeLabel: string;
-  /** 区間内の実ノードID（先頭→末尾の順） */
+  /** 区間内の実ノードID（先頭からの走査順） */
   memberIds: string[];
   /**
-   * 区間だけを1本道にした表示用の木。実ノードのシャロークローンで、末尾ノードの
-   * children は含めない（区間の外＝別のグループ/通常ノードはこの一覧では表示しないため）
+   * 区間だけを取り出した表示用の木（分岐があればそのまま保つ）。実ノードのシャロー
+   * クローンで、区間の外に出た子は含めない（別のグループ/通常ノードはこの一覧では
+   * 表示しないため）
    */
   root: MoveNode;
 };
 
-function buildOccurrenceRoot(startNode: MoveNode, memberCount: number): MoveNode {
-  const chain: MoveNode[] = [];
-  let cursor = startNode;
-  for (let i = 0; i < memberCount; i += 1) {
-    chain.push(cursor);
-    if (i < memberCount - 1) cursor = cursor.children[0];
-  }
-
-  let built: MoveNode = { ...chain[chain.length - 1], children: [] };
-  for (let i = chain.length - 2; i >= 0; i -= 1) {
-    built = { ...chain[i], children: [built] };
-  }
-  return built;
+function buildOccurrenceRoot(startNode: MoveNode, groupId: string): MoveNode {
+  const clone = (node: MoveNode): MoveNode => ({
+    ...node,
+    children: node.children.filter((child) => child.groupId === groupId).map(clone),
+  });
+  return clone(startNode);
 }
 
 /**
@@ -57,7 +51,7 @@ export function findGroupOccurrences(
 
     if (startsNewGroup) {
       const groupId = node.groupId as string;
-      const { memberIds, tail } = collectGroupChain(node, groupId);
+      const { memberIds, boundaryChildren } = collectGroupChain(node, groupId);
 
       occurrences.push({
         groupId,
@@ -65,10 +59,10 @@ export function findGroupOccurrences(
         treeId,
         treeLabel,
         memberIds,
-        root: buildOccurrenceRoot(node, memberIds.length),
+        root: buildOccurrenceRoot(node, groupId),
       });
 
-      tail.children.forEach((child) => visit(child, undefined, treeId, treeLabel));
+      boundaryChildren.forEach((child) => visit(child, undefined, treeId, treeLabel));
       return;
     }
 

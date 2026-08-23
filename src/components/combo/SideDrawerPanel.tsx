@@ -47,6 +47,7 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const groupModeActive = useAppStore((state) => state.groupModeActive);
   const matchModeAnchorId = useAppStore((state) => state.matchModeAnchorId);
   const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
+  const replaceModeAnchorId = useAppStore((state) => state.replaceModeAnchorId);
   const clipboard = useAppStore((state) => state.clipboard);
 
   const selectedInfo = findNodeInComboTrees(comboTrees, selectedNodeId);
@@ -70,6 +71,8 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
           <GroupModePanel characterId={characterId} comboTrees={comboTrees} />
         ) : matchModeAnchorId ? (
           <MatchModePanel characterId={characterId} comboTrees={comboTrees} />
+        ) : replaceModeAnchorId ? (
+          <ReplaceSelectionPanel comboTrees={comboTrees} />
         ) : selectedInfo ? (
           // selectedNode.id をkeyにすることで、ノードを切り替えるたびに
           // NodeEditor をマウントし直し、新規追加フォームの入力状態を自然にリセットする
@@ -351,6 +354,62 @@ function MatchModePanel({
   );
 }
 
+function ReplaceSelectionPanel({ comboTrees }: { comboTrees: ComboTree[] }) {
+  const replaceModeAnchorId = useAppStore((state) => state.replaceModeAnchorId);
+  const replaceSelectedIds = useAppStore((state) => state.replaceSelectedIds);
+  const cancelReplaceSelection = useAppStore((state) => state.cancelReplaceSelection);
+  const confirmReplaceSelection = useAppStore((state) => state.confirmReplaceSelection);
+  const [isOpen, setIsOpen] = useState(true);
+
+  const anchorNode = replaceModeAnchorId
+    ? findNodeInComboTrees(comboTrees, replaceModeAnchorId)?.node ?? null
+    : null;
+  const count = replaceSelectedIds.length + 1;
+
+  return (
+    <AccordionSection
+      title="置換内容を選ぶ"
+      icon="🔁"
+      count={count}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        <p style={styles.hint}>
+          「{anchorNode?.moveName}」から続く一本道の技をクリックして、置換後の内容として使う範囲を選んでください
+          （分岐がある技より先は選べません。ここで選んだ内容が、一致箇所すべての置換範囲と丸ごと入れ替わります）。
+        </p>
+
+        <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
+          {count}個の技を選択中
+        </p>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn-primary justify-center"
+            style={{ flex: 1 }}
+            onClick={confirmReplaceSelection}
+          >
+            この内容に決定する
+          </button>
+          <button type="button" style={styles.dangerButton} onClick={cancelReplaceSelection}>
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </AccordionSection>
+  );
+}
+
+/** 置換内容プレビュー用に、選択されたチェーンだけをたどる仮のノードを組み立てる
+ * （ChainPreviewRowが渡されたノードの実際の子をそのまま辿ってしまうため、
+ * 選択範囲より先の実データを誤って表示しないようにする） */
+function buildChainPreviewNode(chain: MoveNode[]): MoveNode {
+  const [head, ...rest] = chain;
+  return { ...head, children: rest.length > 0 ? [buildChainPreviewNode(rest)] : [] };
+}
+
 function MatchResultsPanel({
   characterId,
   comboTrees,
@@ -364,6 +423,9 @@ function MatchResultsPanel({
   const startEditingMatch = useAppStore((state) => state.startEditingMatch);
   const clearMatchResults = useAppStore((state) => state.clearMatchResults);
   const propagateMatchChanges = useAppStore((state) => state.propagateMatchChanges);
+  const replacementChainIds = useAppStore((state) => state.replacementChainIds);
+  const cancelReplaceSelection = useAppStore((state) => state.cancelReplaceSelection);
+  const propagateReplaceChanges = useAppStore((state) => state.propagateReplaceChanges);
   const [isOpen, setIsOpen] = useState(true);
 
   if (!matchedAnchorIds) return null;
@@ -379,6 +441,15 @@ function MatchResultsPanel({
     : null;
   const targetCount = matchedAnchorIds.length - 1; // 自分以外の一致箇所
 
+  const replacementChain = replacementChainIds
+    ?.map((id) => findNodeInComboTrees(comboTrees, id)?.node)
+    .filter((node): node is MoveNode => node !== undefined);
+  const isReplacementReady =
+    replacementChain !== undefined && replacementChain.length === replacementChainIds?.length;
+  const replaceTargetCount = isReplacementReady
+    ? matchedAnchorIds.filter((id) => id !== replacementChainIds?.[0]).length
+    : 0;
+
   return (
     <AccordionSection
       title="一致箇所への一括反映"
@@ -391,7 +462,7 @@ function MatchResultsPanel({
         <p style={styles.hint}>
           {matchedAnchorIds.length <= 1
             ? '他に一致する枝は見つかりませんでした。'
-            : '一覧から1つ選んで普通に編集してください。編集後、他の一致箇所へも反映できます。'}
+            : '一覧から1つ選んで普通に編集してください。編集後、他の一致箇所へも反映できます。ノードを選んで「🔁 ここまでを置換内容にする」を押すと、一致箇所を丸ごと別の内容に置き換えることもできます。'}
         </p>
 
         <div style={{ display: 'grid', gap: 6 }}>
@@ -429,6 +500,30 @@ function MatchResultsPanel({
             >
               他の一致箇所に反映（対象{targetCount}件）
             </button>
+          </div>
+        )}
+
+        {isReplacementReady && replacementChain && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <p style={styles.previewLabel}>置換後の内容（各箇所の個別の続きはそのまま保持されます）</p>
+              <ChainPreviewRow root={buildChainPreviewNode(replacementChain)} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn-primary justify-center"
+                style={{ flex: 1 }}
+                disabled={replaceTargetCount === 0}
+                onClick={() => propagateReplaceChanges(characterId)}
+              >
+                この内容に一斉置換する（対象{replaceTargetCount}件）
+              </button>
+              <button type="button" style={styles.dangerButton} onClick={cancelReplaceSelection}>
+                キャンセル
+              </button>
+            </div>
           </div>
         )}
 
@@ -680,6 +775,8 @@ function NodeEditor({
   const startCopyMode = useAppStore((state) => state.startCopyMode);
   const startGroupMode = useAppStore((state) => state.startGroupMode);
   const startMatchMode = useAppStore((state) => state.startMatchMode);
+  const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
+  const startReplaceSelection = useAppStore((state) => state.startReplaceSelection);
   const ungroupNode = useAppStore((state) => state.ungroupNode);
   const groupName = useAppStore((state) => {
     if (!selectedNode.groupId) return null;
@@ -918,6 +1015,17 @@ function NodeEditor({
           >
             🔍 ここから一致箇所を探す
           </button>
+
+          {matchedAnchorIds && (
+            <button
+              type="button"
+              className="btn-ghost justify-center"
+              style={{ width: '100%' }}
+              onClick={() => startReplaceSelection(selectedNode.id)}
+            >
+              🔁 ここまでを置換内容にする
+            </button>
+          )}
 
           {groupName ? (
             <div style={{ display: 'grid', gap: 6 }}>

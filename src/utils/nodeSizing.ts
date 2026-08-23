@@ -17,6 +17,9 @@ export const NODE_DEFAULT_HEIGHT = 34;
 // （ユーザー確認済み）。ComboTreePage側のcomputeTreeLayoutへ渡すwidthsマップも
 // nodeWidthForで同じ値を使い、レイアウトと実際の見た目がズレないようにする
 export const SPECIAL_NOTE_EXTRA_WIDTH = 20;
+// 名前付きグループの折りたたみピル(GroupPillNode)専用の幅。技名1つ分より長くなりがちな
+// グループ名が見切れにくいよう、通常ノードより広めにする（2026-08-23ユーザー指定）
+export const GROUP_PILL_WIDTH = 96;
 
 export function nodeWidthFor(node: Pick<MoveNode, 'specialNote'>): number {
   return node.specialNote ? NODE_WIDTH + SPECIAL_NOTE_EXTRA_WIDTH : NODE_WIDTH;

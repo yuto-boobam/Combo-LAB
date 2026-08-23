@@ -12,13 +12,11 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+5",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "中P": {
@@ -33,13 +31,11 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "強P": {
@@ -54,13 +50,11 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "弱K": {
@@ -75,13 +69,11 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "中K": {
@@ -96,13 +88,11 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "強K": {
@@ -117,7 +107,7 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         },
         {
@@ -129,14 +119,12 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
-      "sharesModifierAcrossHits": true
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
     },
     "2弱P": {
       "isMultiHit": false,
@@ -150,13 +138,11 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "2中P": {
@@ -171,13 +157,11 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+6",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "2強P": {
@@ -192,13 +176,11 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "2弱K": {
@@ -213,7 +195,7 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -232,13 +214,11 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "2強K": {
@@ -253,7 +233,7 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+30",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -292,12 +272,10 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": "+47~60"
+          "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "J強P": {
@@ -313,7 +291,7 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": "+15~+28"
+          "airPlusFrame": ""
         }
       ],
       "cancelableSuperArtNames": [],
@@ -388,7 +366,7 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -407,8 +385,8 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+38",
-          "airPlusFrame": "+42"
+          "groundPlusFrame": "",
+          "airPlusFrame": ""
         }
       ],
       "cancelableSuperArtNames": [],
@@ -426,7 +404,7 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         },
         {
@@ -438,13 +416,11 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-3",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "4中K->強P": {
@@ -459,8 +435,8 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "+48"
+          "groundPlusFrame": "",
+          "airPlusFrame": ""
         },
         {
           "damage": 800,
@@ -471,8 +447,8 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+44",
-          "airPlusFrame": "+47~+56"
+          "groundPlusFrame": "",
+          "airPlusFrame": ""
         }
       ],
       "cancelableSuperArtNames": [],
@@ -552,13 +528,11 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-2~+12",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "中サンシュート": {
@@ -573,13 +547,11 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-2~+17",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "強サンシュート": {
@@ -594,13 +566,11 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-1~+6",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "ODサンシュート": {
@@ -619,9 +589,7 @@
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "弱サンライズ": {
@@ -636,7 +604,7 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+36",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -655,7 +623,7 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+38",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -674,7 +642,7 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+28",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -693,13 +661,11 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+40",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "ODサンヴェール": {
@@ -714,7 +680,7 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+52",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -961,7 +927,7 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+23",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -980,7 +946,7 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+23",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -999,7 +965,7 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+23",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -1037,7 +1003,7 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+48",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -1056,7 +1022,7 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+44",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
@@ -1239,8 +1205,8 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+43",
-          "airPlusFrame": "+46~+50"
+          "groundPlusFrame": "",
+          "airPlusFrame": ""
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1315,13 +1281,11 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+47",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ビーム|Lv. 1)": {
@@ -1336,13 +1300,11 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+68",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ビーム|Lv. 2)": {
@@ -1357,13 +1319,11 @@
           "dGaugeChipPunishCounter": -9000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+76",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "ソーラーフレア(空中|チャージ)": {
@@ -1439,9 +1399,7 @@
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ODビーム|Lv. 1)": {
@@ -1456,13 +1414,11 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+68",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ODビーム|Lv. 2)": {
@@ -1477,13 +1433,11 @@
           "dGaugeChipPunishCounter": -9000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+76",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ODビーム|Lv. 3)": {
@@ -1498,13 +1452,11 @@
           "dGaugeChipPunishCounter": -12000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+87",
+          "groundPlusFrame": "",
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "ソーラーフレア(OD空中ビーム|Lv. 1)": {
@@ -1542,9 +1494,7 @@
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "ソーラーフレア(OD空中ビーム|Lv. 3)": {
@@ -1563,9 +1513,7 @@
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [
-        "SA3"
-      ],
+      "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     }
   }
