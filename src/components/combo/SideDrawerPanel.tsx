@@ -7,7 +7,14 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
-import type { ComboBranchStats, ComboTree, MoveDefinition, MoveNode, NodeAttribute } from '../../types';
+import type {
+  ComboBranchStats,
+  ComboTree,
+  MoveDefinition,
+  MoveNode,
+  MoveStats,
+  NodeAttribute,
+} from '../../types';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { OdLevelToggle } from './OdLevelToggle';
@@ -472,10 +479,21 @@ function findFinishingSuperArtMove(
 }
 
 // 「SAで締める」の選択肢に出す、特殊性能なしの単純なSAの名前一覧。特殊性能ありのSAは
-// findFinishingSuperArtMove側の仕組み（このノード自身がそのSAである場合）で扱うため対象外
-function findFinishingSuperArtOptions(moveList: MoveDefinition[]): string[] {
+// findFinishingSuperArtMove側の仕組み（このノード自身がそのSAである場合）で扱うため対象外。
+// さらに、このノードで実際に使っている技（moveStats、MoveStatsPage側で登録）が
+// cancelableSuperArtNamesで許可しているSAだけに絞り込む（技によってキャンセル先は異なるため）
+function findFinishingSuperArtOptions(
+  moveList: MoveDefinition[],
+  moveStats: MoveStats | undefined,
+): string[] {
+  const cancelable = new Set(moveStats?.cancelableSuperArtNames ?? []);
+  // CA（クリティカルアーツ）はSA3と同じ技のキャンセル可否になるため、技データ登録画面では
+  // SA3用のボタン1つだけで済ませている（cancelableSuperArtOptionsからCAを除外済み。
+  // MoveStatsPage.tsx参照）。ここでSA3が対象ならCAも対象に加えて補う
+  if (cancelable.has('SA3')) cancelable.add('CA');
+
   return moveList
-    .filter((move) => move.category === 'superArt' && !move.hasSpecialVariant)
+    .filter((move) => move.category === 'superArt' && !move.hasSpecialVariant && cancelable.has(move.name))
     .map((move) => move.name);
 }
 
@@ -520,7 +538,10 @@ function ReadOnlyNodeView({
     ? calculateRequiredStartHitCondition(root, selectedNode.id)
     : null;
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
-  const finishingSuperArtOptions = findFinishingSuperArtOptions(moveList);
+  const finishingSuperArtOptions = findFinishingSuperArtOptions(
+    moveList,
+    moveStatsDatabase[characterId]?.[selectedNode.moveName],
+  );
   const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
   const effectiveUsesOD =
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
@@ -725,7 +746,10 @@ function NodeEditor({
   );
   const requiredStartHitCondition = calculateRequiredStartHitCondition(root, selectedNode.id);
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
-  const finishingSuperArtOptions = findFinishingSuperArtOptions(moveList);
+  const finishingSuperArtOptions = findFinishingSuperArtOptions(
+    moveList,
+    moveStatsDatabase[characterId]?.[selectedNode.moveName],
+  );
   const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
   const usesOD = selectedNode.usesOD ?? false;
   // root〜選択中ノードの経路上にあるOD関連ノード（このノード自身が末端でなくても、経路の

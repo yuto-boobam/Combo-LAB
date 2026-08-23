@@ -165,6 +165,9 @@ function normalizeMoveStatsEntry(value: unknown): MoveStats {
   return {
     isMultiHit: s.isMultiHit === true,
     hits: hits.length > 0 ? hits : [normalizeMoveHitStats(undefined)],
+    cancelableSuperArtNames: Array.isArray(s.cancelableSuperArtNames)
+      ? s.cancelableSuperArtNames.filter((name): name is string => typeof name === 'string')
+      : [],
   };
 }
 

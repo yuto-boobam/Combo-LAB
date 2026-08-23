@@ -13,6 +13,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "中P": {
@@ -28,6 +31,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "強P": {
@@ -43,6 +49,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "弱K": {
@@ -58,6 +67,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "中K": {
@@ -73,6 +85,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "強K": {
@@ -88,6 +103,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "2弱P": {
@@ -103,6 +121,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "2中P": {
@@ -118,6 +139,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "2強P": {
@@ -133,6 +157,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "2弱K": {
@@ -148,7 +175,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "2中K": {
       "isMultiHit": false,
@@ -163,6 +191,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "2強K": {
@@ -178,7 +209,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "J弱P": {
       "isMultiHit": false,
@@ -193,7 +225,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "J中P": {
       "isMultiHit": false,
@@ -208,6 +241,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "J強P": {
@@ -223,7 +259,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "J弱K": {
       "isMultiHit": false,
@@ -238,7 +275,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "J中K": {
       "isMultiHit": false,
@@ -253,7 +291,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "J強K": {
       "isMultiHit": false,
@@ -268,7 +307,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "6中P": {
       "isMultiHit": false,
@@ -283,7 +323,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "6強P": {
       "isMultiHit": false,
@@ -298,7 +339,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "中P → 中K": {
       "isMultiHit": true,
@@ -323,6 +365,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "4中K->強P": {
@@ -348,7 +393,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "4強P": {
       "isMultiHit": true,
@@ -373,7 +419,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "J強K->強K": {
       "isMultiHit": true,
@@ -398,7 +445,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "弱サンシュート": {
       "isMultiHit": false,
@@ -413,6 +461,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "中サンシュート": {
@@ -428,6 +479,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "強サンシュート": {
@@ -443,6 +497,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "ODサンシュート": {
@@ -458,6 +515,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "弱サンライズ": {
@@ -473,7 +533,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "中サンライズ": {
       "isMultiHit": false,
@@ -488,7 +549,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "強サンライズ": {
       "isMultiHit": false,
@@ -503,7 +565,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "ODサンライズ": {
       "isMultiHit": false,
@@ -518,6 +581,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "ODサンヴェール": {
@@ -533,7 +599,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンシャイン(Lv1)": {
       "isMultiHit": false,
@@ -548,7 +615,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンシャイン(Lv2)": {
       "isMultiHit": false,
@@ -563,7 +631,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンシャイン(Lv3)": {
       "isMultiHit": false,
@@ -578,7 +647,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンオーダー(Lv1)": {
       "isMultiHit": false,
@@ -593,7 +663,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンオーダー(Lv2)": {
       "isMultiHit": false,
@@ -608,7 +679,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンオーダー(Lv3)": {
       "isMultiHit": false,
@@ -623,7 +695,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "コズミックレイ": {
       "isMultiHit": false,
@@ -638,7 +711,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "投げ": {
       "isMultiHit": false,
@@ -653,7 +727,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "前ステップ": {
       "isMultiHit": false,
@@ -668,7 +743,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "バックステップ": {
       "isMultiHit": false,
@@ -683,7 +759,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "インパクト": {
       "isMultiHit": false,
@@ -698,7 +775,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "パリィ": {
       "isMultiHit": false,
@@ -713,7 +791,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "強サンヴェール": {
       "isMultiHit": false,
@@ -728,7 +807,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "中サンヴェール": {
       "isMultiHit": false,
@@ -743,7 +823,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "弱サンヴェール": {
       "isMultiHit": false,
@@ -758,7 +839,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "弱サンバニッシュ(後方ワープ)": {
       "isMultiHit": false,
@@ -773,7 +855,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "中サンバニッシュ(上方ワープ)": {
       "isMultiHit": false,
@@ -788,7 +871,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "強サンバニッシュ(前方ワープ)": {
       "isMultiHit": false,
@@ -803,7 +887,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "SA1(SA1|Lv. 1)": {
       "isMultiHit": false,
@@ -818,7 +903,8 @@
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "SA1(SA1|Lv. 2)": {
       "isMultiHit": false,
@@ -833,7 +919,8 @@
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "SA1(SA1|Lv. 3)": {
       "isMultiHit": false,
@@ -848,7 +935,8 @@
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "SA3": {
       "isMultiHit": false,
@@ -863,7 +951,8 @@
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "SA2(SA2|LV. 1)": {
       "isMultiHit": false,
@@ -878,7 +967,8 @@
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "SA2(SA2|Lv. 2)": {
       "isMultiHit": false,
@@ -893,7 +983,8 @@
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "SA2(SA2|Lv. 3)": {
       "isMultiHit": false,
@@ -908,7 +999,8 @@
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "CA": {
       "isMultiHit": false,
@@ -923,7 +1015,8 @@
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "4強P->強P": {
       "isMultiHit": true,
@@ -948,7 +1041,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "キャンセルラッシュ": {
       "isMultiHit": false,
@@ -963,7 +1057,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "生ラッシュ": {
       "isMultiHit": false,
@@ -978,7 +1073,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンフレア(チャージ)": {
       "isMultiHit": false,
@@ -993,7 +1089,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "サンフレア(ビーム|Lv. 0)": {
       "isMultiHit": false,
@@ -1008,6 +1105,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "サンフレア(ビーム|Lv. 1)": {
@@ -1023,6 +1123,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "サンフレア(ビーム|Lv. 2)": {
@@ -1038,6 +1141,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "ソーラーフレア(空中|チャージ)": {
@@ -1053,7 +1159,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "ソーラーフレア(空中ビーム|Lv. 0)": {
       "isMultiHit": false,
@@ -1068,7 +1175,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "ソーラーフレア(空中ビーム|Lv. 1)": {
       "isMultiHit": false,
@@ -1083,7 +1191,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "ソーラーフレア(空中ビーム|Lv. 2)": {
       "isMultiHit": false,
@@ -1098,6 +1207,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "サンフレア(ODビーム|Lv. 1)": {
@@ -1113,6 +1225,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "サンフレア(ODビーム|Lv. 2)": {
@@ -1128,6 +1243,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "サンフレア(ODビーム|Lv. 3)": {
@@ -1143,6 +1261,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "ソーラーフレア(OD空中ビーム|Lv. 1)": {
@@ -1158,7 +1279,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
-      ]
+      ],
+      "cancelableSuperArtNames": []
     },
     "ソーラーフレア(OD空中ビーム|Lv. 2)": {
       "isMultiHit": false,
@@ -1173,6 +1295,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     },
     "ソーラーフレア(OD空中ビーム|Lv. 3)": {
@@ -1188,6 +1313,9 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null
         }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
       ]
     }
   }
