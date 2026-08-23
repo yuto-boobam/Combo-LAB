@@ -235,7 +235,7 @@ function applyOdVariantLookup(node: MoveNode, name: string): string {
  * （例:「SA1(Lv. 1)」）を使う。それ以外は従来通りnode.moveNameそのまま。
  * さらに、usesODが付いていればapplyOdVariantLookupでOD版専用のキーへ差し替える
  */
-function lookupMoveName(node: MoveNode, isTargetNode: boolean): string {
+export function lookupMoveName(node: MoveNode, isTargetNode: boolean): string {
   const variant = isTargetNode ? node.branchStats?.finishingSpecialVariant : null;
   const baseName = variant ? `${node.moveName}(${variant})` : node.moveName;
   return applyOdVariantLookup(node, baseName);

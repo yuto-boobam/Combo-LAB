@@ -498,6 +498,7 @@ describe('一致箇所への一括反映機能', () => {
       saGaugeRating: null,
       overallRating: null,
       plusFrame: null,
+      plusFrameHitType: null,
       isThrowRange: false,
       canOkizeme: false,
       startHitCondition: null,

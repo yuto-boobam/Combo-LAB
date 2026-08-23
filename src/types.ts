@@ -118,6 +118,10 @@ export type ComboBranchStats = {
   overallRating: Rating5 | null;
 
   plusFrame: number | null; // 具体的なフレーム数（例: +3）
+  /** プラスフレームが地上ヒット/空中ヒットのどちらの当たり方に基づくものかの選択。
+   * 技データ側のgroundPlusFrame/airPlusFrameのどちらを参照・表示するかの切り替えに使う。
+   * null = 未選択（従来通りplusFrameを自由入力するだけ） */
+  plusFrameHitType: 'ground' | 'air' | null;
   isThrowRange: boolean;
   canOkizeme: boolean;
 

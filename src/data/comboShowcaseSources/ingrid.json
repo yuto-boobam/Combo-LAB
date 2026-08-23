@@ -181,7 +181,8 @@
                   "isRushStart": false,
                   "usesCA": false,
                   "finishingSpecialVariant": null,
-                  "includesEarlyDGaugeRecovery": true
+                  "includesEarlyDGaugeRecovery": true,
+                  "plusFrameHitType": "ground"
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-15T03:49:37.977Z",
@@ -295,7 +296,11 @@
                   {
                     "id": "mt2lsv13eq0axtqpv3j",
                     "moveName": "強K",
-                    "attributes": [],
+                    "attributes": [
+                      {
+                        "type": "rush"
+                      }
+                    ],
                     "specialNote": "",
                     "branchStats": null,
                     "createdBy": "ローカル",
@@ -1141,5 +1146,5 @@
   ],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-23T14:19:53.985Z"
+  "updatedAt": "2026-08-23T17:50:00.127Z"
 }

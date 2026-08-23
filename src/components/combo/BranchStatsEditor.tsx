@@ -7,6 +7,7 @@ import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 import type { DamageBreakdown, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
+import { parsePlusFrameRange } from '../../utils/plusFrameRange';
 import { OdLevelToggle } from './OdLevelToggle';
 
 export type OdUsageOnPath = {
@@ -51,6 +52,11 @@ type Props = {
   // 画面から直接調整できるようにしてほしい、というユーザー要望）
   odUsagesOnPath?: OdUsageOnPath[];
   onChangeOdUsage?: (nodeId: string, next: boolean) => void;
+  // このノードの技（複数ヒット技は最終段）に登録済みの有利フレーム（自由記述）。
+  // プラスフレーム欄の「地上/空中」トグルで参照・選択できるようにする。未登録/技データ
+  // 未参照の場合は空文字または未指定
+  groundPlusFrame?: string;
+  airPlusFrame?: string;
 };
 
 // 「通常」ボタンは出さない（カウンター/パニカンをどちらもオフにすれば同じ状態に戻せるため）。
@@ -82,6 +88,8 @@ export function BranchStatsEditor({
   finishingSuperArtOptions = [],
   odUsagesOnPath = [],
   onChangeOdUsage,
+  groundPlusFrame = '',
+  airPlusFrame = '',
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
 
@@ -215,6 +223,35 @@ export function BranchStatsEditor({
         onChange={(next) => update({ plusFrame: next })}
         readOnly={readOnly}
       />
+      <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
+        {(['ground', 'air'] as const).map((hitType) => {
+          const active = stats.plusFrameHitType === hitType;
+          return (
+            <button
+              key={hitType}
+              type="button"
+              disabled={readOnly}
+              onClick={() => update({ plusFrameHitType: active ? null : hitType })}
+              style={{
+                ...styles.conditionButton,
+                borderColor: active ? 'var(--accent)' : 'var(--border)',
+                background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                color: active ? '#fff' : 'var(--text-secondary)',
+                cursor: readOnly ? 'default' : 'pointer',
+              }}
+            >
+              {hitType === 'ground' ? '地上ヒット' : '空中ヒット'}
+            </button>
+          );
+        })}
+      </div>
+      {stats.plusFrameHitType && (
+        <PlusFrameRangePicker
+          text={stats.plusFrameHitType === 'ground' ? groundPlusFrame : airPlusFrame}
+          readOnly={readOnly}
+          onPick={(next) => update({ plusFrame: next })}
+        />
+      )}
 
       <RatingField
         label="ダメージ評価"
@@ -411,6 +448,48 @@ export function BranchStatsEditor({
   );
 }
 
+/** プラスフレーム欄の「地上/空中」トグルの下に出す、技データの登録内容から選ぶUI。
+ * 範囲としてパースできればチップボタン、できなければ生テキストの参考表示、
+ * 空ならその旨のヒントを出す */
+function PlusFrameRangePicker({
+  text,
+  readOnly,
+  onPick,
+}: {
+  text: string;
+  readOnly: boolean;
+  onPick: (next: number) => void;
+}) {
+  if (!text) {
+    return <p style={styles.plusFrameHint}>（このヒット方向の有利フレームは未登録です）</p>;
+  }
+
+  const values = parsePlusFrameRange(text);
+  if (!values) {
+    return <p style={styles.plusFrameHint}>登録内容：{text}</p>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {values.map((value) => (
+        <button
+          key={value}
+          type="button"
+          disabled={readOnly}
+          onClick={() => onPick(value)}
+          style={{
+            ...styles.conditionButton,
+            padding: '2px 8px',
+            cursor: readOnly ? 'default' : 'pointer',
+          }}
+        >
+          {value >= 0 ? `+${value}` : value}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function NumberField({
   label,
   value,
@@ -500,6 +579,12 @@ const styles: Record<string, CSSProperties> = {
   autoCalcButton: {
     fontSize: 11,
     padding: '2px 8px',
+  },
+  plusFrameHint: {
+    margin: 0,
+    marginTop: -4,
+    fontSize: 11,
+    color: 'var(--text-muted)',
   },
   // 【一時的なデバッグ表示用】原因を特定したら他のdebugBreakdown*スタイルと一緒に削除する
   debugBreakdown: {

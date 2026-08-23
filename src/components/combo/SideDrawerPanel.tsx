@@ -13,6 +13,7 @@ import type {
   MoveDefinition,
   MoveNode,
   MoveStats,
+  MoveStatsDatabase,
   NodeAttribute,
 } from '../../types';
 import { AttributeEditor } from './AttributeEditor';
@@ -27,6 +28,7 @@ import {
   calculateOdLevelConstraint,
   calculateRequiredStartHitCondition,
   findOdRelevantNodesOnPath,
+  lookupMoveName,
 } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
@@ -592,6 +594,24 @@ function findFinishingSuperArtOptions(
     .map((move) => move.name);
 }
 
+// このノードの技（OD版・特殊性能を含めた解決キーで技データを引く。複数ヒット技は
+// 最終段を使う＝技全体が当たった後の状態を見るため。何段目が当たったかを選ぶUIはまだ無く、
+// ダメージ/ゲージの自動計算も常に技全体を対象にしているのと同じ考え方）に登録済みの
+// 有利フレームを、プラスフレーム欄の地上/空中トグルに渡す
+function resolveNodePlusFrames(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  node: MoveNode,
+): { groundPlusFrame: string; airPlusFrame: string } {
+  const key = lookupMoveName(node, true);
+  const stats = moveStatsDatabase[characterId]?.[key];
+  const lastHit = stats?.hits[stats.hits.length - 1];
+  return {
+    groundPlusFrame: lastHit?.groundPlusFrame ?? '',
+    airPlusFrame: lastHit?.airPlusFrame ?? '',
+  };
+}
+
 function ReadOnlyNodeView({
   characterId,
   root,
@@ -642,6 +662,7 @@ function ReadOnlyNodeView({
   const effectiveUsesOD =
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
   const odNodesOnPath = root ? findOdRelevantNodesOnPath(root, selectedNode.id, moveList) : [];
+  const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
 
   return (
     <>
@@ -661,6 +682,8 @@ function ReadOnlyNodeView({
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
             autoDamage={autoDamage}
+            groundPlusFrame={groundPlusFrame}
+            airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
             finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
@@ -857,6 +880,7 @@ function NodeEditor({
   // root〜選択中ノードの経路上にあるOD関連ノード（このノード自身が末端でなくても、経路の
   // 途中にビーム等があれば含まれる）。「コンボの情報」欄からまとめて確認・変更できるようにする
   const odNodesOnPath = findOdRelevantNodesOnPath(root, selectedNode.id, moveList);
+  const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
 
   // Lv.によって通常/OD版の選択が一方に固定される場合、手動入力がまだそれを満たしていなければ
   // 自動で引き上げる（始動条件のカウンター制約と同じ考え方。ユーザー確認済み）。経路上の
@@ -913,6 +937,8 @@ function NodeEditor({
             autoDGaugeChange={autoDGaugeChange}
             autoDamage={autoDamage}
             damageBreakdown={damageBreakdown}
+            groundPlusFrame={groundPlusFrame}
+            airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
             finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
