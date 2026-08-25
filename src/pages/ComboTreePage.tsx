@@ -16,6 +16,7 @@ import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
 import { nodeWidthFor, GROUP_PILL_WIDTH } from '../utils/nodeSizing';
+import { TUTORIAL_CHARACTER_ID } from '../data/tutorialCharacter';
 import {
   computeTreeLayout,
   useNodeHeights,
@@ -104,11 +105,17 @@ export function ComboTreePage() {
   const setGroupSelectedIds = useAppStore((state) => state.setGroupSelectedIds);
   const expandedGroupIds = useAppStore((state) => state.expandedGroupIds);
   const toggleGroupExpanded = useAppStore((state) => state.toggleGroupExpanded);
+  const renameComboGroup = useAppStore((state) => state.renameComboGroup);
   const matchModeAnchorId = useAppStore((state) => state.matchModeAnchorId);
   const setMatchSelectedIds = useAppStore((state) => state.setMatchSelectedIds);
   const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
   const startEditingMatch = useAppStore((state) => state.startEditingMatch);
   const startCopyMode = useAppStore((state) => state.startCopyMode);
+  const replaceModeAnchorId = useAppStore((state) => state.replaceModeAnchorId);
+  const cancelCopyMode = useAppStore((state) => state.cancelCopyMode);
+  const cancelGroupMode = useAppStore((state) => state.cancelGroupMode);
+  const cancelMatchMode = useAppStore((state) => state.cancelMatchMode);
+  const cancelReplaceSelection = useAppStore((state) => state.cancelReplaceSelection);
 
   const character = useMemo(
     () => characters.find((item) => item.id === selectedCharacterId) ?? null,
@@ -116,6 +123,10 @@ export function ComboTreePage() {
   );
 
   const trees = useMemo(() => character?.comboTrees ?? [], [character]);
+
+  // チュートリアル用キャラクターだけ、ゲストモードでも編集できるようにする例外
+  // （それ以外のキャラはゲスト＝閲覧専用のまま。詳細はTUTORIAL_CHARACTER_ID参照）
+  const isReadOnly = isGuest && character?.id !== TUTORIAL_CHARACTER_ID;
 
   // ── コピーモード: 起点ノード＋その子孫だけが選択候補になる
   const copyCandidateIds = useMemo(() => {
@@ -244,6 +255,43 @@ export function ComboTreePage() {
   // グループ表示モードの「コピー開始」「ジャンプ」ボタンで、コンボ表示モードへ
   // 切り替えた直後に該当ノードまでスクロールするための予約
   const [pendingJumpNodeId, setPendingJumpNodeId] = useState<string | null>(null);
+
+  // サイドパネルの「ここからコピー開始」「ここからグループ化開始」「ここから一致箇所を探す」は
+  // グループタブでノードを選択した状態からも押せてしまうが、これらのモードの操作（続く枝の
+  // クリックによる選択）はコンボタブの木でしか成立しない（グループタブのノードクリックは
+  // 単純な選択のみで、モードの選択状態には反映されない）。そのため、いずれかのモードが
+  // 始まったら強制的にコンボタブへ切り替える（グループタブに取り残されて操作不能になる不具合の修正）
+  useEffect(() => {
+    if (treeViewMode !== 'group') return;
+    if (copyModeAnchorId || groupModeActive || matchModeAnchorId || replaceModeAnchorId) {
+      setTreeViewMode('combo');
+    }
+  }, [treeViewMode, copyModeAnchorId, groupModeActive, matchModeAnchorId, replaceModeAnchorId]);
+
+  // 上記の自動切り替えがある間は「グループ」タブを押しても即座にコンボタブへ戻されてしまい、
+  // ボタンが反応しないように見える。タブを明示的に押した時は、その意思を優先して
+  // 進行中のモードをキャンセルしてから切り替える
+  const handleTreeViewModeChange = useCallback(
+    (mode: 'combo' | 'group') => {
+      if (mode === 'group') {
+        if (copyModeAnchorId) cancelCopyMode();
+        if (groupModeActive) cancelGroupMode();
+        if (matchModeAnchorId) cancelMatchMode();
+        if (replaceModeAnchorId) cancelReplaceSelection();
+      }
+      setTreeViewMode(mode);
+    },
+    [
+      copyModeAnchorId,
+      groupModeActive,
+      matchModeAnchorId,
+      replaceModeAnchorId,
+      cancelCopyMode,
+      cancelGroupMode,
+      cancelMatchMode,
+      cancelReplaceSelection,
+    ],
+  );
 
   useEffect(() => {
     if (treeViewMode !== 'combo' || !pendingJumpNodeId) return;
@@ -411,7 +459,7 @@ export function ComboTreePage() {
   const groupForest = useMemo(() => {
     let cursorY = 0;
     let maxWidth = 0;
-    const blocks: TreeBlock[] = [];
+    const blocks: GroupTreeBlock[] = [];
     const positions = new Map<string, NodePosition>();
     const dropZones: TaggedDropZone[] = [];
     const parentOf = new Map<string, string>();
@@ -448,7 +496,15 @@ export function ComboTreePage() {
       );
       buildParentMap(viewRoot).forEach((parentId, id) => parentOf.set(id, parentId));
 
-      blocks.push({ tree: syntheticTree, viewRoot, offsetY, columns });
+      blocks.push({
+        tree: syntheticTree,
+        viewRoot,
+        offsetY,
+        columns,
+        groupId: occurrence.groupId,
+        groupName: occurrence.groupName,
+        treeLabel: occurrence.treeLabel,
+      });
       maxWidth = Math.max(maxWidth, layout.width);
       cursorY += layout.height + TREE_BLOCK_GAP;
     });
@@ -493,7 +549,7 @@ export function ComboTreePage() {
         character={character}
         rightSlot={
           <>
-            <ViewModeTabs mode={treeViewMode} onChange={setTreeViewMode} />
+            <ViewModeTabs mode={treeViewMode} onChange={handleTreeViewModeChange} />
             <ZoomBar zoom={zoom} onChange={setZoom} />
           </>
         }
@@ -543,6 +599,8 @@ export function ComboTreePage() {
                     onToggleExpand={toggleNodeExpanded}
                     onStartCopyFrom={startCopyFromGroupView}
                     onJumpTo={jumpToNodeInComboView}
+                    onRenameGroup={(groupId, name) => renameComboGroup(character.id, groupId, name)}
+                    isGuest={isReadOnly}
                   />
                 )}
 
@@ -567,7 +625,7 @@ export function ComboTreePage() {
                       x={rootPos.x}
                       offsetY={block.offsetY}
                       onDelete={
-                        isGuest
+                        isReadOnly
                           ? undefined
                           : () => {
                               const ok = window.confirm(`「${block.tree.label}」を削除しますか？`);
@@ -575,12 +633,12 @@ export function ComboTreePage() {
                             }
                       }
                       onMoveUp={
-                        isGuest || blockIndex === 0
+                        isReadOnly || blockIndex === 0
                           ? undefined
                           : () => moveComboTree(character.id, block.tree.id, 'up')
                       }
                       onMoveDown={
-                        isGuest || blockIndex === forest.blocks.length - 1
+                        isReadOnly || blockIndex === forest.blocks.length - 1
                           ? undefined
                           : () => moveComboTree(character.id, block.tree.id, 'down')
                       }
@@ -615,7 +673,7 @@ export function ComboTreePage() {
                           onExpand={() => toggleGroupExpanded(rootId)}
                           parentId={null}
                           dragIndex={0}
-                          readOnly={isGuest}
+                          readOnly={isReadOnly}
                           isDisabledByOtherMode={copyModeAnchorId !== null || groupModeActive}
                         />
                       ) : (
@@ -630,7 +688,7 @@ export function ComboTreePage() {
                           }
                           parentId={null}
                           dragIndex={0}
-                          readOnly={isGuest}
+                          readOnly={isReadOnly}
                           onDrop={(draggedData: DraggedNodeData) => {
                             if (draggedData.id === rootId) return;
                             moveNode(character.id, block.tree.id, draggedData.id, rootId);
@@ -687,7 +745,7 @@ export function ComboTreePage() {
                             onExpand={() => toggleGroupExpanded(node.id)}
                             parentId={column.parentId}
                             dragIndex={nodeIndex}
-                            readOnly={isGuest}
+                            readOnly={isReadOnly}
                             isDisabledByOtherMode={copyModeAnchorId !== null || groupModeActive}
                           />
                         ) : (
@@ -701,7 +759,7 @@ export function ComboTreePage() {
                             }
                             parentId={column.parentId}
                             dragIndex={nodeIndex}
-                            readOnly={isGuest}
+                            readOnly={isReadOnly}
                             onDrop={(draggedData: DraggedNodeData) => {
                               if (draggedData.id === node.id) return;
                               moveNode(character.id, column.treeId, draggedData.id, node.id);
@@ -768,7 +826,7 @@ export function ComboTreePage() {
                   })}
 
                 {/* 兄弟間ドロップゾーン（閲覧専用モードでは並び替え不可のため出さない） */}
-                {!isGuest &&
+                {!isReadOnly &&
                   forest.layout.dropZones.map((dropZone) => {
                     const tagged = dropZone as TaggedDropZone;
                     return (
@@ -1116,8 +1174,11 @@ function ViewModeTabButton({
 // グループ表示モード: 名前付きグループの全出現箇所の一覧
 // ────────────────────────────────────────────────────────────
 
+// グループタブのブロックは、名前変更UIのためどのグループの出現かを追加で持つ
+type GroupTreeBlock = TreeBlock & { groupId: string; groupName: string; treeLabel: string };
+
 type GroupForestLike = {
-  blocks: TreeBlock[];
+  blocks: GroupTreeBlock[];
   layout: TreeLayout;
   columns: TaggedColumn[];
 };
@@ -1131,6 +1192,8 @@ function GroupOverviewContent({
   onToggleExpand,
   onStartCopyFrom,
   onJumpTo,
+  onRenameGroup,
+  isGuest,
 }: {
   groupForest: GroupForestLike;
   zoom: number;
@@ -1140,6 +1203,8 @@ function GroupOverviewContent({
   onToggleExpand: (nodeId: string) => void;
   onStartCopyFrom: (nodeId: string) => void;
   onJumpTo: (nodeId: string) => void;
+  onRenameGroup: (groupId: string, name: string) => void;
+  isGuest: boolean;
 }) {
   return (
     <>
@@ -1159,11 +1224,13 @@ function GroupOverviewContent({
         return (
           <div key={block.tree.id}>
             <GroupOccurrenceHeader
-              label={block.tree.label}
+              groupName={block.groupName}
+              treeLabel={block.treeLabel}
               x={rootPos.x}
               offsetY={block.offsetY}
               onStartCopy={() => onStartCopyFrom(rootId)}
               onJump={() => onJumpTo(rootId)}
+              onRename={!isGuest ? (name) => onRenameGroup(block.groupId, name) : undefined}
             />
 
             <div
@@ -1236,18 +1303,38 @@ function GroupOverviewContent({
 }
 
 function GroupOccurrenceHeader({
-  label,
+  groupName,
+  treeLabel,
   x,
   offsetY,
   onStartCopy,
   onJump,
+  onRename,
 }: {
-  label: string;
+  groupName: string;
+  treeLabel: string;
   x: number;
   offsetY: number;
   onStartCopy: () => void;
   onJump: () => void;
+  // 未指定（ゲスト等）なら編集アイコン自体を出さない
+  onRename?: (name: string) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftName, setDraftName] = useState(groupName);
+
+  const startEditing = () => {
+    setDraftName(groupName);
+    setIsEditing(true);
+  };
+
+  const commitEditing = () => {
+    setIsEditing(false);
+    if (draftName.trim() && draftName.trim() !== groupName) {
+      onRename?.(draftName.trim());
+    }
+  };
+
   return (
     <div
       style={{
@@ -1260,7 +1347,38 @@ function GroupOccurrenceHeader({
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>{label}</span>
+      {isEditing ? (
+        <input
+          type="text"
+          className="input-field"
+          autoFocus
+          value={draftName}
+          onChange={(event) => setDraftName(event.target.value)}
+          onBlur={commitEditing}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') commitEditing();
+            if (event.key === 'Escape') setIsEditing(false);
+          }}
+          style={{ fontSize: 14, fontWeight: 800, padding: '2px 6px', width: 160 }}
+        />
+      ) : (
+        <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+          {groupName}
+          {treeLabel}
+        </span>
+      )}
+
+      {onRename && !isEditing && (
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={startEditing}
+          title="グループ名を変更"
+          style={{ width: 20, height: 20, fontSize: 11 }}
+        >
+          ✏️
+        </button>
+      )}
 
       <button
         type="button"

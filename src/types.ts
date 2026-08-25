@@ -110,6 +110,13 @@ export type BranchStartHitCondition = '通常' | 'カウンター' | 'パニカ�
 export type ComboBranchStats = {
   damage: number | null;
   dGaugeChange: number | null; // 回収+ / 消費-
+  /**
+   * この枝で相手のDゲージを削った量。SAのヒットが相手のDゲージを削る仕様
+   * （`MoveHitStats.dGaugeChipPunishCounter`、SAに限り「ヒット時」の削り量として扱う）
+   * に基づく。ジャストパリィ始動（常にパニッシュカウンター扱い）の場合は自動計算側で
+   * 半分にする（実機確認済み。攻撃側自身のDゲージ増減=dGaugeChangeとは独立）
+   */
+  opponentDGaugeChip: number | null;
   saGaugeGain: number | null;
 
   damageRating: Rating5 | null;

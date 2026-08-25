@@ -8,6 +8,7 @@ import type { ComboBranchStats } from '../types';
 export const DEFAULT_BRANCH_STATS: ComboBranchStats = {
   damage: null,
   dGaugeChange: null,
+  opponentDGaugeChip: null,
   saGaugeGain: null,
   damageRating: null,
   dGaugeRating: null,
