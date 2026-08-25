@@ -72,12 +72,16 @@ export function computeTreeLayout<T extends TreeNodeLike>(
 
     let required = own;
     if (children.length > 0) {
+      // 分岐なし（子1つ）のノードには分岐用の余白は不要。積み上げると、深い
+      // 一本道のコンボだけ縦に間延びし、兄弟の枝と中心がずれてしまうため
+      // （ユーザー指摘、2026-08-24）、子が1つの時だけ余白を0にする
+      const dropZonePad = children.length === 1 ? 0 : dropZoneHeight;
       const block =
         children.reduce(
           (sum, child) => sum + computeRequired(child, depth + 1),
           0,
         ) +
-        (children.length + 1) * dropZoneHeight;
+        (children.length + 1) * dropZonePad;
 
       required = Math.max(own, block);
     }
@@ -100,19 +104,28 @@ export function computeTreeLayout<T extends TreeNodeLike>(
     const own = heightOf(node.id, depth === 0);
     const required = requiredCache.get(node.id) ?? own;
     const children = isExpanded(node) ? node.children : [];
+    // 列内は左寄せ（＝depthX(depth)そのまま）にする。一時期「幅の狭いノードだけ
+    // 次列との間隔が間延びして見える」対策として右寄せを試したが、同じ列に幅広
+    // ノード（specialNote付き・グループピル等）が混在すると、幅の狭い兄弟ノードが
+    // 幅広ノード側に引き寄せられて縦の間隔が詰まり、親から扇状に伸びる接続線同士が
+    // 交差して見える副作用の方が大きかった（ユーザー指摘、2026-08-24）。
+    const nodeX = depthX(depth);
 
     if (children.length === 0) {
       // required === own のため、そのまま配置してよい
-      positions.set(node.id, { x: depthX(depth), y: topY, height: own });
+      positions.set(node.id, { x: nodeX, y: topY, height: own });
       return topY + own / 2;
     }
+
+    // computeRequiredと同じ考え方: 分岐なし（子1つ）は分岐用の余白を消費しない
+    const dropZonePad = children.length === 1 ? 0 : dropZoneHeight;
 
     const block =
       children.reduce(
         (sum, child) => sum + (requiredCache.get(child.id) ?? 0),
         0,
       ) +
-      (children.length + 1) * dropZoneHeight;
+      (children.length + 1) * dropZonePad;
 
     let cursorY = topY + (required - block) / 2;
 
@@ -123,7 +136,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
       x: depthX(depth + 1),
       y: cursorY,
     });
-    cursorY += dropZoneHeight;
+    cursorY += dropZonePad;
 
     const childCenters: number[] = [];
 
@@ -138,7 +151,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
         x: depthX(depth + 1),
         y: cursorY,
       });
-      cursorY += dropZoneHeight;
+      cursorY += dropZonePad;
     });
 
     // 直接の子どもたち（最初と最後）の中心に自分を合わせる。
@@ -150,7 +163,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
       topY + required - own,
     );
 
-    positions.set(node.id, { x: depthX(depth), y: nodeY, height: own });
+    positions.set(node.id, { x: nodeX, y: nodeY, height: own });
     return nodeY + own / 2;
   };
 

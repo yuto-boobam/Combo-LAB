@@ -1,9 +1,29 @@
 [
   {
+    "id": "2026-08-24-388191d9",
+    "date": "2026-08-24",
+    "buildNumber": 22,
+    "type": "spec-change",
+    "title": "アコーディオンがすべて閉じている状態へ変更",
+    "description": "元々は「選択中のノード」と「コンボ情報」という二か所が自動で開いていたためすべて閉じていいる形式に変更。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260824-build22-after.png?v=1787642007649"
+  },
+  {
+    "id": "2026-08-23-0ac561cf",
+    "date": "2026-08-23",
+    "buildNumber": 21,
+    "type": "feature",
+    "title": "有利フレームの表示",
+    "description": "地上か空中かを選択し、元から登録されているフレームデータの中から選択する形式にした",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260823-build21-after.png?v=1787507702646"
+  },
+  {
     "id": "2026-08-23-132555c9",
     "date": "2026-08-23",
     "buildNumber": 20,
-    "type": "other",
+    "type": "feature",
     "title": "フレームとキャンセル可能かを記入",
     "description": "キャンセルできるものに限り、「SA3を使うか否か」の選択肢を表示することができる。また、有利フレームが判明していれば、入力が簡単になる。",
     "beforeImageUrl": null,

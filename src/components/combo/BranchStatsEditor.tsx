@@ -31,6 +31,9 @@ type Props = {
   // root〜このノードまでの技データから自動計算したDゲージ増減。キャンセルラッシュ中の
   // 抑制や連続ガード等の判定はできる範囲のみ反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
   autoDGaugeChange?: number | null;
+  // root〜このノードまでの経路上のSAヒットから自動計算した、相手のDゲージ削り量。
+  // ジャストパリィ始動なら半分にする（詳細はsrc/utils/comboGaugeCalc.ts参照）
+  autoOpponentDGaugeChip?: number | null;
   // root〜このノードまでの技データから自動計算したダメージ。標準コンボ補正テーブル・
   // ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証を反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
   autoDamage?: number | null;
@@ -82,6 +85,7 @@ export function BranchStatsEditor({
   requiredStartHitCondition = null,
   autoSaGaugeChange = null,
   autoDGaugeChange = null,
+  autoOpponentDGaugeChip = null,
   autoDamage = null,
   damageBreakdown = null,
   finishingSuperArtMove = null,
@@ -97,22 +101,39 @@ export function BranchStatsEditor({
     onChange({ ...stats, ...patch });
   };
 
-  // 経路上に「カウンター以上でないと繋がらない」ノードがあれば、始動条件はそれ以上でなければ
-  // ならない。手動入力がまだそれを満たしていなければ表示・実データの両方を自動で引き上げる
+  // ジャストパリィ始動は常にパニッシュカウンター始動を伴う（実機仕様、パニッシュカウンターの
+  // トグルとは別にオン/オフできるが、始動条件としては常に「パニッシュカウンター以上」を要求する）
+  const justParryRequiredCondition: BranchStartHitCondition | null = stats.isJustParryStart
+    ? 'パニカン'
+    : null;
+
+  // 経路上に「カウンター以上でないと繋がらない」ノードがある場合、およびジャストパリィ始動の
+  // 場合、始動条件はそれ以上でなければならない（両方あればランクが高い方を採用）。
+  // 手動入力がまだそれを満たしていなければ表示・実データの両方を自動で引き上げる
   // （「通常」を選べる状態のまま放置されないようにするための仕様。ユーザー確認済み）
+  const effectiveRequiredCondition: BranchStartHitCondition | null =
+    !requiredStartHitCondition
+      ? justParryRequiredCondition
+      : !justParryRequiredCondition
+        ? requiredStartHitCondition
+        : START_HIT_CONDITION_RANK[requiredStartHitCondition] >=
+            START_HIT_CONDITION_RANK[justParryRequiredCondition]
+          ? requiredStartHitCondition
+          : justParryRequiredCondition;
+
   const satisfiesRequirement =
-    !requiredStartHitCondition ||
+    !effectiveRequiredCondition ||
     (stats.startHitCondition !== null &&
-      START_HIT_CONDITION_RANK[stats.startHitCondition] >= START_HIT_CONDITION_RANK[requiredStartHitCondition]);
+      START_HIT_CONDITION_RANK[stats.startHitCondition] >= START_HIT_CONDITION_RANK[effectiveRequiredCondition]);
   const effectiveStartHitCondition = satisfiesRequirement
     ? stats.startHitCondition
-    : requiredStartHitCondition;
+    : effectiveRequiredCondition;
 
   useEffect(() => {
-    if (readOnly || satisfiesRequirement || !requiredStartHitCondition) return;
-    onChange({ ...stats, startHitCondition: requiredStartHitCondition });
+    if (readOnly || satisfiesRequirement || !effectiveRequiredCondition) return;
+    onChange({ ...stats, startHitCondition: effectiveRequiredCondition });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, satisfiesRequirement, requiredStartHitCondition]);
+  }, [readOnly, satisfiesRequirement, effectiveRequiredCondition]);
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -121,22 +142,26 @@ export function BranchStatsEditor({
         value={stats.damage}
         onChange={(next) => update({ damage: next })}
         readOnly={readOnly}
+        autoValue={autoDamage}
       />
-      {autoDamage !== null && (
-        <div style={styles.autoCalcRow}>
-          <span>自動計算：{autoDamage}</span>
-          {!readOnly && stats.damage !== autoDamage && (
-            <button
-              type="button"
-              className="btn-ghost"
-              style={styles.autoCalcButton}
-              onClick={() => update({ damage: autoDamage })}
-            >
-              この値を使う
-            </button>
-          )}
-        </div>
-      )}
+
+      <div style={styles.twoColRow}>
+        <NumberField
+          label="プラスフレーム"
+          value={stats.plusFrame}
+          onChange={(next) => update({ plusFrame: next })}
+          readOnly={readOnly}
+        />
+
+        <NumberField
+          label="Dゲージ削り量"
+          value={stats.opponentDGaugeChip}
+          onChange={(next) => update({ opponentDGaugeChip: next })}
+          readOnly={readOnly}
+          autoValue={autoOpponentDGaugeChip}
+        />
+      </div>
+
       {/* 【一時的なデバッグ表示】原因を特定したらこのブロックごと削除する */}
       {damageBreakdown && (
         <div style={styles.debugBreakdown}>
@@ -164,65 +189,7 @@ export function BranchStatsEditor({
           <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
         </div>
       )}
-      <NumberField
-        label="Dゲージ増減（回収+ / 消費-）"
-        value={stats.dGaugeChange}
-        onChange={(next) => update({ dGaugeChange: next })}
-        readOnly={readOnly}
-      />
-      {autoDGaugeChange !== null && (
-        <div style={styles.autoCalcRow}>
-          <span>自動計算：{autoDGaugeChange}</span>
-          {!readOnly && stats.dGaugeChange !== autoDGaugeChange && (
-            <button
-              type="button"
-              className="btn-ghost"
-              style={styles.autoCalcButton}
-              onClick={() => update({ dGaugeChange: autoDGaugeChange })}
-            >
-              この値を使う
-            </button>
-          )}
-        </div>
-      )}
 
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.includesEarlyDGaugeRecovery ?? true}
-          disabled={readOnly}
-          onChange={(event) => update({ includesEarlyDGaugeRecovery: event.target.checked })}
-        />
-        Dゲージを使うまでの技の回復を含む
-      </label>
-
-      <NumberField
-        label="SAゲージ増加"
-        value={stats.saGaugeGain}
-        onChange={(next) => update({ saGaugeGain: next })}
-        readOnly={readOnly}
-      />
-      {autoSaGaugeChange !== null && (
-        <div style={styles.autoCalcRow}>
-          <span>自動計算：{autoSaGaugeChange}</span>
-          {!readOnly && stats.saGaugeGain !== autoSaGaugeChange && (
-            <button
-              type="button"
-              className="btn-ghost"
-              style={styles.autoCalcButton}
-              onClick={() => update({ saGaugeGain: autoSaGaugeChange })}
-            >
-              この値を使う
-            </button>
-          )}
-        </div>
-      )}
-      <NumberField
-        label="プラスフレーム"
-        value={stats.plusFrame}
-        onChange={(next) => update({ plusFrame: next })}
-        readOnly={readOnly}
-      />
       <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
         {(['ground', 'air'] as const).map((hitType) => {
           const active = stats.plusFrameHitType === hitType;
@@ -252,6 +219,32 @@ export function BranchStatsEditor({
           onPick={(next) => update({ plusFrame: next })}
         />
       )}
+
+      <NumberField
+        label="Dゲージ増減"
+        value={stats.dGaugeChange}
+        onChange={(next) => update({ dGaugeChange: next })}
+        readOnly={readOnly}
+        autoValue={autoDGaugeChange}
+      />
+
+      <label style={styles.checkboxRow}>
+        <input
+          type="checkbox"
+          checked={stats.includesEarlyDGaugeRecovery ?? true}
+          disabled={readOnly}
+          onChange={(event) => update({ includesEarlyDGaugeRecovery: event.target.checked })}
+        />
+        Dゲージを使うまでの技の回復を含む
+      </label>
+
+      <NumberField
+        label="SAゲージ増加"
+        value={stats.saGaugeGain}
+        onChange={(next) => update({ saGaugeGain: next })}
+        readOnly={readOnly}
+        autoValue={autoSaGaugeChange}
+      />
 
       <RatingField
         label="ダメージ評価"
@@ -306,12 +299,17 @@ export function BranchStatsEditor({
             {START_HIT_CONDITION_LABELS[requiredStartHitCondition]}未満は選べません
           </span>
         )}
+        {justParryRequiredCondition && (
+          <span style={styles.requiredHint}>
+            ジャストパリィ始動は常に「パニッシュカウンター」扱いになります
+          </span>
+        )}
         <div style={{ display: 'flex', gap: 4 }}>
           {START_HIT_CONDITIONS.map((condition) => {
             const active = effectiveStartHitCondition === condition;
             const belowRequirement =
-              !!requiredStartHitCondition &&
-              START_HIT_CONDITION_RANK[condition] < START_HIT_CONDITION_RANK[requiredStartHitCondition];
+              !!effectiveRequiredCondition &&
+              START_HIT_CONDITION_RANK[condition] < START_HIT_CONDITION_RANK[effectiveRequiredCondition];
             const disabled = readOnly || belowRequirement;
             return (
               <button
@@ -495,15 +493,36 @@ function NumberField({
   value,
   onChange,
   readOnly = false,
+  // 自動計算値。指定があればラベルの右側に「自動計算：X」＋「この値を使う」を表示する
+  // （3列に並べても縦に間延びしないよう、入力欄の下ではなくタイトル横に配置する）
+  autoValue = null,
 }: {
   label: string;
   value: number | null;
   onChange: (next: number | null) => void;
   readOnly?: boolean;
+  autoValue?: number | null;
 }) {
   return (
-    <label style={styles.fieldLabel}>
-      {label}
+    <div style={styles.fieldLabel}>
+      <div style={styles.fieldLabelRow}>
+        <span>{label}</span>
+        {autoValue !== null && (
+          <span style={styles.autoCalcInline}>
+            自動計算：{autoValue}
+            {!readOnly && value !== autoValue && (
+              <button
+                type="button"
+                className="btn-ghost"
+                style={styles.autoCalcButton}
+                onClick={() => onChange(autoValue)}
+              >
+                この値を使う
+              </button>
+            )}
+          </span>
+        )}
+      </div>
       <input
         type="number"
         className="input-field"
@@ -514,7 +533,7 @@ function NumberField({
           onChange(event.target.value === '' ? null : Number(event.target.value))
         }
       />
-    </label>
+    </div>
   );
 }
 
@@ -562,19 +581,32 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     color: 'var(--text-secondary)',
     fontWeight: 700,
+    minWidth: 0,
   },
   numberInput: {
     fontSize: 12,
     padding: '6px 10px',
   },
-  autoCalcRow: {
+  fieldLabelRow: {
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: 8,
-    marginTop: -4,
+    flexWrap: 'wrap',
+  },
+  autoCalcInline: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
     fontSize: 11,
+    fontWeight: 400,
     color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+  },
+  twoColRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 8,
   },
   autoCalcButton: {
     fontSize: 11,

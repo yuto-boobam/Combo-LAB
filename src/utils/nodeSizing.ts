@@ -18,9 +18,24 @@ export const NODE_DEFAULT_HEIGHT = 34;
 // nodeWidthForで同じ値を使い、レイアウトと実際の見た目がズレないようにする
 export const SPECIAL_NOTE_EXTRA_WIDTH = 20;
 // 名前付きグループの折りたたみピル(GroupPillNode)専用の幅。技名1つ分より長くなりがちな
-// グループ名が見切れにくいよう、通常ノードより広めにする（2026-08-23ユーザー指定）
-export const GROUP_PILL_WIDTH = 96;
+// グループ名が見切れにくいよう、通常ノードより広めにする（2026-08-23ユーザー指定）。
+// 96pxだと9文字目で改行が起きていたため、あと1〜2文字ぶん改行なしで収まるよう
+// 116pxへ拡大（2026-08-25ユーザー指定）
+export const GROUP_PILL_WIDTH = 116;
 
-export function nodeWidthFor(node: Pick<MoveNode, 'specialNote'>): number {
-  return node.specialNote ? NODE_WIDTH + SPECIAL_NOTE_EXTRA_WIDTH : NODE_WIDTH;
+// チュートリアル用キャラクターのノードだけ、注記（specialNote）に長めの説明文を
+// 入れているため通常より広く・折り返し表示にしたい。実キャラのノードサイズには
+// 影響させたくない（以前「ノードが少し大きすぎる」というフィードバックで68pxへ
+// 縮小した経緯があるため）ので、tutorialCharacter.tsが振るノードid（"tut-node-"始まり）
+// で判定する（characterIdをMoveNodeCircle/レイアウト計算まで持ち回さずに済む）
+export function isTutorialNode(node: Pick<MoveNode, 'id'>): boolean {
+  return node.id.startsWith('tut-node-');
+}
+
+// チュートリアルノードの追加幅（実キャラの特殊記入ぶんの拡張とは別に、さらに広げる）
+export const TUTORIAL_NODE_EXTRA_WIDTH = 60;
+
+export function nodeWidthFor(node: Pick<MoveNode, 'specialNote' | 'id'>): number {
+  const base = node.specialNote ? NODE_WIDTH + SPECIAL_NOTE_EXTRA_WIDTH : NODE_WIDTH;
+  return isTutorialNode(node) ? base + TUTORIAL_NODE_EXTRA_WIDTH : base;
 }

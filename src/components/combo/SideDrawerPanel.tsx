@@ -16,6 +16,7 @@ import type {
   MoveStatsDatabase,
   NodeAttribute,
 } from '../../types';
+import { TUTORIAL_CHARACTER_ID } from '../../data/tutorialCharacter';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { OdLevelToggle } from './OdLevelToggle';
@@ -24,6 +25,7 @@ import {
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
   calculateBranchDGaugeChange,
+  calculateBranchOpponentDGaugeChip,
   calculateBranchSaGaugeChange,
   calculateOdLevelConstraint,
   calculateRequiredStartHitCondition,
@@ -52,16 +54,20 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const replaceModeAnchorId = useAppStore((state) => state.replaceModeAnchorId);
   const clipboard = useAppStore((state) => state.clipboard);
 
+  // チュートリアル用キャラクターだけ、ゲストモードでも編集できるようにする例外
+  // （ComboTreePage.tsxのisReadOnlyと同じ考え方）
+  const isReadOnly = isGuest && characterId !== TUTORIAL_CHARACTER_ID;
+
   const selectedInfo = findNodeInComboTrees(comboTrees, selectedNodeId);
 
   return (
     <aside style={styles.drawer}>
       <div className="drawer-scroll" style={styles.body}>
-        {!isGuest && matchedAnchorIds && (
+        {!isReadOnly && matchedAnchorIds && (
           <MatchResultsPanel characterId={characterId} comboTrees={comboTrees} />
         )}
 
-        {isGuest ? (
+        {isReadOnly ? (
           <ReadOnlyNodeView
             characterId={characterId}
             root={selectedInfo?.tree.root ?? null}
@@ -91,8 +97,8 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
           </p>
         )}
 
-        {!isGuest && <NewTreeSection characterId={characterId} />}
-        {!isGuest && clipboard && <ClipboardPreview />}
+        {!isReadOnly && <NewTreeSection characterId={characterId} />}
+        {!isReadOnly && clipboard && <ClipboardPreview />}
       </div>
     </aside>
   );
@@ -113,6 +119,9 @@ function CopyModePanel({
   const [isOpen, setIsOpen] = useState(true);
 
   const anchorNode = findNodeInComboTrees(comboTrees, anchorId)?.node ?? null;
+  // 起点が末端ノード（続く枝が無い）の場合、選ぶべき候補が1つも無く操作不能になってしまうため、
+  // 何も選択しなくても「起点自身をコピーする」ものとして確定できるようにする
+  const isAnchorLeaf = anchorNode !== null && anchorNode.children.length === 0;
 
   return (
     <AccordionSection
@@ -124,7 +133,9 @@ function CopyModePanel({
     >
       <div style={{ display: 'grid', gap: 10 }}>
         <p style={styles.hint}>
-          「{anchorNode?.moveName}」から続く枝をクリックして選択してください。選んだ枝は子孫ごとコピーされます。
+          {isAnchorLeaf
+            ? `「${anchorNode?.moveName}」には続く枝が無いため、このまま「コピーを確定」を押すとこの技だけがコピーされます。`
+            : `「${anchorNode?.moveName}」から続く枝をクリックして選択してください。選んだ枝は子孫ごとコピーされます。`}
         </p>
 
         <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
@@ -136,7 +147,7 @@ function CopyModePanel({
             type="button"
             className="btn-primary justify-center"
             style={{ flex: 1 }}
-            disabled={copySelectedIds.length === 0}
+            disabled={copySelectedIds.length === 0 && !isAnchorLeaf}
             onClick={() => confirmCopy(characterId)}
           >
             コピーを確定
@@ -544,6 +555,7 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
   return [
     stats.damage !== null,
     stats.dGaugeChange !== null,
+    stats.opponentDGaugeChip !== null,
     stats.saGaugeGain !== null,
     stats.damageRating !== null,
     stats.dGaugeRating !== null,
@@ -621,8 +633,8 @@ function ReadOnlyNodeView({
   root: MoveNode | null;
   selectedNode: MoveNode | null;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
-  const [isStatsOpen, setIsStatsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const moveList = useAppStore(
     (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
@@ -646,6 +658,9 @@ function ReadOnlyNodeView({
     : null;
   const autoDGaugeChange = root
     ? calculateBranchDGaugeChange(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
+    : null;
+  const autoOpponentDGaugeChip = root
+    ? calculateBranchOpponentDGaugeChip(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
     : null;
   const autoDamage = root
     ? calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
@@ -681,6 +696,7 @@ function ReadOnlyNodeView({
             requiredStartHitCondition={requiredStartHitCondition}
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
+            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
             autoDamage={autoDamage}
             groundPlusFrame={groundPlusFrame}
             airPlusFrame={airPlusFrame}
@@ -828,10 +844,12 @@ function NodeEditor({
   >(undefined);
 
   // 「コンボの情報」「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
-  // ノードを切り替えるたびに（keyでの再マウントにより）すべて開いた状態に戻る
-  const [isStatsOpen, setIsStatsOpen] = useState(true);
-  const [isEditorOpen, setIsEditorOpen] = useState(true);
-  const [isAddFormOpen, setIsAddFormOpen] = useState(true);
+  // 「ノードを選ぶ→開きたいものだけ開く→操作する」という順序にするため、
+  // デフォルトはすべて閉じた状態にする（閉じていてもAccordionSectionの件数バッジで
+  // 記入状況は分かる）。ノードを切り替えるたびに（keyでの再マウントにより）この初期状態に戻る
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
 
   // 統計入力欄は「葉ノード（子を持たない）」または「ガード」「空振り」を選んだノードに表示する。
   // recordsBranchStatsがtrueなら、それ以外のノードでも任意で表示できる（あえて途中で
@@ -848,6 +866,13 @@ function NodeEditor({
     selectedNode.id,
   );
   const autoDGaugeChange = calculateBranchDGaugeChange(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
+  const autoOpponentDGaugeChip = calculateBranchOpponentDGaugeChip(
     characterId,
     moveStatsDatabase,
     moveList,
@@ -935,6 +960,7 @@ function NodeEditor({
             requiredStartHitCondition={requiredStartHitCondition}
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
+            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
             autoDamage={autoDamage}
             damageBreakdown={damageBreakdown}
             groundPlusFrame={groundPlusFrame}
