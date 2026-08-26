@@ -886,7 +886,7 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
-  // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。原因特定後に削除する
+  // ダメージ計算式の内訳（BranchStatsEditor側で「計算式」ボタンの開閉式にして見せる）
   const damageBreakdown = calculateBranchDamageBreakdown(
     characterId,
     moveStatsDatabase,

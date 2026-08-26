@@ -38,7 +38,14 @@ export default function AccordionSection({
 
         <span style={styles.sectionRight}>
           <span style={styles.countBadge}>{count}</span>
-          <span style={styles.chevron}>{isOpen ? '⌃' : '⌄'}</span>
+          <span
+            style={{
+              ...styles.chevron,
+              transform: isOpen ? 'rotate(180deg)' : 'none',
+            }}
+          >
+            ⌄
+          </span>
         </span>
       </button>
 
@@ -98,9 +105,16 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 900,
   },
 
+  // 開閉で別の文字（⌃/⌄）に差し替えると字形の重心が微妙にずれて位置が上下して見えるため、
+  // 同じ文字を180度回転させるだけにする（BranchStatsEditor.tsxの「計算式」ボタンと同じ考え方）
   chevron: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     color: 'var(--text-secondary)',
     fontSize: 13,
+    lineHeight: 1,
+    transition: 'transform 0.15s',
   },
 
   sectionBody: {
