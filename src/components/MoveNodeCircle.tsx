@@ -224,6 +224,21 @@ export function MoveNodeCircle({
         />
       )}
 
+      {node.branchStats?.isFavorite && (
+        <span
+          title="お気に入り登録済み"
+          style={{
+            position: 'absolute',
+            bottom: -6,
+            right: -6,
+            fontSize: 12,
+            lineHeight: 1,
+          }}
+        >
+          ⭐
+        </span>
+      )}
+
       <span
         style={{
           fontSize: 10,

@@ -122,6 +122,8 @@ export type ComboBranchStats = {
   damageRating: Rating5 | null;
   dGaugeRating: Rating5 | null;
   saGaugeRating: Rating5 | null;
+  /** 相手を画面端まで運べるか・運びやすさの評価（コーナーキャリー） */
+  carryRating: Rating5 | null;
   overallRating: Rating5 | null;
 
   plusFrame: number | null; // 具体的なフレーム数（例: +3）
@@ -131,6 +133,14 @@ export type ComboBranchStats = {
   plusFrameHitType: 'ground' | 'air' | null;
   isThrowRange: boolean;
   canOkizeme: boolean;
+
+  /**
+   * この枝（コンボ、またはグループ化された連携の締め）をお気に入り登録したか。
+   * branchStats自体が「葉ノード、またはガード/空振り属性を持つノード」＝コンボや
+   * グループの中で一番後ろに来るノードにしか表示されないため、この項目も自然と
+   * そこにしか出てこない（ユーザー要望）
+   */
+  isFavorite: boolean;
 
   /**
    * この枝が前提とする始動条件のチェック項目。同じコンボでもカウンター始動だと
