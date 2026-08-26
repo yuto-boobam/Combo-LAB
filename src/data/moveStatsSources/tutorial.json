@@ -18,44 +18,6 @@
       ],
       "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
-    },
-    "反撃の技": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 200,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": ["とどめの一撃"],
-      "sharesModifierAcrossHits": false
-    },
-    "とどめの一撃": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 3000,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": -6000,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": -2000,
-          "minDamageGuaranteePercent": 50,
-          "dGaugeGainDuringRush": 0,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
     }
   }
 }

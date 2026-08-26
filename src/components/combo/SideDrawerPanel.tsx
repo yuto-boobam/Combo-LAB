@@ -42,9 +42,14 @@ type Props = {
   // キャラが持つすべての木（森）。選択中ノードがどの木に属するかはここから探す
   // （画面には全ての木が同時に表示されるため、木を1本に決め打ちできない）
   comboTrees: ComboTree[];
+  // falseの間、ドロワーを右へフェードアウトさせながら幅を畳む（閉じている間もアンマウントはしない。
+  // 選択状態やスクロール位置を保つため）。省略時は常時表示（従来通り）。
+  isOpen?: boolean;
 };
 
-export function SideDrawerPanel({ characterId, comboTrees }: Props) {
+const DRAWER_WIDTH = 400;
+
+export function SideDrawerPanel({ characterId, comboTrees, isOpen = true }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
@@ -61,7 +66,15 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const selectedInfo = findNodeInComboTrees(comboTrees, selectedNodeId);
 
   return (
-    <aside style={styles.drawer}>
+    <div style={{ ...styles.drawerWrapper, width: isOpen ? DRAWER_WIDTH : 0 }}>
+      <aside
+        style={{
+          ...styles.drawer,
+          transform: isOpen ? 'translateX(0)' : 'translateX(24px)',
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? undefined : 'none',
+        }}
+      >
       <div className="drawer-scroll" style={styles.body}>
         {!isReadOnly && matchedAnchorIds && (
           <MatchResultsPanel characterId={characterId} comboTrees={comboTrees} />
@@ -100,7 +113,8 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
         {!isReadOnly && <NewTreeSection characterId={characterId} />}
         {!isReadOnly && clipboard && <ClipboardPreview />}
       </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
 
@@ -1159,6 +1173,16 @@ function NodeEditor({
 }
 
 const styles: Record<string, CSSProperties> = {
+  // 開閉アニメーション用の外枠。widthをここで畳むことで、閉じている間はキャンバス側が
+  // 全幅に広がる。中のasideは常にDRAWER_WIDTH固定のままtranslateX+opacityで
+  // 「右へフェードアウト／右からフェードイン」させる（幅と位置、2つのtransitionを分離）。
+  drawerWrapper: {
+    flex: '0 0 auto',
+    overflow: 'hidden',
+    transition: 'width 0.24s ease',
+    minHeight: 0,
+    display: 'flex',
+  },
   drawer: {
     flex: '0 0 auto',
     width: 400,
@@ -1167,6 +1191,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
+    transition: 'transform 0.24s ease, opacity 0.18s ease',
   },
   body: {
     flex: '1 1 auto',

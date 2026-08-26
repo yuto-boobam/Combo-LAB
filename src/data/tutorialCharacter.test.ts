@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTutorialCharacter } from './tutorialCharacter';
 import { MOVE_STATS_SEED } from './moveStatsSeed';
-import { calculateBranchDamage, calculateBranchOpponentDGaugeChip } from '../utils/comboGaugeCalc';
+import { calculateBranchDamage } from '../utils/comboGaugeCalc';
 import { collectChain, findMatchingChains } from '../utils/chainMatch';
 import type { ComboTree } from '../types';
 
@@ -28,37 +28,9 @@ describe('チュートリアルキャラクターの自動計算', () => {
     ).toBe(1400);
   });
 
-  it('④木を編集しなくても、選んだだけで追加の要素ぶんの計算結果が合成される', () => {
-    const tree = treeByLabel(character.comboTrees, '④木を触らず要素を合成');
-
-    // 反撃の技(200) + とどめの一撃(3000、標準テーブル先頭の100%が2発目まで続くためどちらも満額) = 3200
-    expect(
-      calculateBranchDamage(
-        character.id,
-        moveStatsDatabase,
-        character.moveList,
-        tree.root,
-        tree.root.id,
-      ),
-    ).toBe(3200);
-
-    expect(
-      calculateBranchOpponentDGaugeChip(
-        character.id,
-        moveStatsDatabase,
-        character.moveList,
-        tree.root,
-        tree.root.id,
-      ),
-    ).toBe(-2000);
-
-    // 実データ（木）自体は「反撃の技」1ノードのままで、SAノードを追加していないことの確認
-    expect(tree.root.children).toHaveLength(0);
-  });
-
-  it('⑤あえてグループ化していない2箇所の共通区間を、一致検索で見つけられる', () => {
-    const treeA = treeByLabel(character.comboTrees, '⑤一致検索(配置A)');
-    const treeB = treeByLabel(character.comboTrees, '⑤一致検索(配置B)');
+  it('④あえてグループ化していない2箇所の共通区間を、一致検索で見つけられる', () => {
+    const treeA = treeByLabel(character.comboTrees, '④一致検索(配置A)');
+    const treeB = treeByLabel(character.comboTrees, '④一致検索(配置B)');
 
     const anchor = treeA.root.children[0]; // 共通の技イ
     const patternChain = collectChain(anchor, 2);

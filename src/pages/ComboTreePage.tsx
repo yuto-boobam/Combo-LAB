@@ -248,6 +248,17 @@ export function ComboTreePage() {
   // （ノードが大きすぎる問題はズームではなくノード自体の寸法を縮小して対応。nodeSizing.ts参照）
   const [zoom, setZoom] = useState(1);
 
+  // ── サイドドロワーの開閉。長く続くコンボを画面いっぱいに見たい時に閉じられるようにする。
+  // チュートリアルキャラクターだけは、初回に「クリックして開く」を体験してもらうため
+  // 閉じた状態から始める（それ以外のキャラは従来通り開いた状態から始まる）
+  const [isDrawerOpen, setIsDrawerOpen] = useState(() => character?.id !== TUTORIAL_CHARACTER_ID);
+
+  // ── サイドドロワー開閉ボタンの誘導ガイド（チュートリアルキャラクター限定）。
+  // ボタンを一度でも押したら、以降このセッション中は二度と出さない
+  const [drawerGuideDismissed, setDrawerGuideDismissed] = useState(false);
+  const showDrawerOpenGuide =
+    character?.id === TUTORIAL_CHARACTER_ID && !isDrawerOpen && !drawerGuideDismissed;
+
   // ── コンボ/グループ表示モードの切り替え。「グループ」は名前付きグループの
   // 全出現箇所だけを一覧する読み取り中心のビュー（実データはcomboTreesのまま）
   const [treeViewMode, setTreeViewMode] = useState<'combo' | 'group'>('combo');
@@ -552,6 +563,77 @@ export function ComboTreePage() {
             <ViewModeTabs mode={treeViewMode} onChange={handleTreeViewModeChange} />
             <ZoomBar zoom={zoom} onChange={setZoom} />
           </>
+        }
+        trailingSlot={
+          <div style={{ position: 'relative', flexShrink: 0, display: 'flex' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsDrawerOpen((open) => !open);
+                setDrawerGuideDismissed(true);
+              }}
+              title={isDrawerOpen ? 'サイドドロワーを閉じる' : 'サイドドロワーを開く'}
+              className={showDrawerOpenGuide ? 'tutorial-guide-pulse' : undefined}
+              style={{
+                flexShrink: 0,
+                width: 30,
+                height: 28,
+                borderRadius: 9,
+                border: 'none',
+                background: 'var(--accent)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 3,
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ width: 14, height: 2, borderRadius: 1, background: '#fff' }} />
+              <span style={{ width: 14, height: 2, borderRadius: 1, background: '#fff' }} />
+              <span style={{ width: 14, height: 2, borderRadius: 1, background: '#fff' }} />
+            </button>
+
+            {/* サイドドロワー開閉ボタンの誘導ガイド。チュートリアルキャラクターの初回のみ表示 */}
+            {showDrawerOpenGuide && (
+              <div
+                className="tutorial-guide-bubble"
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: 12,
+                  width: 148,
+                  padding: '8px 10px',
+                  borderRadius: 10,
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  lineHeight: 1.5,
+                  textAlign: 'center',
+                  boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35)',
+                  zIndex: 20,
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: 10,
+                    width: 0,
+                    height: 0,
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent',
+                    borderBottom: '6px solid var(--accent)',
+                  }}
+                />
+                ここをクリックすると
+                <br />
+                操作パネルが開きます
+              </div>
+            )}
+          </div>
         }
       />
 
@@ -862,8 +944,8 @@ export function ComboTreePage() {
           )}
         </div>
 
-        {/* ── サイドドロワー（常時表示） */}
-        <SideDrawerPanel characterId={character.id} comboTrees={trees} />
+        {/* ── サイドドロワー（開閉可能。開閉ボタンはHeaderのtrailingSlot参照） */}
+        <SideDrawerPanel characterId={character.id} comboTrees={trees} isOpen={isDrawerOpen} />
       </div>
     </div>
   );
