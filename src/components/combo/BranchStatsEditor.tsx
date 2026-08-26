@@ -2,7 +2,7 @@
 // 枝（コンボ）の統計情報の編集UI。葉ノード、またはガード/空振り属性を持つノードで使う
 // （表示するかどうかの判断は呼び出し側で行う。src/components/combo/SideDrawerPanel.tsx を参照）。
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 import type { DamageBreakdown, OdLevelConstraint } from '../../utils/comboGaugeCalc';
@@ -37,8 +37,8 @@ type Props = {
   // root〜このノードまでの技データから自動計算したダメージ。標準コンボ補正テーブル・
   // ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証を反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
   autoDamage?: number | null;
-  // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。
-  // 原因を特定したら、このpropとJSXごと削除する
+  // ダメージ計算式の内訳。「計算式」ボタンを押した時だけ展開して見せる
+  // （普段は閉じておく。2026-08-26ユーザー指定：計算根拠を見せる正式な機能として採用）
   damageBreakdown?: DamageBreakdown | null;
   // このノードがSA(superArt・特殊性能あり)で、まだ特殊性能を選ばず技名だけ（例:「SA1」）
   // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
@@ -96,6 +96,8 @@ export function BranchStatsEditor({
   airPlusFrame = '',
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
+  // 計算式の内訳は普段は閉じておき、興味を持った人がボタンを押した時だけ見せる
+  const [isFormulaOpen, setIsFormulaOpen] = useState(false);
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
@@ -145,6 +147,58 @@ export function BranchStatsEditor({
         autoValue={autoDamage}
       />
 
+      {/* 経路上に技データが1件も無く計算対象が無い場合はボタン自体を出さない
+          （手動でダメージ欄を確定しているかどうかは問わない） */}
+      {damageBreakdown && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <button
+            type="button"
+            className="btn-ghost"
+            style={styles.formulaToggle}
+            onClick={() => setIsFormulaOpen((open) => !open)}
+          >
+            <span>計算式</span>
+            <span
+              style={{
+                ...styles.formulaToggleChevron,
+                transform: isFormulaOpen ? 'rotate(180deg)' : 'none',
+              }}
+            >
+              ⌄
+            </span>
+          </button>
+
+          {isFormulaOpen && (
+            <div style={styles.debugBreakdown}>
+              <div style={styles.debugBreakdownHeader}>
+                起点基準値{damageBreakdown.startBase}%
+                {damageBreakdown.rushTriggerPosition !== null &&
+                  `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
+              </div>
+              {damageBreakdown.entries.map((entry) => (
+                <div key={entry.position} style={styles.debugBreakdownRow}>
+                  {entry.position}発目 {entry.hitLabel}
+                  {entry.isSystemAction
+                    ? ' : 敵にヒットしない行動のため補正対象外'
+                    : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
+                      ? entry.percent === entry.minDamageGuaranteePercent
+                        ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
+                        : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
+                      : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
+                  {' → '}
+                  {entry.isSystemAction
+                    ? 'ダメージ0（位置のみ消費）'
+                    : `${entry.damage} × ${entry.percent}% = ${Math.round(entry.contribution)}`}
+                </div>
+              ))}
+              <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {damageBreakdown && <div style={styles.sectionDivider} />}
+
       <div style={styles.twoColRow}>
         <NumberField
           label="プラスフレーム"
@@ -161,34 +215,6 @@ export function BranchStatsEditor({
           autoValue={autoOpponentDGaugeChip}
         />
       </div>
-
-      {/* 【一時的なデバッグ表示】原因を特定したらこのブロックごと削除する */}
-      {damageBreakdown && (
-        <div style={styles.debugBreakdown}>
-          <div style={styles.debugBreakdownHeader}>
-            計算式デバッグ：起点基準値{damageBreakdown.startBase}%
-            {damageBreakdown.rushTriggerPosition !== null &&
-              `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
-          </div>
-          {damageBreakdown.entries.map((entry) => (
-            <div key={entry.position} style={styles.debugBreakdownRow}>
-              {entry.position}発目 {entry.hitLabel}
-              {entry.isSystemAction
-                ? ' : 敵にヒットしない行動のため補正対象外'
-                : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
-                  ? entry.percent === entry.minDamageGuaranteePercent
-                    ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
-                    : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
-                  : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
-              {' → '}
-              {entry.isSystemAction
-                ? 'ダメージ0（位置のみ消費）'
-                : `${entry.damage} × ${entry.percent}% = ${Math.round(entry.contribution)}`}
-            </div>
-          ))}
-          <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
-        </div>
-      )}
 
       <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
         {(['ground', 'air'] as const).map((hitType) => {
@@ -304,7 +330,7 @@ export function BranchStatsEditor({
             ジャストパリィ始動は常に「パニッシュカウンター」扱いになります
           </span>
         )}
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={styles.threeColRow}>
           {START_HIT_CONDITIONS.map((condition) => {
             const active = effectiveStartHitCondition === condition;
             const belowRequirement =
@@ -330,28 +356,23 @@ export function BranchStatsEditor({
               </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={() => update({ isJustParryStart: !(stats.isJustParryStart ?? false) })}
+            disabled={readOnly}
+            style={{
+              ...styles.conditionButton,
+              borderColor: stats.isJustParryStart ? 'var(--accent)' : 'var(--border)',
+              background: stats.isJustParryStart ? 'var(--accent)' : 'var(--bg-elevated)',
+              color: stats.isJustParryStart ? '#fff' : 'var(--text-secondary)',
+              cursor: readOnly ? 'default' : 'pointer',
+            }}
+          >
+            ジャストパリィ
+          </button>
         </div>
       </div>
-
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.isJustParryStart ?? false}
-          disabled={readOnly}
-          onChange={(event) => update({ isJustParryStart: event.target.checked })}
-        />
-        ジャストパリィ始動
-      </label>
-
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.isRushStart ?? false}
-          disabled={readOnly}
-          onChange={(event) => update({ isRushStart: event.target.checked })}
-        />
-        ラッシュ始動
-      </label>
 
       {!finishingSuperArtMove && finishingSuperArtOptions.length > 0 && (
         <div style={styles.fieldLabel}>
@@ -618,7 +639,33 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 11,
     color: 'var(--text-muted)',
   },
-  // 【一時的なデバッグ表示用】原因を特定したら他のdebugBreakdown*スタイルと一緒に削除する
+  formulaToggle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    fontSize: 12,
+    padding: '4px 10px',
+    border: 'none',
+  },
+  // 開閉で別の文字（⌃/⌄）に差し替えると字形の重心が微妙にずれて位置が上下して見えるため、
+  // 同じ文字を180度回転させるだけにする（円い枠は常に同じ場所・同じ見た目のまま）
+  formulaToggleChevron: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 15,
+    lineHeight: 1,
+    transition: 'transform 0.15s',
+  },
+  sectionDivider: {
+    height: 2,
+    margin: '2px 0',
+    // 通常のvar(--border)よりも一段明るい区切り線用の色（見出し無しでも区切りが目立つように）
+    background: 'var(--border-hover)',
+  },
+  // 計算式の内訳表示（元は調査用のデバッグ表示だったが、計算根拠を見せる機能として
+  // 「計算式」ボタンの開閉式に変更した。2026-08-26ユーザー指定）
   debugBreakdown: {
     display: 'grid',
     gap: 3,
@@ -653,6 +700,7 @@ const styles: Record<string, CSSProperties> = {
     border: '1px solid var(--border)',
     fontSize: 11,
     fontWeight: 800,
+    textAlign: 'center',
     cursor: 'pointer',
   },
   requiredHint: {

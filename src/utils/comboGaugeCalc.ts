@@ -606,8 +606,9 @@ export type DamageBreakdown = {
 };
 
 /**
- * calculateBranchDamageと同じ計算を、デバッグ用に1ヒットずつの内訳付きで返す。
- * 一時的な検証用途（計算結果に食い違いが出た時に、どの段で想定とズレたかを特定するため）。
+ * calculateBranchDamageと同じ計算を、1ヒットずつの内訳付きで返す。
+ * BranchStatsEditor.tsxの「計算式」ボタンから、普段は閉じた状態で見せる
+ * （計算根拠を見たい人向けの正式な機能。デバッグ調査用の一時的なものではない）。
  */
 export function calculateBranchDamageBreakdown(
   characterId: string,
