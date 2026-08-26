@@ -2,11 +2,12 @@
 // 枝（コンボ）の統計情報の編集UI。葉ノード、またはガード/空振り属性を持つノードで使う
 // （表示するかどうかの判断は呼び出し側で行う。src/components/combo/SideDrawerPanel.tsx を参照）。
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 import type { DamageBreakdown, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
+import { parsePlusFrameRange } from '../../utils/plusFrameRange';
 import { OdLevelToggle } from './OdLevelToggle';
 
 export type OdUsageOnPath = {
@@ -30,11 +31,14 @@ type Props = {
   // root〜このノードまでの技データから自動計算したDゲージ増減。キャンセルラッシュ中の
   // 抑制や連続ガード等の判定はできる範囲のみ反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
   autoDGaugeChange?: number | null;
+  // root〜このノードまでの経路上のSAヒットから自動計算した、相手のDゲージ削り量。
+  // ジャストパリィ始動なら半分にする（詳細はsrc/utils/comboGaugeCalc.ts参照）
+  autoOpponentDGaugeChip?: number | null;
   // root〜このノードまでの技データから自動計算したダメージ。標準コンボ補正テーブル・
   // ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証を反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
   autoDamage?: number | null;
-  // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。
-  // 原因を特定したら、このpropとJSXごと削除する
+  // ダメージ計算式の内訳。「計算式」ボタンを押した時だけ展開して見せる
+  // （普段は閉じておく。2026-08-26ユーザー指定：計算根拠を見せる正式な機能として採用）
   damageBreakdown?: DamageBreakdown | null;
   // このノードがSA(superArt・特殊性能あり)で、まだ特殊性能を選ばず技名だけ（例:「SA1」）
   // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
@@ -51,6 +55,11 @@ type Props = {
   // 画面から直接調整できるようにしてほしい、というユーザー要望）
   odUsagesOnPath?: OdUsageOnPath[];
   onChangeOdUsage?: (nodeId: string, next: boolean) => void;
+  // このノードの技（複数ヒット技は最終段）に登録済みの有利フレーム（自由記述）。
+  // プラスフレーム欄の「地上/空中」トグルで参照・選択できるようにする。未登録/技データ
+  // 未参照の場合は空文字または未指定
+  groundPlusFrame?: string;
+  airPlusFrame?: string;
 };
 
 // 「通常」ボタンは出さない（カウンター/パニカンをどちらもオフにすれば同じ状態に戻せるため）。
@@ -76,35 +85,57 @@ export function BranchStatsEditor({
   requiredStartHitCondition = null,
   autoSaGaugeChange = null,
   autoDGaugeChange = null,
+  autoOpponentDGaugeChip = null,
   autoDamage = null,
   damageBreakdown = null,
   finishingSuperArtMove = null,
   finishingSuperArtOptions = [],
   odUsagesOnPath = [],
   onChangeOdUsage,
+  groundPlusFrame = '',
+  airPlusFrame = '',
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
+  // 計算式の内訳は普段は閉じておき、興味を持った人がボタンを押した時だけ見せる
+  const [isFormulaOpen, setIsFormulaOpen] = useState(false);
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
   };
 
-  // 経路上に「カウンター以上でないと繋がらない」ノードがあれば、始動条件はそれ以上でなければ
-  // ならない。手動入力がまだそれを満たしていなければ表示・実データの両方を自動で引き上げる
+  // ジャストパリィ始動は常にパニッシュカウンター始動を伴う（実機仕様、パニッシュカウンターの
+  // トグルとは別にオン/オフできるが、始動条件としては常に「パニッシュカウンター以上」を要求する）
+  const justParryRequiredCondition: BranchStartHitCondition | null = stats.isJustParryStart
+    ? 'パニカン'
+    : null;
+
+  // 経路上に「カウンター以上でないと繋がらない」ノードがある場合、およびジャストパリィ始動の
+  // 場合、始動条件はそれ以上でなければならない（両方あればランクが高い方を採用）。
+  // 手動入力がまだそれを満たしていなければ表示・実データの両方を自動で引き上げる
   // （「通常」を選べる状態のまま放置されないようにするための仕様。ユーザー確認済み）
+  const effectiveRequiredCondition: BranchStartHitCondition | null =
+    !requiredStartHitCondition
+      ? justParryRequiredCondition
+      : !justParryRequiredCondition
+        ? requiredStartHitCondition
+        : START_HIT_CONDITION_RANK[requiredStartHitCondition] >=
+            START_HIT_CONDITION_RANK[justParryRequiredCondition]
+          ? requiredStartHitCondition
+          : justParryRequiredCondition;
+
   const satisfiesRequirement =
-    !requiredStartHitCondition ||
+    !effectiveRequiredCondition ||
     (stats.startHitCondition !== null &&
-      START_HIT_CONDITION_RANK[stats.startHitCondition] >= START_HIT_CONDITION_RANK[requiredStartHitCondition]);
+      START_HIT_CONDITION_RANK[stats.startHitCondition] >= START_HIT_CONDITION_RANK[effectiveRequiredCondition]);
   const effectiveStartHitCondition = satisfiesRequirement
     ? stats.startHitCondition
-    : requiredStartHitCondition;
+    : effectiveRequiredCondition;
 
   useEffect(() => {
-    if (readOnly || satisfiesRequirement || !requiredStartHitCondition) return;
-    onChange({ ...stats, startHitCondition: requiredStartHitCondition });
+    if (readOnly || satisfiesRequirement || !effectiveRequiredCondition) return;
+    onChange({ ...stats, startHitCondition: effectiveRequiredCondition });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [readOnly, satisfiesRequirement, requiredStartHitCondition]);
+  }, [readOnly, satisfiesRequirement, effectiveRequiredCondition]);
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
@@ -113,70 +144,115 @@ export function BranchStatsEditor({
         value={stats.damage}
         onChange={(next) => update({ damage: next })}
         readOnly={readOnly}
+        autoValue={autoDamage}
       />
-      {autoDamage !== null && (
-        <div style={styles.autoCalcRow}>
-          <span>自動計算：{autoDamage}</span>
-          {!readOnly && stats.damage !== autoDamage && (
-            <button
-              type="button"
-              className="btn-ghost"
-              style={styles.autoCalcButton}
-              onClick={() => update({ damage: autoDamage })}
+
+      {/* 経路上に技データが1件も無く計算対象が無い場合はボタン自体を出さない
+          （手動でダメージ欄を確定しているかどうかは問わない） */}
+      {damageBreakdown && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <button
+            type="button"
+            className="btn-ghost"
+            style={styles.formulaToggle}
+            onClick={() => setIsFormulaOpen((open) => !open)}
+          >
+            <span>計算式</span>
+            <span
+              style={{
+                ...styles.formulaToggleChevron,
+                transform: isFormulaOpen ? 'rotate(180deg)' : 'none',
+              }}
             >
-              この値を使う
-            </button>
+              ⌄
+            </span>
+          </button>
+
+          {isFormulaOpen && (
+            <div style={styles.debugBreakdown}>
+              <div style={styles.debugBreakdownHeader}>
+                起点基準値{damageBreakdown.startBase}%
+                {damageBreakdown.rushTriggerPosition !== null &&
+                  `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
+              </div>
+              {damageBreakdown.entries.map((entry) => (
+                <div key={entry.position} style={styles.debugBreakdownRow}>
+                  {entry.position}発目 {entry.hitLabel}
+                  {entry.isSystemAction
+                    ? ' : 敵にヒットしない行動のため補正対象外'
+                    : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
+                      ? entry.percent === entry.minDamageGuaranteePercent
+                        ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
+                        : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
+                      : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
+                  {' → '}
+                  {entry.isSystemAction
+                    ? 'ダメージ0（位置のみ消費）'
+                    : `${entry.damage} × ${entry.percent}% = ${Math.round(entry.contribution)}`}
+                </div>
+              ))}
+              <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
+            </div>
           )}
         </div>
       )}
-      {/* 【一時的なデバッグ表示】原因を特定したらこのブロックごと削除する */}
-      {damageBreakdown && (
-        <div style={styles.debugBreakdown}>
-          <div style={styles.debugBreakdownHeader}>
-            計算式デバッグ：起点基準値{damageBreakdown.startBase}%
-            {damageBreakdown.rushTriggerPosition !== null &&
-              `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
-          </div>
-          {damageBreakdown.entries.map((entry) => (
-            <div key={entry.position} style={styles.debugBreakdownRow}>
-              {entry.position}発目 {entry.hitLabel}
-              {entry.isSystemAction
-                ? ' : 敵にヒットしない行動のため補正対象外'
-                : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
-                  ? entry.percent === entry.minDamageGuaranteePercent
-                    ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
-                    : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
-                  : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
-              {' → '}
-              {entry.isSystemAction
-                ? 'ダメージ0（位置のみ消費）'
-                : `${entry.damage} × ${entry.percent}% = ${Math.round(entry.contribution)}`}
-            </div>
-          ))}
-          <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
-        </div>
+
+      {damageBreakdown && <div style={styles.sectionDivider} />}
+
+      <div style={styles.twoColRow}>
+        <NumberField
+          label="プラスフレーム"
+          value={stats.plusFrame}
+          onChange={(next) => update({ plusFrame: next })}
+          readOnly={readOnly}
+        />
+
+        <NumberField
+          label="Dゲージ削り量"
+          value={stats.opponentDGaugeChip}
+          onChange={(next) => update({ opponentDGaugeChip: next })}
+          readOnly={readOnly}
+          autoValue={autoOpponentDGaugeChip}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
+        {(['ground', 'air'] as const).map((hitType) => {
+          const active = stats.plusFrameHitType === hitType;
+          return (
+            <button
+              key={hitType}
+              type="button"
+              disabled={readOnly}
+              onClick={() => update({ plusFrameHitType: active ? null : hitType })}
+              style={{
+                ...styles.conditionButton,
+                borderColor: active ? 'var(--accent)' : 'var(--border)',
+                background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                color: active ? '#fff' : 'var(--text-secondary)',
+                cursor: readOnly ? 'default' : 'pointer',
+              }}
+            >
+              {hitType === 'ground' ? '地上ヒット' : '空中ヒット'}
+            </button>
+          );
+        })}
+      </div>
+      {stats.plusFrameHitType && (
+        <PlusFrameRangePicker
+          text={stats.plusFrameHitType === 'ground' ? groundPlusFrame : airPlusFrame}
+          readOnly={readOnly}
+          onPick={(next) => update({ plusFrame: next })}
+        />
       )}
+
       <NumberField
-        label="Dゲージ増減（回収+ / 消費-）"
+        label="Dゲージ増減"
         value={stats.dGaugeChange}
         onChange={(next) => update({ dGaugeChange: next })}
         readOnly={readOnly}
+        autoValue={autoDGaugeChange}
       />
-      {autoDGaugeChange !== null && (
-        <div style={styles.autoCalcRow}>
-          <span>自動計算：{autoDGaugeChange}</span>
-          {!readOnly && stats.dGaugeChange !== autoDGaugeChange && (
-            <button
-              type="button"
-              className="btn-ghost"
-              style={styles.autoCalcButton}
-              onClick={() => update({ dGaugeChange: autoDGaugeChange })}
-            >
-              この値を使う
-            </button>
-          )}
-        </div>
-      )}
 
       <label style={styles.checkboxRow}>
         <input
@@ -193,27 +269,7 @@ export function BranchStatsEditor({
         value={stats.saGaugeGain}
         onChange={(next) => update({ saGaugeGain: next })}
         readOnly={readOnly}
-      />
-      {autoSaGaugeChange !== null && (
-        <div style={styles.autoCalcRow}>
-          <span>自動計算：{autoSaGaugeChange}</span>
-          {!readOnly && stats.saGaugeGain !== autoSaGaugeChange && (
-            <button
-              type="button"
-              className="btn-ghost"
-              style={styles.autoCalcButton}
-              onClick={() => update({ saGaugeGain: autoSaGaugeChange })}
-            >
-              この値を使う
-            </button>
-          )}
-        </div>
-      )}
-      <NumberField
-        label="プラスフレーム"
-        value={stats.plusFrame}
-        onChange={(next) => update({ plusFrame: next })}
-        readOnly={readOnly}
+        autoValue={autoSaGaugeChange}
       />
 
       <RatingField
@@ -269,12 +325,17 @@ export function BranchStatsEditor({
             {START_HIT_CONDITION_LABELS[requiredStartHitCondition]}未満は選べません
           </span>
         )}
-        <div style={{ display: 'flex', gap: 4 }}>
+        {justParryRequiredCondition && (
+          <span style={styles.requiredHint}>
+            ジャストパリィ始動は常に「パニッシュカウンター」扱いになります
+          </span>
+        )}
+        <div style={styles.threeColRow}>
           {START_HIT_CONDITIONS.map((condition) => {
             const active = effectiveStartHitCondition === condition;
             const belowRequirement =
-              !!requiredStartHitCondition &&
-              START_HIT_CONDITION_RANK[condition] < START_HIT_CONDITION_RANK[requiredStartHitCondition];
+              !!effectiveRequiredCondition &&
+              START_HIT_CONDITION_RANK[condition] < START_HIT_CONDITION_RANK[effectiveRequiredCondition];
             const disabled = readOnly || belowRequirement;
             return (
               <button
@@ -295,28 +356,23 @@ export function BranchStatsEditor({
               </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={() => update({ isJustParryStart: !(stats.isJustParryStart ?? false) })}
+            disabled={readOnly}
+            style={{
+              ...styles.conditionButton,
+              borderColor: stats.isJustParryStart ? 'var(--accent)' : 'var(--border)',
+              background: stats.isJustParryStart ? 'var(--accent)' : 'var(--bg-elevated)',
+              color: stats.isJustParryStart ? '#fff' : 'var(--text-secondary)',
+              cursor: readOnly ? 'default' : 'pointer',
+            }}
+          >
+            ジャストパリィ
+          </button>
         </div>
       </div>
-
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.isJustParryStart ?? false}
-          disabled={readOnly}
-          onChange={(event) => update({ isJustParryStart: event.target.checked })}
-        />
-        ジャストパリィ始動
-      </label>
-
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.isRushStart ?? false}
-          disabled={readOnly}
-          onChange={(event) => update({ isRushStart: event.target.checked })}
-        />
-        ラッシュ始動
-      </label>
 
       {!finishingSuperArtMove && finishingSuperArtOptions.length > 0 && (
         <div style={styles.fieldLabel}>
@@ -411,20 +467,83 @@ export function BranchStatsEditor({
   );
 }
 
+/** プラスフレーム欄の「地上/空中」トグルの下に出す、技データの登録内容から選ぶUI。
+ * 範囲としてパースできればチップボタン、できなければ生テキストの参考表示、
+ * 空ならその旨のヒントを出す */
+function PlusFrameRangePicker({
+  text,
+  readOnly,
+  onPick,
+}: {
+  text: string;
+  readOnly: boolean;
+  onPick: (next: number) => void;
+}) {
+  if (!text) {
+    return <p style={styles.plusFrameHint}>（このヒット方向の有利フレームは未登録です）</p>;
+  }
+
+  const values = parsePlusFrameRange(text);
+  if (!values) {
+    return <p style={styles.plusFrameHint}>登録内容：{text}</p>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {values.map((value) => (
+        <button
+          key={value}
+          type="button"
+          disabled={readOnly}
+          onClick={() => onPick(value)}
+          style={{
+            ...styles.conditionButton,
+            padding: '2px 8px',
+            cursor: readOnly ? 'default' : 'pointer',
+          }}
+        >
+          {value >= 0 ? `+${value}` : value}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function NumberField({
   label,
   value,
   onChange,
   readOnly = false,
+  // 自動計算値。指定があればラベルの右側に「自動計算：X」＋「この値を使う」を表示する
+  // （3列に並べても縦に間延びしないよう、入力欄の下ではなくタイトル横に配置する）
+  autoValue = null,
 }: {
   label: string;
   value: number | null;
   onChange: (next: number | null) => void;
   readOnly?: boolean;
+  autoValue?: number | null;
 }) {
   return (
-    <label style={styles.fieldLabel}>
-      {label}
+    <div style={styles.fieldLabel}>
+      <div style={styles.fieldLabelRow}>
+        <span>{label}</span>
+        {autoValue !== null && (
+          <span style={styles.autoCalcInline}>
+            自動計算：{autoValue}
+            {!readOnly && value !== autoValue && (
+              <button
+                type="button"
+                className="btn-ghost"
+                style={styles.autoCalcButton}
+                onClick={() => onChange(autoValue)}
+              >
+                この値を使う
+              </button>
+            )}
+          </span>
+        )}
+      </div>
       <input
         type="number"
         className="input-field"
@@ -435,7 +554,7 @@ function NumberField({
           onChange(event.target.value === '' ? null : Number(event.target.value))
         }
       />
-    </label>
+    </div>
   );
 }
 
@@ -483,25 +602,70 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     color: 'var(--text-secondary)',
     fontWeight: 700,
+    minWidth: 0,
   },
   numberInput: {
     fontSize: 12,
     padding: '6px 10px',
   },
-  autoCalcRow: {
+  fieldLabelRow: {
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: 8,
-    marginTop: -4,
+    flexWrap: 'wrap',
+  },
+  autoCalcInline: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
     fontSize: 11,
+    fontWeight: 400,
     color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+  },
+  twoColRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 8,
   },
   autoCalcButton: {
     fontSize: 11,
     padding: '2px 8px',
   },
-  // 【一時的なデバッグ表示用】原因を特定したら他のdebugBreakdown*スタイルと一緒に削除する
+  plusFrameHint: {
+    margin: 0,
+    marginTop: -4,
+    fontSize: 11,
+    color: 'var(--text-muted)',
+  },
+  formulaToggle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    fontSize: 12,
+    padding: '4px 10px',
+    border: 'none',
+  },
+  // 開閉で別の文字（⌃/⌄）に差し替えると字形の重心が微妙にずれて位置が上下して見えるため、
+  // 同じ文字を180度回転させるだけにする（円い枠は常に同じ場所・同じ見た目のまま）
+  formulaToggleChevron: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 15,
+    lineHeight: 1,
+    transition: 'transform 0.15s',
+  },
+  sectionDivider: {
+    height: 2,
+    margin: '2px 0',
+    // 通常のvar(--border)よりも一段明るい区切り線用の色（見出し無しでも区切りが目立つように）
+    background: 'var(--border-hover)',
+  },
+  // 計算式の内訳表示（元は調査用のデバッグ表示だったが、計算根拠を見せる機能として
+  // 「計算式」ボタンの開閉式に変更した。2026-08-26ユーザー指定）
   debugBreakdown: {
     display: 'grid',
     gap: 3,
@@ -536,6 +700,7 @@ const styles: Record<string, CSSProperties> = {
     border: '1px solid var(--border)',
     fontSize: 11,
     fontWeight: 800,
+    textAlign: 'center',
     cursor: 'pointer',
   },
   requiredHint: {

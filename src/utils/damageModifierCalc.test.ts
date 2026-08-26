@@ -136,6 +136,22 @@ describe('calculateDamageScalingPath', () => {
     expect(calculateDamageScalingPath(hits, null, 120)).toEqual([120, 120, 100]);
   });
 
+  it('scalingBase省略時は、startBaseが100以外でも2発目以降は通常の100%始動と同じペースで減衰する（カウンター/パニカン始動の120%は1発目だけのボーナス）', () => {
+    const hits = [damageHit(''), damageHit(''), damageHit('')];
+    // startBase=120は1発目だけに反映され、2発目以降はscalingBase省略時のデフォルト(100)から
+    // 通常通り減衰する（100→100→80と同じペース。1発目の値だけが120に置き換わる）
+    expect(calculateDamageScalingPath(hits, null, 120)).toEqual([120, 100, 80]);
+  });
+
+  it('scalingBase+naturalStepScaleでジャストパリィ始動を再現する: 技固有の直接引き算は満額、自然減衰だけ半分になる（実機確認済み: 弱P(始動補正20%,起点60%)→弱K(始動補正20%だが起点でないため無視)→中サンライズ(コンボ補正20%だが後続無し)で60→40→35）', () => {
+    const hits = [damageHit('始動補正20%'), damageHit('始動補正20%'), damageHit('コンボ補正20%')];
+    // 1発目→2発目: 弱Pの始動補正20%を直接引くだけ（60-20=40、naturalStepScaleの対象外）
+    // 2発目→3発目: 弱K自身の始動補正は起点でないため次に効かず、技固有の補正が無いヒットの
+    // 「自然な1段ぶんの減衰」になる。本来のテーブル通りなら-10(40→30)だが、naturalStepScale=0.5
+    // により半分の-5だけ減衰して35になる
+    expect(calculateDamageScalingPath(hits, null, 60, 60, undefined, 0.5)).toEqual([60, 40, 35]);
+  });
+
   it('弱P→弱K→中サンライズの実機確認済みの例（100%→80%→70%）を再現する', () => {
     // 弱P(始動補正20%,起点)→弱K(始動補正20%だが起点ではないため無視される)→
     // 中サンライズ(コンボ補正20%だが後続が無いため使われない)
@@ -197,6 +213,12 @@ describe('calculateDamageScalingPath', () => {
   it('ラッシュありコンボは8%を下回らない', () => {
     const hits = [damageHit(''), damageHit('乗算補正99%'), damageHit('')];
     expect(calculateDamageScalingPath(hits, 3)).toEqual([100, 100, 8]);
+  });
+
+  it('floorScaleに0.5を渡すと下限が半分(5%/4%)になる（ジャストパリィ始動の最低保証半減、実機確認済み。SA自身のminDamageGuaranteePercentは対象外）', () => {
+    const hits = [damageHit(''), damageHit('乗算補正99%'), damageHit('')];
+    expect(calculateDamageScalingPath(hits, null, 100, undefined, 0.5)).toEqual([100, 100, 5]);
+    expect(calculateDamageScalingPath(hits, 3, 100, undefined, 0.5)).toEqual([100, 100, 4]);
   });
 
   it('技固有の補正がテーブルの区切りと噛み合わない場合、区切りに丸めず%ポイントをそのまま直接引く（実機確認済みの回帰例）', () => {

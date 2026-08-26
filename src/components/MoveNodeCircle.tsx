@@ -12,7 +12,7 @@ import {
   NODE_BORDER_COLOR_VAR,
   CANCEL_RUSH_MOVE_NAME,
 } from '../utils/nodeVisualStyle';
-import { NODE_DEFAULT_HEIGHT, nodeWidthFor } from '../utils/nodeSizing';
+import { NODE_DEFAULT_HEIGHT, isTutorialNode, nodeWidthFor } from '../utils/nodeSizing';
 
 /**
  * ノード表示名の中の「｜」を改行に変換する。自動折り返しが意図しない位置（例:
@@ -244,14 +244,19 @@ export function MoveNodeCircle({
             // デフォルトズームを100%→75%に下げた分を考慮しつつ、大きすぎると
             // 幅に収まらずすぐ省略記号(…)で見切れてしまうため、8pxと12pxの間で調整
             // （ユーザー確認済み）。あわせてこの特殊記入があるノードだけ横幅を広げている
-            // （nodeWidthFor参照）
+            // （nodeWidthFor参照）。チュートリアル用ノードだけは説明文が長めなため、
+            // 省略せず折り返して全文見せる（実キャラのノードは従来通り1行で省略表示）
             fontSize: 10,
             color: 'var(--text-secondary)',
             marginTop: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
             maxWidth: '100%',
+            ...(isTutorialNode(node)
+              ? { overflowWrap: 'break-word' as const }
+              : {
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }),
           }}
           title={node.specialNote}
         >

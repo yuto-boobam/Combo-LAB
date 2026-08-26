@@ -1,0 +1,23 @@
+{
+  "tutorial": {
+    "500ダメージ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 200,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "",
+          "airPlusFrame": ""
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    }
+  }
+}

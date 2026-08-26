@@ -12,6 +12,18 @@ interface NicknameDisplayProps {
   showDivider?: boolean;
 }
 
+// ヘッダーが狭まった時、スペースを含まない日本語文字列は単語区切りが無く
+// 1文字ごとに折り返されてしまう（CSSのnowrap指定だけでは不十分で、そもそも
+// 表示する文字数自体を減らす必要がある）。表示用に一定文字数で打ち切り、
+// 超えた分は「…」で示す。保存側の上限（20文字）とは別物。
+const MAX_DISPLAY_LENGTH = 8;
+
+function truncateForDisplay(value: string): string {
+  return value.length > MAX_DISPLAY_LENGTH
+    ? `${value.slice(0, MAX_DISPLAY_LENGTH)}…`
+    : value;
+}
+
 export function NicknameDisplay({ showDivider = true }: NicknameDisplayProps) {
   const nickname = useAppStore((s) => s.nickname);
   const setNickname = useAppStore((s) => s.setNickname);
@@ -138,6 +150,7 @@ export function NicknameDisplay({ showDivider = true }: NicknameDisplayProps) {
         /* ── 表示モード ── */
         <div className="flex items-center gap-1.5">
           <span
+            title={nickname && nickname.length > MAX_DISPLAY_LENGTH ? nickname : undefined}
             style={{
               fontSize: 13,
               fontWeight: 500,
@@ -145,9 +158,10 @@ export function NicknameDisplay({ showDivider = true }: NicknameDisplayProps) {
                 ? 'var(--text-secondary)'
                 : 'var(--text-muted)',
               fontStyle: nickname ? 'normal' : 'italic',
+              whiteSpace: 'nowrap',
             }}
           >
-            {nickname || 'ニックネーム未設定'}
+            {nickname ? truncateForDisplay(nickname) : 'ニックネーム未設定'}
           </span>
 
           {/* ペンアイコン（編集ボタン） */}

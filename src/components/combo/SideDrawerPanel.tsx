@@ -13,8 +13,10 @@ import type {
   MoveDefinition,
   MoveNode,
   MoveStats,
+  MoveStatsDatabase,
   NodeAttribute,
 } from '../../types';
+import { TUTORIAL_CHARACTER_ID } from '../../data/tutorialCharacter';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { OdLevelToggle } from './OdLevelToggle';
@@ -23,10 +25,12 @@ import {
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
   calculateBranchDGaugeChange,
+  calculateBranchOpponentDGaugeChip,
   calculateBranchSaGaugeChange,
   calculateOdLevelConstraint,
   calculateRequiredStartHitCondition,
   findOdRelevantNodesOnPath,
+  lookupMoveName,
 } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
@@ -38,9 +42,14 @@ type Props = {
   // キャラが持つすべての木（森）。選択中ノードがどの木に属するかはここから探す
   // （画面には全ての木が同時に表示されるため、木を1本に決め打ちできない）
   comboTrees: ComboTree[];
+  // falseの間、ドロワーを右へフェードアウトさせながら幅を畳む（閉じている間もアンマウントはしない。
+  // 選択状態やスクロール位置を保つため）。省略時は常時表示（従来通り）。
+  isOpen?: boolean;
 };
 
-export function SideDrawerPanel({ characterId, comboTrees }: Props) {
+const DRAWER_WIDTH = 400;
+
+export function SideDrawerPanel({ characterId, comboTrees, isOpen = true }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
@@ -50,16 +59,28 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
   const replaceModeAnchorId = useAppStore((state) => state.replaceModeAnchorId);
   const clipboard = useAppStore((state) => state.clipboard);
 
+  // チュートリアル用キャラクターだけ、ゲストモードでも編集できるようにする例外
+  // （ComboTreePage.tsxのisReadOnlyと同じ考え方）
+  const isReadOnly = isGuest && characterId !== TUTORIAL_CHARACTER_ID;
+
   const selectedInfo = findNodeInComboTrees(comboTrees, selectedNodeId);
 
   return (
-    <aside style={styles.drawer}>
+    <div style={{ ...styles.drawerWrapper, width: isOpen ? DRAWER_WIDTH : 0 }}>
+      <aside
+        style={{
+          ...styles.drawer,
+          transform: isOpen ? 'translateX(0)' : 'translateX(24px)',
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? undefined : 'none',
+        }}
+      >
       <div className="drawer-scroll" style={styles.body}>
-        {!isGuest && matchedAnchorIds && (
+        {!isReadOnly && matchedAnchorIds && (
           <MatchResultsPanel characterId={characterId} comboTrees={comboTrees} />
         )}
 
-        {isGuest ? (
+        {isReadOnly ? (
           <ReadOnlyNodeView
             characterId={characterId}
             root={selectedInfo?.tree.root ?? null}
@@ -89,10 +110,11 @@ export function SideDrawerPanel({ characterId, comboTrees }: Props) {
           </p>
         )}
 
-        {!isGuest && <NewTreeSection characterId={characterId} />}
-        {!isGuest && clipboard && <ClipboardPreview />}
+        {!isReadOnly && <NewTreeSection characterId={characterId} />}
+        {!isReadOnly && clipboard && <ClipboardPreview />}
       </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
 
@@ -111,6 +133,9 @@ function CopyModePanel({
   const [isOpen, setIsOpen] = useState(true);
 
   const anchorNode = findNodeInComboTrees(comboTrees, anchorId)?.node ?? null;
+  // 起点が末端ノード（続く枝が無い）の場合、選ぶべき候補が1つも無く操作不能になってしまうため、
+  // 何も選択しなくても「起点自身をコピーする」ものとして確定できるようにする
+  const isAnchorLeaf = anchorNode !== null && anchorNode.children.length === 0;
 
   return (
     <AccordionSection
@@ -122,7 +147,9 @@ function CopyModePanel({
     >
       <div style={{ display: 'grid', gap: 10 }}>
         <p style={styles.hint}>
-          「{anchorNode?.moveName}」から続く枝をクリックして選択してください。選んだ枝は子孫ごとコピーされます。
+          {isAnchorLeaf
+            ? `「${anchorNode?.moveName}」には続く枝が無いため、このまま「コピーを確定」を押すとこの技だけがコピーされます。`
+            : `「${anchorNode?.moveName}」から続く枝をクリックして選択してください。選んだ枝は子孫ごとコピーされます。`}
         </p>
 
         <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
@@ -134,7 +161,7 @@ function CopyModePanel({
             type="button"
             className="btn-primary justify-center"
             style={{ flex: 1 }}
-            disabled={copySelectedIds.length === 0}
+            disabled={copySelectedIds.length === 0 && !isAnchorLeaf}
             onClick={() => confirmCopy(characterId)}
           >
             コピーを確定
@@ -542,6 +569,7 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
   return [
     stats.damage !== null,
     stats.dGaugeChange !== null,
+    stats.opponentDGaugeChip !== null,
     stats.saGaugeGain !== null,
     stats.damageRating !== null,
     stats.dGaugeRating !== null,
@@ -592,6 +620,24 @@ function findFinishingSuperArtOptions(
     .map((move) => move.name);
 }
 
+// このノードの技（OD版・特殊性能を含めた解決キーで技データを引く。複数ヒット技は
+// 最終段を使う＝技全体が当たった後の状態を見るため。何段目が当たったかを選ぶUIはまだ無く、
+// ダメージ/ゲージの自動計算も常に技全体を対象にしているのと同じ考え方）に登録済みの
+// 有利フレームを、プラスフレーム欄の地上/空中トグルに渡す
+function resolveNodePlusFrames(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  node: MoveNode,
+): { groundPlusFrame: string; airPlusFrame: string } {
+  const key = lookupMoveName(node, true);
+  const stats = moveStatsDatabase[characterId]?.[key];
+  const lastHit = stats?.hits[stats.hits.length - 1];
+  return {
+    groundPlusFrame: lastHit?.groundPlusFrame ?? '',
+    airPlusFrame: lastHit?.airPlusFrame ?? '',
+  };
+}
+
 function ReadOnlyNodeView({
   characterId,
   root,
@@ -601,8 +647,8 @@ function ReadOnlyNodeView({
   root: MoveNode | null;
   selectedNode: MoveNode | null;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
-  const [isStatsOpen, setIsStatsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const moveList = useAppStore(
     (state) => state.characters.find((item) => item.id === characterId)?.moveList ?? [],
@@ -627,6 +673,9 @@ function ReadOnlyNodeView({
   const autoDGaugeChange = root
     ? calculateBranchDGaugeChange(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
     : null;
+  const autoOpponentDGaugeChip = root
+    ? calculateBranchOpponentDGaugeChip(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
+    : null;
   const autoDamage = root
     ? calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
     : null;
@@ -642,12 +691,13 @@ function ReadOnlyNodeView({
   const effectiveUsesOD =
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
   const odNodesOnPath = root ? findOdRelevantNodesOnPath(root, selectedNode.id, moveList) : [];
+  const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
 
   return (
     <>
       {showStats && (
         <AccordionSection
-          title="コンボの情報"
+          title="コンボの情報（ダメージ・フレームなど）"
           icon="📊"
           count={countFilledBranchStats(selectedNode.branchStats)}
           isOpen={isStatsOpen}
@@ -660,7 +710,10 @@ function ReadOnlyNodeView({
             requiredStartHitCondition={requiredStartHitCondition}
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
+            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
             autoDamage={autoDamage}
+            groundPlusFrame={groundPlusFrame}
+            airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
             finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
@@ -675,7 +728,7 @@ function ReadOnlyNodeView({
       )}
 
       <AccordionSection
-        title={`選択中のノード：${selectedNode.moveName}`}
+        title={`選択中のノードについて：${selectedNode.moveName}`}
         icon="👁️"
         count={selectedNode.attributes.length}
         isOpen={isOpen}
@@ -805,10 +858,12 @@ function NodeEditor({
   >(undefined);
 
   // 「コンボの情報」「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
-  // ノードを切り替えるたびに（keyでの再マウントにより）すべて開いた状態に戻る
-  const [isStatsOpen, setIsStatsOpen] = useState(true);
-  const [isEditorOpen, setIsEditorOpen] = useState(true);
-  const [isAddFormOpen, setIsAddFormOpen] = useState(true);
+  // 「ノードを選ぶ→開きたいものだけ開く→操作する」という順序にするため、
+  // デフォルトはすべて閉じた状態にする（閉じていてもAccordionSectionの件数バッジで
+  // 記入状況は分かる）。ノードを切り替えるたびに（keyでの再マウントにより）この初期状態に戻る
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
 
   // 統計入力欄は「葉ノード（子を持たない）」または「ガード」「空振り」を選んだノードに表示する。
   // recordsBranchStatsがtrueなら、それ以外のノードでも任意で表示できる（あえて途中で
@@ -831,6 +886,13 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  const autoOpponentDGaugeChip = calculateBranchOpponentDGaugeChip(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
   const autoDamage = calculateBranchDamage(
     characterId,
     moveStatsDatabase,
@@ -838,7 +900,7 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
-  // 【一時的なデバッグ表示】ダメージ計算の食い違いを特定するための内訳。原因特定後に削除する
+  // ダメージ計算式の内訳（BranchStatsEditor側で「計算式」ボタンの開閉式にして見せる）
   const damageBreakdown = calculateBranchDamageBreakdown(
     characterId,
     moveStatsDatabase,
@@ -857,6 +919,7 @@ function NodeEditor({
   // root〜選択中ノードの経路上にあるOD関連ノード（このノード自身が末端でなくても、経路の
   // 途中にビーム等があれば含まれる）。「コンボの情報」欄からまとめて確認・変更できるようにする
   const odNodesOnPath = findOdRelevantNodesOnPath(root, selectedNode.id, moveList);
+  const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
 
   // Lv.によって通常/OD版の選択が一方に固定される場合、手動入力がまだそれを満たしていなければ
   // 自動で引き上げる（始動条件のカウンター制約と同じ考え方。ユーザー確認済み）。経路上の
@@ -899,7 +962,7 @@ function NodeEditor({
     <>
       {showStatsEditor && (
         <AccordionSection
-          title="コンボの情報"
+          title="コンボの情報（ダメージ・フレームなど）"
           icon="📊"
           count={countFilledBranchStats(selectedNode.branchStats)}
           isOpen={isStatsOpen}
@@ -911,8 +974,11 @@ function NodeEditor({
             requiredStartHitCondition={requiredStartHitCondition}
             autoSaGaugeChange={autoSaGaugeChange}
             autoDGaugeChange={autoDGaugeChange}
+            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
             autoDamage={autoDamage}
             damageBreakdown={damageBreakdown}
+            groundPlusFrame={groundPlusFrame}
+            airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
             finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
@@ -927,7 +993,7 @@ function NodeEditor({
       )}
 
       <AccordionSection
-        title={`選択中のノード：${selectedNode.moveName}`}
+        title={`選択中のノードについて：${selectedNode.moveName}`}
         icon="✏️"
         count={selectedNode.attributes.length}
         isOpen={isEditorOpen}
@@ -1072,7 +1138,7 @@ function NodeEditor({
       </AccordionSection>
 
       <AccordionSection
-        title={`「${selectedNode.moveName}」に技を繋げる${newMoveName ? `： ${newMoveName}` : ''}`}
+        title={`「${selectedNode.moveName}」に繋げる技を選ぶ${newMoveName ? `： ${newMoveName}` : ''}`}
         icon="➕"
         count={newAttributes.length}
         isOpen={isAddFormOpen}
@@ -1107,6 +1173,16 @@ function NodeEditor({
 }
 
 const styles: Record<string, CSSProperties> = {
+  // 開閉アニメーション用の外枠。widthをここで畳むことで、閉じている間はキャンバス側が
+  // 全幅に広がる。中のasideは常にDRAWER_WIDTH固定のままtranslateX+opacityで
+  // 「右へフェードアウト／右からフェードイン」させる（幅と位置、2つのtransitionを分離）。
+  drawerWrapper: {
+    flex: '0 0 auto',
+    overflow: 'hidden',
+    transition: 'width 0.24s ease',
+    minHeight: 0,
+    display: 'flex',
+  },
   drawer: {
     flex: '0 0 auto',
     width: 400,
@@ -1115,6 +1191,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
+    transition: 'transform 0.24s ease, opacity 0.18s ease',
   },
   body: {
     flex: '1 1 auto',

@@ -2,7 +2,7 @@
 // SVGコネクター: 各ノードのDOM座標を監視し、動的にベジェ曲線を描画する。
 // ドラッグ&ドロップやテキスト入力によるレイアウト変更に即座に追従する。
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TreeColumn, TreeLayout, TreeNodeLike } from './types';
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
@@ -32,6 +32,15 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [paths, setPaths] = useState<{ id: string; d: string; color: string }[]>([]);
+
+  // columns（Reactの同期的なpropで、常に最新の「開いている親→子」一覧を表す）に存在しない
+  // リンクは、非同期のrAFループがまだ追いついていなくても描画しない。ノードを閉じた瞬間、
+  // 次のuseEffect実行を待たずに古い接続線が消えることを保証するための安全網
+  // （閉じた親配下の接続線が残る不具合の修正）
+  const validLinkIds = useMemo(
+    () => new Set(columns.flatMap((column) => column.nodes.map((node) => `${column.parentId}-${node.id}`))),
+    [columns],
+  );
 
   useEffect(() => {
     let animationFrameId = 0;
@@ -161,7 +170,7 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
         overflow: 'visible',
       }}
     >
-      {paths.map((path) => (
+      {paths.filter((path) => validLinkIds.has(path.id)).map((path) => (
         <path
           key={path.id}
           d={path.d}

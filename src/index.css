@@ -327,6 +327,19 @@ body {
 }
 .animate-scaleIn { animation: scaleIn 0.2s ease-out; }
 
+/* チュートリアル: サイドドロワー開閉ボタンへの誘導ガイド */
+@keyframes tutorialGuidePulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50%      { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+}
+.tutorial-guide-pulse { animation: tutorialGuidePulse 1.6s ease-in-out infinite; }
+
+@keyframes tutorialGuideBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(4px); }
+}
+.tutorial-guide-bubble { animation: tutorialGuideBounce 1.6s ease-in-out infinite; }
+
 /* ドラッグ中のスタイル */
 .drag-over {
   border-color: var(--accent) !important;

@@ -120,6 +120,10 @@ function forwardMultiplier(modifiers: ParsedModifier[]): number {
  *
  * - 起点（1発目）の値は startBase（通常100、カウンター/パニカン始動120、ジャストパリィ後
  *   パニカン始動50）がそのまま採用される。起点自身の始動補正は起点のダメージには影響しない
+ * - 2発目以降の減衰ペースはscalingBase基準（省略時は標準テーブルの先頭=100）で進む。
+ *   カウンター/パニカン始動の120%は1発目自身への一回限りのボーナスで、2発目以降の減衰
+ *   ペースは通常の100%始動と同じ（実機確認済み）。ジャストパリィ始動のように「2発目以降も
+ *   低いまま推移する」場合だけ、呼び出し側でscalingBaseにstartBaseと同じ値を渡す
  * - 起点の始動補正・2発目以降のコンボ補正/即時補正/乗算補正は、いずれも"次につなぐ技"に
  *   効く（即時補正だけは、それに加えて自分自身にも効く）。実機確認済み
  * - 2発目以降の標準テーブル参照は、何発目かではなく「テーブルの何段目にいるか」を基準に
@@ -136,6 +140,13 @@ function forwardMultiplier(modifiers: ParsedModifier[]): number {
  * - rushTriggerPosition以降（ラッシュ攻撃＝ラッシュ直後の技から）は、ラッシュが絡まない場合の
  *   計算結果に0.85を掛け、小数点以下切り捨てにする
  * - SA以外は、ラッシュを伴うコンボなら8%、伴わないコンボなら10%を下回らない
+ *   （floorScaleが渡されていれば、この8%/10%にその倍率をかけたものが下限になる。
+ *   ジャストパリィ始動は最低保証も半分＝8%×0.5=4%・10%×0.5=5%になることが実機確認済み）
+ * - 技固有の補正（始動補正/コンボ補正/即時補正）による直接引き算は満額そのまま適用される。
+ *   技固有の補正が無いヒットの「標準テーブルからの自然な1段ぶんの減衰」だけがnaturalStepScale
+ *   の対象（ジャストパリィ始動はこの自然減衰だけ半分になることが実機確認済み。例:
+ *   パニカン120%の50%＝60%始動→始動補正20%を直接引いて40%→次の無地の技は本来なら
+ *   -10のところ-5だけ減衰して35%）
  * - SAは自身の`minDamageGuaranteePercent`を「これを下回らない」という下限として扱う（他の
  *   補正と同じくテーブル・ラッシュ倍率による自然な計算は行った上で、その結果が保証値を
  *   下回った時だけ保証値に引き上げる。自然計算が保証値を上回っている間は自然計算の方を使う。
@@ -146,6 +157,20 @@ export function calculateDamageScalingPath(
   hits: DamageHitInput[],
   rushTriggerPosition: number | null,
   startBase: number = 100,
+  // 2発目以降の減衰ペースが基準にする値。省略時は標準テーブルの先頭(100)で、これは
+  // startBaseが100以外（カウンター/パニカン始動120%等）でも変わらない（1発目自身への
+  // ボーナスと、2発目以降の減衰ペースは別物であることが実機確認済み）。ジャストパリィ
+  // 始動のように減衰ペース自体をstartBaseに合わせたい場合だけ、呼び出し側で明示的に渡す
+  scalingBase: number = STANDARD_COMBO_TABLE[0],
+  // 非SAの最低保証(8%/10%)にかける倍率。ジャストパリィ始動は最低保証も半分(4%/5%)に
+  // なることが実機確認済みのため、その場合だけ呼び出し側で0.5を渡す。SA自身の
+  // minDamageGuaranteePercentはこの倍率の対象外（実機確認済み、変化なし）
+  floorScale: number = 1,
+  // 技固有の補正（始動補正/コンボ補正/即時補正）が無いヒットの「自然な1段ぶんの減衰量」に
+  // かける倍率。ジャストパリィ始動はこの自然減衰だけ半分になることが実機確認済み
+  // （例: 60%→(始動補正20%を直接引いて)40%→本来なら-10のところ-5だけ減衰して35%。
+  // 技固有の補正による直接引き算はこの倍率の対象外で、常に満額そのまま引かれる）
+  naturalStepScale: number = 1,
 ): (number | null)[] {
   // システム動作（isSystemAction）は敵にヒットする行動ではないため、そもそも「何%の
   // 補正がかかったか」という概念自体が存在しない。percentはnull（対象外）を返す
@@ -153,8 +178,16 @@ export function calculateDamageScalingPath(
   // 次のヒットに引き継がれる「現在の補正値」と、標準テーブル上の現在地(インデックス、
   // 「無地の技が来たら次にどれだけ自然減衰するか」を求めるためだけに使う)。
   // 起点の値・startBaseとは独立して、標準テーブルの段＋技固有の補正の累積で進んでいく
-  let carry = STANDARD_COMBO_TABLE[0];
-  let tableIndex = 0;
+  // （カウンター/パニカン始動の120%は1発目自身の表示値だけのボーナスで、2発目以降の減衰
+  // ペースは通常の100%始動と同じであることが実機確認済み。scalingBaseは、ジャストパリィ
+  // 始動のように「2発目以降の減衰ペース自体」も変えたい場合だけstartBaseと別の値を渡す）
+  let carry = scalingBase;
+  // scalingBaseが標準テーブルの先頭(100、デフォルト)ならテーブルの位置は0のまま
+  // （[100,100]の重複によって1段目は自然減衰0になる、実機確認済みの仕組み）。
+  // それ以外のscalingBase（ジャストパリィの60%等）は、テーブル上の実際の位置を
+  // indexForValueで逆算する（0のままだと「100%からの1段目」を意味してしまい、
+  // 60%の直後の段が本来の50%ではなくずれてしまう）
+  let tableIndex = scalingBase === STANDARD_COMBO_TABLE[0] ? 0 : indexForValue(scalingBase);
   // sharesTableStepWithPreviousなヒット群が参照する「グループの基準値」（1段目がテーブルを
   // 進める前のcarry、または起点ならstartBase）。1段目以外のヒットで更新されるまで保持する
   let groupBaseValue: number | null = null;
@@ -170,7 +203,7 @@ export function calculateDamageScalingPath(
     } else {
       const nextIndex = Math.min(tableIndex + 1, STANDARD_COMBO_TABLE.length - 1);
       const naturalStep = STANDARD_COMBO_TABLE[tableIndex] - STANDARD_COMBO_TABLE[nextIndex];
-      nextCarry = carry - naturalStep;
+      nextCarry = carry - naturalStep * naturalStepScale;
       tableIndex = nextIndex;
     }
 
@@ -208,7 +241,8 @@ export function calculateDamageScalingPath(
   });
 
   const inRush = (position: number) => rushTriggerPosition !== null && position >= rushTriggerPosition;
-  const floor = rushTriggerPosition !== null ? RUSH_MIN_DAMAGE_PERCENT : NO_RUSH_MIN_DAMAGE_PERCENT;
+  const floor =
+    (rushTriggerPosition !== null ? RUSH_MIN_DAMAGE_PERCENT : NO_RUSH_MIN_DAMAGE_PERCENT) * floorScale;
 
   return rawPercents.map((percent, index) => {
     const hit = hits[index];
