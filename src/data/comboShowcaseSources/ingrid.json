@@ -367,7 +367,7 @@
                                   "plusFrame": null,
                                   "isThrowRange": false,
                                   "canOkizeme": false,
-                                  "startHitCondition": "カウンター",
+                                  "startHitCondition": "パニカン",
                                   "isJustParryStart": false,
                                   "isRushStart": false,
                                   "usesCA": false
@@ -1102,10 +1102,10 @@
   "namedComboGroups": [
     {
       "id": "mt5w8y69tao6a3rwmei",
-      "name": "地上強ライズコンボ"
+      "name": "地上強ライズ"
     }
   ],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-24T14:13:40.226Z"
+  "updatedAt": "2026-08-24T15:10:18.810Z"
 }

@@ -327,12 +327,15 @@ body {
 }
 .animate-scaleIn { animation: scaleIn 0.2s ease-out; }
 
-/* チュートリアル: サイドドロワー開閉ボタンへの誘導ガイド */
+/* チュートリアル: 誘導ガイド（ドロワー開閉ボタン／ノード／コンボの情報欄）。
+   薄いaccent-glowだと「選択中のノードについて」欄の背景に埋もれて目立たなかったため、
+   明るい水色を高い不透明度から始めて広がりながら消える、視認性重視のパルスにしている */
 @keyframes tutorialGuidePulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
-  50%      { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.95); }
+  70%  { box-shadow: 0 0 0 10px rgba(96, 165, 250, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0); }
 }
-.tutorial-guide-pulse { animation: tutorialGuidePulse 1.6s ease-in-out infinite; }
+.tutorial-guide-pulse { animation: tutorialGuidePulse 1.4s ease-out infinite; }
 
 @keyframes tutorialGuideBounce {
   0%, 100% { transform: translateY(0); }

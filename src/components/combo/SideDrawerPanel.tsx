@@ -45,11 +45,22 @@ type Props = {
   // falseの間、ドロワーを右へフェードアウトさせながら幅を畳む（閉じている間もアンマウントはしない。
   // 選択状態やスクロール位置を保つため）。省略時は常時表示（従来通り）。
   isOpen?: boolean;
+  // 誘導ガイド（チュートリアル用）: このノードIDが選択されている間だけ「コンボの情報」欄を
+  // 光らせる。ComboTreePage側がどの段階かを判断し、対象ノードIDだけをここへ渡す
+  // （このコンポーネント自身はチュートリアルの手順そのものは知らない）
+  highlightComboInfoNodeId?: string | null;
+  onComboInfoOpened?: () => void;
 };
 
 const DRAWER_WIDTH = 400;
 
-export function SideDrawerPanel({ characterId, comboTrees, isOpen = true }: Props) {
+export function SideDrawerPanel({
+  characterId,
+  comboTrees,
+  isOpen = true,
+  highlightComboInfoNodeId = null,
+  onComboInfoOpened,
+}: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
@@ -103,6 +114,8 @@ export function SideDrawerPanel({ characterId, comboTrees, isOpen = true }: Prop
             treeId={selectedInfo.tree.id}
             root={selectedInfo.tree.root}
             selectedNode={selectedInfo.node}
+            highlightComboInfo={highlightComboInfoNodeId === selectedInfo.node.id}
+            onComboInfoOpened={onComboInfoOpened}
           />
         ) : (
           <p style={styles.hint}>
@@ -806,11 +819,15 @@ function NodeEditor({
   treeId,
   root,
   selectedNode,
+  highlightComboInfo = false,
+  onComboInfoOpened,
 }: {
   characterId: string;
   treeId: string;
   root: MoveNode;
   selectedNode: MoveNode;
+  highlightComboInfo?: boolean;
+  onComboInfoOpened?: () => void;
 }) {
   const selectNode = useAppStore((state) => state.selectNode);
   const addChildNode = useAppStore((state) => state.addChildNode);
@@ -966,7 +983,14 @@ function NodeEditor({
           icon="📊"
           count={countFilledBranchStats(selectedNode.branchStats)}
           isOpen={isStatsOpen}
-          onToggle={() => setIsStatsOpen((open) => !open)}
+          onToggle={() => {
+            setIsStatsOpen((open) => {
+              const next = !open;
+              if (next && highlightComboInfo) onComboInfoOpened?.();
+              return next;
+            });
+          }}
+          highlight={highlightComboInfo}
         >
           <BranchStatsEditor
             value={selectedNode.branchStats}
