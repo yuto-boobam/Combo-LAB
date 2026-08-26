@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
-import type { DamageBreakdown, OdLevelConstraint } from '../../utils/comboGaugeCalc';
+import type { DamageBreakdown, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import { parsePlusFrameRange } from '../../utils/plusFrameRange';
 import { OdLevelToggle } from './OdLevelToggle';
@@ -25,21 +25,25 @@ type Props = {
   // この枝が繋がるために最低限必要な始動条件（例:「カウンター以上でないと繋がらない」
   // ノードが経路上にあれば'カウンター'）。null = 制約なし
   requiredStartHitCondition?: BranchStartHitCondition | null;
-  // root〜このノードまでの技データから自動計算したSAゲージ増減。技データが1件も
-  // 登録されていない経路ではnull
-  autoSaGaugeChange?: number | null;
-  // root〜このノードまでの技データから自動計算したDゲージ増減。キャンセルラッシュ中の
-  // 抑制や連続ガード等の判定はできる範囲のみ反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
-  autoDGaugeChange?: number | null;
-  // root〜このノードまでの経路上のSAヒットから自動計算した、相手のDゲージ削り量。
-  // ジャストパリィ始動なら半分にする（詳細はsrc/utils/comboGaugeCalc.ts参照）
-  autoOpponentDGaugeChip?: number | null;
-  // root〜このノードまでの技データから自動計算したダメージ。標準コンボ補正テーブル・
-  // ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証を反映（詳細はsrc/utils/comboGaugeCalc.ts参照）
-  autoDamage?: number | null;
   // ダメージ計算式の内訳。「計算式」ボタンを押した時だけ展開して見せる
   // （普段は閉じておく。2026-08-26ユーザー指定：計算根拠を見せる正式な機能として採用）
   damageBreakdown?: DamageBreakdown | null;
+  // Dゲージ増減欄の「合計⇄内訳」表示切替用。1ノードずつの増減（例:「+200→+200→-20000」）。
+  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加の各欄は、未入力の間だけ呼び出し側
+  // （SideDrawerPanel.tsx）が自動計算値でそのまま埋めるため、このコンポーネント側は
+  // 「自動計算：X」「この値を使う」のような案内は持たない（2026-08-26ユーザー指定：
+  // 自動で埋めて、間違っていたら直接修正する運用に統一）。totalExcludingEarlyRecoveryは
+  // 「最初にゲージを消費する技より前の回復」を除いた場合の参考値。totalと異なる時だけ、
+  // 合計欄に「-25500(-27500)」のように括弧書きで併記する
+  dGaugeBreakdown?: { steps: GaugeStep[]; total: number; totalExcludingEarlyRecovery: number } | null;
+  // SAゲージ増加欄の「合計⇄内訳」表示切替用。dGaugeBreakdownと同じ考え方（早期回復の概念が
+  // 無いためtotalExcludingEarlyRecoveryは持たない）
+  saGaugeBreakdown?: { steps: GaugeStep[]; total: number } | null;
+  // このコンボを最後まで遂行するために最低限必要な開始時Dゲージ量。SF6は「ゲージが0でなければ
+  // 消費行動を発動できる」仕様（名目コストを満額持っている必要はない）のため、単純な消費量の
+  // 合計ではなくシミュレーションで求めた値（詳細はcomboGaugeCalc.tsのcalculateBranchDGaugeMinimumRequired
+  // 参照）。0＝消費行動が経路上に無い、null＝技データ未登録
+  dGaugeMinimumRequired?: number | null;
   // このノードがSA(superArt・特殊性能あり)で、まだ特殊性能を選ばず技名だけ（例:「SA1」）
   // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
   // 選ばせるUIを表示し、finishingSpecialVariantに保存する（呼び出し側の判定はSideDrawerPanel参照）
@@ -83,11 +87,10 @@ export function BranchStatsEditor({
   onChange,
   readOnly = false,
   requiredStartHitCondition = null,
-  autoSaGaugeChange = null,
-  autoDGaugeChange = null,
-  autoOpponentDGaugeChip = null,
-  autoDamage = null,
   damageBreakdown = null,
+  dGaugeBreakdown = null,
+  saGaugeBreakdown = null,
+  dGaugeMinimumRequired = null,
   finishingSuperArtMove = null,
   finishingSuperArtOptions = [],
   odUsagesOnPath = [],
@@ -98,6 +101,10 @@ export function BranchStatsEditor({
   const stats = value ?? DEFAULT_BRANCH_STATS;
   // 計算式の内訳は普段は閉じておき、興味を持った人がボタンを押した時だけ見せる
   const [isFormulaOpen, setIsFormulaOpen] = useState(false);
+  // Dゲージ増減／SAゲージ増加欄の表示モード。falseは合計（従来通りの編集可能な数値入力）、
+  // trueは1ノードずつの内訳（読み取り専用のテキスト表示に切り替わる）
+  const [isDGaugeBreakdownMode, setIsDGaugeBreakdownMode] = useState(false);
+  const [isSaGaugeBreakdownMode, setIsSaGaugeBreakdownMode] = useState(false);
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
@@ -162,7 +169,6 @@ export function BranchStatsEditor({
         value={stats.damage}
         onChange={(next) => update({ damage: next })}
         readOnly={readOnly}
-        autoValue={autoDamage}
       />
 
       {/* 経路上に技データが1件も無く計算対象が無い場合はボタン自体を出さない
@@ -230,7 +236,6 @@ export function BranchStatsEditor({
           value={stats.opponentDGaugeChip}
           onChange={(next) => update({ opponentDGaugeChip: next })}
           readOnly={readOnly}
-          autoValue={autoOpponentDGaugeChip}
         />
       </div>
 
@@ -264,30 +269,35 @@ export function BranchStatsEditor({
         />
       )}
 
-      <NumberField
+      <GaugeChangeField
         label="Dゲージ増減"
         value={stats.dGaugeChange}
         onChange={(next) => update({ dGaugeChange: next })}
         readOnly={readOnly}
-        autoValue={autoDGaugeChange}
+        breakdown={dGaugeBreakdown}
+        isBreakdownMode={isDGaugeBreakdownMode}
+        onToggleBreakdownMode={() => setIsDGaugeBreakdownMode((open) => !open)}
       />
 
-      <label style={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={stats.includesEarlyDGaugeRecovery ?? true}
-          disabled={readOnly}
-          onChange={(event) => update({ includesEarlyDGaugeRecovery: event.target.checked })}
-        />
-        Dゲージを使うまでの技の回復を含む
-      </label>
+      {/* SF6は「ゲージが0でなければ消費行動を発動できる」仕様（名目コストを満額持っている
+          必要はない）ため、消費行動の間に十分な回復があれば名目コストの合計よりずっと少ない
+          ゲージで足りる。逆に回復を挟まず連続すると名目コストを超える量が必要になることもある
+          （2026-08-26ユーザー指定：単純な消費量の合計ではなく実際に発動できるかをシミュレーション
+          した最低限必要量を表示する）。消費行動が経路上に無ければ(0)表示しない */}
+      {dGaugeMinimumRequired !== null && dGaugeMinimumRequired > 0 && (
+        <p style={styles.minRequiredGaugeText}>
+          最低限必要なDゲージ：{dGaugeMinimumRequired}
+        </p>
+      )}
 
-      <NumberField
+      <GaugeChangeField
         label="SAゲージ増加"
         value={stats.saGaugeGain}
         onChange={(next) => update({ saGaugeGain: next })}
         readOnly={readOnly}
-        autoValue={autoSaGaugeChange}
+        breakdown={saGaugeBreakdown}
+        isBreakdownMode={isSaGaugeBreakdownMode}
+        onToggleBreakdownMode={() => setIsSaGaugeBreakdownMode((open) => !open)}
       />
 
       <div style={styles.ratingGrid}>
@@ -542,41 +552,98 @@ function PlusFrameRangePicker({
   );
 }
 
+// Dゲージ増減・SAゲージ増加で共用する、「合計⇄内訳」をワンボタンで切り替えられる欄。
+// 内訳モードでは編集不可の読み取り専用テキストに切り替わる（合計モードに戻せば通常通り
+// 編集できる）。内訳の各ステップは長い矢印区切りの文字列でも折り返して全文表示し、
+// 省略（…）はしない（2026-08-26ユーザー指定）。合計モードでは、totalExcludingEarlyRecovery
+// （Dゲージ限定・SAゲージ側は無し）がtotalと異なる時だけ、入力欄の右に括弧書きの参考値
+// 「-25500(-27500)」を添える（2026-08-26ユーザー指定：内訳の1ステップずつを括弧で示す
+// のではなく、合計欄側に括弧で併記する方式に変更）
+function GaugeChangeField({
+  label,
+  value,
+  onChange,
+  readOnly,
+  breakdown,
+  isBreakdownMode,
+  onToggleBreakdownMode,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (next: number | null) => void;
+  readOnly: boolean;
+  breakdown?: { steps: GaugeStep[]; total: number; totalExcludingEarlyRecovery?: number } | null;
+  isBreakdownMode: boolean;
+  onToggleBreakdownMode: () => void;
+}) {
+  const hasEarlyRecoveryNote =
+    breakdown?.totalExcludingEarlyRecovery !== undefined &&
+    breakdown.totalExcludingEarlyRecovery !== breakdown.total;
+
+  return (
+    <div style={styles.fieldLabel}>
+      <div style={styles.fieldLabelRow}>
+        <span>{label}</span>
+        {/* 「合計(-19600)」⇄「内訳(+200→+200→-20000)」をワンボタンで切り替える。
+            内訳が無い（技データ未登録等）場合はボタン自体を出さない */}
+        {breakdown && breakdown.steps.length > 0 && (
+          <button
+            type="button"
+            className="btn-ghost"
+            style={styles.autoCalcButton}
+            onClick={onToggleBreakdownMode}
+          >
+            {isBreakdownMode ? '合計で見る' : '内訳で見る'}
+          </button>
+        )}
+      </div>
+
+      {isBreakdownMode && breakdown ? (
+        <div style={styles.gaugeBreakdownText}>
+          {breakdown.steps
+            .map((step) => (step.value >= 0 ? `+${step.value}` : `${step.value}`))
+            .join(' → ')}
+        </div>
+      ) : (
+        <div style={styles.gaugeInputRow}>
+          <input
+            type="number"
+            className="input-field"
+            style={styles.numberInput}
+            value={value ?? ''}
+            readOnly={readOnly}
+            onChange={(event) =>
+              onChange(event.target.value === '' ? null : Number(event.target.value))
+            }
+          />
+          {hasEarlyRecoveryNote && (
+            <span
+              style={styles.gaugeSecondaryTotal}
+              title="Dゲージを使うまでの技の分を加算しなかった場合"
+            >
+              ({breakdown!.totalExcludingEarlyRecovery})
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NumberField({
   label,
   value,
   onChange,
   readOnly = false,
-  // 自動計算値。指定があればラベルの右側に「自動計算：X」＋「この値を使う」を表示する
-  // （3列に並べても縦に間延びしないよう、入力欄の下ではなくタイトル横に配置する）
-  autoValue = null,
 }: {
   label: string;
   value: number | null;
   onChange: (next: number | null) => void;
   readOnly?: boolean;
-  autoValue?: number | null;
 }) {
   return (
     <div style={styles.fieldLabel}>
-      <div style={styles.fieldLabelRow}>
-        <span>{label}</span>
-        {autoValue !== null && (
-          <span style={styles.autoCalcInline}>
-            自動計算：{autoValue}
-            {!readOnly && value !== autoValue && (
-              <button
-                type="button"
-                className="btn-ghost"
-                style={styles.autoCalcButton}
-                onClick={() => onChange(autoValue)}
-              >
-                この値を使う
-              </button>
-            )}
-          </span>
-        )}
-      </div>
+      <span>{label}</span>
       <input
         type="number"
         className="input-field"
@@ -661,15 +728,6 @@ const styles: Record<string, CSSProperties> = {
     gap: 8,
     flexWrap: 'wrap',
   },
-  autoCalcInline: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    fontSize: 11,
-    fontWeight: 400,
-    color: 'var(--text-muted)',
-    whiteSpace: 'nowrap',
-  },
   twoColRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
@@ -678,6 +736,38 @@ const styles: Record<string, CSSProperties> = {
   autoCalcButton: {
     fontSize: 11,
     padding: '2px 8px',
+  },
+  // Dゲージ/SAゲージ増減の内訳表示（例:「+200 → +200 → -20000」）。読み取り専用のテキストなので
+  // input-fieldと縦幅を合わせつつ、編集不可であることが分かるよう文字色を少し落とす。
+  // コンボが長く1行に収まらない場合も省略（…）せず、折り返して全文表示する
+  // （2026-08-26ユーザー指定。white-space:nowrap/text-overflow:ellipsisは使わない）
+  gaugeBreakdownText: {
+    fontSize: 12,
+    padding: '6px 10px',
+    color: 'var(--text-secondary)',
+    whiteSpace: 'normal',
+    wordBreak: 'break-word',
+    lineHeight: 1.6,
+  },
+  // 合計欄本体（input）＋「Dゲージを使うまでの技の分を除いた場合」の参考値（括弧書き）を
+  // 横並びにする
+  gaugeInputRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  gaugeSecondaryTotal: {
+    flex: '0 0 auto',
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+  },
+  minRequiredGaugeText: {
+    margin: 0,
+    marginTop: -6,
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--text-muted)',
   },
   plusFrameHint: {
     margin: 0,

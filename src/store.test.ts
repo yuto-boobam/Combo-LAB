@@ -550,7 +550,6 @@ describe('一致箇所への一括反映機能', () => {
       isRushStart: false,
       usesCA: false,
       finishingSpecialVariant: null,
-      includesEarlyDGaugeRecovery: true,
       finishingSuperArtName: null,
     });
 
@@ -686,6 +685,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeGainDuringRush: null,
           groundPlusFrame: '',
           airPlusFrame: '',
+          cancelType: null,
         },
       ],
       cancelableSuperArtNames: [],
@@ -703,9 +703,9 @@ describe('技データベース（moveStatsDatabase）', () => {
     useAppStore.getState().setMoveStats(char.id, '中K', {
       isMultiHit: true,
       hits: [
-        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '' },
-        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '' },
-        { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '' },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '', cancelType: null },
+        { damage: 200, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '', cancelType: null },
+        { damage: 400, modifier: '', dGaugeGain: null, saGaugeGain: null, dGaugeChip: null, dGaugeChipPunishCounter: null, minDamageGuaranteePercent: null, dGaugeGainDuringRush: null, groundPlusFrame: '', airPlusFrame: '', cancelType: null },
       ],
       cancelableSuperArtNames: [],
       sharesModifierAcrossHits: false,
@@ -748,6 +748,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeGainDuringRush: null,
           groundPlusFrame: '',
           airPlusFrame: '',
+          cancelType: null,
         },
       ],
       cancelableSuperArtNames: [],
@@ -808,6 +809,7 @@ describe('技データベース（moveStatsDatabase）', () => {
           dGaugeGainDuringRush: null,
           groundPlusFrame: '',
           airPlusFrame: '',
+          cancelType: null,
         },
       ],
       cancelableSuperArtNames: [],

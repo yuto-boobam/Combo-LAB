@@ -3,7 +3,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '@supabase/supabase-js';
+import { CANCEL_TYPES } from './types';
 import type {
+  CancelType,
   Character,
   ComboBranchStats,
   ComboTree,
@@ -160,6 +162,7 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     dGaugeGainDuringRush: toNullableNumber(s.dGaugeGainDuringRush),
     groundPlusFrame: typeof s.groundPlusFrame === 'string' ? s.groundPlusFrame : '',
     airPlusFrame: typeof s.airPlusFrame === 'string' ? s.airPlusFrame : '',
+    cancelType: CANCEL_TYPES.includes(s.cancelType as CancelType) ? (s.cancelType as CancelType) : null,
   };
 }
 
