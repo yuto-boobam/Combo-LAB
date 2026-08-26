@@ -86,18 +86,6 @@ export function createTutorialCharacter(): Character {
     makeNode('共通1', { groupId }, [makeNode('共通2', { groupId }, [makeNode('Bの続き')])]),
   ]);
 
-  // ④一致検索: ある枝を選ぶと、木をまたいで同じ並びの枝を自動で見つけて一括修正できる。
-  // あえてグループ化はせず（独立した2つの配置に見える）、検索で初めて共通点が分かる
-  // 見せ方にする
-  const treeMatchA = makeNode('配置A', {}, [
-    makeNode('共通の技イ', { specialNote: 'ここから「一致箇所を探す」を試せます' }, [
-      makeNode('共通の技ロ', {}, [makeNode('Aだけの続き')]),
-    ]),
-  ]);
-  const treeMatchB = makeNode('配置B', {}, [
-    makeNode('共通の技イ', {}, [makeNode('共通の技ロ', {}, [makeNode('Bだけの続き')])]),
-  ]);
-
   return {
     id: TUTORIAL_CHARACTER_ID,
     name: 'チュートリアル',
@@ -108,8 +96,6 @@ export function createTutorialCharacter(): Character {
       { id: nextId('tree'), label: '②ダメージは自動計算', root: treeDamage },
       { id: nextId('tree'), label: '③グループ化(始動A)', root: treeGroupA },
       { id: nextId('tree'), label: '③グループ化(始動B)', root: treeGroupB },
-      { id: nextId('tree'), label: '④一致検索(配置A)', root: treeMatchA },
-      { id: nextId('tree'), label: '④一致検索(配置B)', root: treeMatchB },
     ],
     namedComboGroups: [{ id: groupId, name: '共通の締め方' }],
     createdBy: '',
