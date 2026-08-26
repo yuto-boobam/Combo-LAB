@@ -5,10 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import { createTutorialCharacter } from './tutorialCharacter';
 import { MOVE_STATS_SEED } from './moveStatsSeed';
-import {
-  calculateBranchDamage,
-  calculateBranchOpponentDGaugeChip,
-} from '../utils/comboGaugeCalc';
+import { calculateBranchDamage, calculateBranchOpponentDGaugeChip } from '../utils/comboGaugeCalc';
+import { collectChain, findMatchingChains } from '../utils/chainMatch';
 import type { ComboTree } from '../types';
 
 function treeByLabel(trees: ComboTree[], label: string): ComboTree {
@@ -30,53 +28,10 @@ describe('チュートリアルキャラクターの自動計算', () => {
     ).toBe(1400);
   });
 
-  it('④OD版に切り替えると、参照する技データが変わる（通常400/OD版600）', () => {
-    const tree = treeByLabel(character.comboTrees, '④OD版に切り替え');
-    const normalDamage = calculateBranchDamage(
-      character.id,
-      moveStatsDatabase,
-      character.moveList,
-      tree.root,
-      tree.root.id,
-    );
+  it('④木を編集しなくても、選んだだけで追加の要素ぶんの計算結果が合成される', () => {
+    const tree = treeByLabel(character.comboTrees, '④木を触らず要素を合成');
 
-    const odRoot = { ...tree.root, usesOD: true };
-    const odDamage = calculateBranchDamage(
-      character.id,
-      moveStatsDatabase,
-      character.moveList,
-      odRoot,
-      odRoot.id,
-    );
-
-    expect(normalDamage).toBe(400);
-    expect(odDamage).toBe(600);
-  });
-
-  it('⑤ラッシュ後の一撃は0.85倍の補正がかかる（始動技自体はラッシュではないため発生する）', () => {
-    const tree = treeByLabel(character.comboTrees, '⑤ラッシュで0.85倍');
-    const rushHit = tree.root.children[0]; // 生ラッシュ
-    const afterRush = rushHit.children[0]; // 追撃
-
-    expect(rushHit.moveName).toBe('生ラッシュ');
-    expect(afterRush.moveName).toBe('追撃');
-
-    // 追撃(800)は起点でないため自然減衰(100%)にラッシュ0.85倍がかかり680になる
-    expect(
-      calculateBranchDamage(
-        character.id,
-        moveStatsDatabase,
-        character.moveList,
-        tree.root,
-        afterRush.id,
-      ),
-    ).toBe(200 + 0 + 680);
-  });
-
-  it('⑥SAで締めると、木にSAノードを追加しなくてもそのぶんのダメージが合成される', () => {
-    const tree = treeByLabel(character.comboTrees, '⑥SAで締めくくる');
-
-    // SA前の技(200) + とどめSA(3000、標準テーブル先頭の100%が2発目まで続くためどちらも満額) = 3200
+    // 反撃の技(200) + とどめの一撃(3000、標準テーブル先頭の100%が2発目まで続くためどちらも満額) = 3200
     expect(
       calculateBranchDamage(
         character.id,
@@ -96,16 +51,24 @@ describe('チュートリアルキャラクターの自動計算', () => {
         tree.root.id,
       ),
     ).toBe(-2000);
+
+    // 実データ（木）自体は「反撃の技」1ノードのままで、SAノードを追加していないことの確認
+    expect(tree.root.children).toHaveLength(0);
   });
 
-  it('⑦ジャストパリィ始動は60%スタートのまま自然減衰が半分になり60%→40%→35%で推移する', () => {
-    const tree = treeByLabel(character.comboTrees, '⑦ジャストパリィ始動');
-    const leaf = tree.root.children[0].children[0];
+  it('⑤あえてグループ化していない2箇所の共通区間を、一致検索で見つけられる', () => {
+    const treeA = treeByLabel(character.comboTrees, '⑤一致検索(配置A)');
+    const treeB = treeByLabel(character.comboTrees, '⑤一致検索(配置B)');
 
-    // 1発目: 300×60%=180 / 2発目: 300×40%=120(始動補正20%を直接引くだけ) /
-    // 3発目: 1200×35%=420(自然減衰が半分の-5だけ) 合計720
-    expect(
-      calculateBranchDamage(character.id, moveStatsDatabase, character.moveList, tree.root, leaf.id),
-    ).toBe(720);
+    const anchor = treeA.root.children[0]; // 共通の技イ
+    const patternChain = collectChain(anchor, 2);
+    expect(patternChain).not.toBeNull();
+
+    const matches = findMatchingChains(character.comboTrees, patternChain!);
+
+    // 配置A自身の起点と、配置Bの同じ並びの起点の、合計2箇所が見つかる
+    expect(matches).toContain(anchor.id);
+    expect(matches).toContain(treeB.root.children[0].id);
+    expect(matches).toHaveLength(2);
   });
 });

@@ -1710,6 +1710,11 @@ export const useAppStore = create<AppState>()(
             : currentState.characters
         ).filter((character) => character.id !== TUTORIAL_CHARACTER_ID);
 
+        const baseMoveStatsDatabase =
+          canEditMoveStatsLocally() && persisted?.moveStatsDatabase
+            ? normalizeMoveStatsDatabase(persisted.moveStatsDatabase)
+            : MOVE_STATS_SEED;
+
         return {
           ...currentState,
           ...persisted,
@@ -1718,11 +1723,13 @@ export const useAppStore = create<AppState>()(
           characters: [...restoredCharacters, createTutorialCharacter()],
           // 技データは「ローカル環境でのみ編集できる」運用のため、それ以外では常に
           // ビルド同梱の正本（MOVE_STATS_SEED）を使う。ローカル編集中の下書きだけ
-          // localStorageの内容を採用する
-          moveStatsDatabase:
-            canEditMoveStatsLocally() && persisted?.moveStatsDatabase
-              ? normalizeMoveStatsDatabase(persisted.moveStatsDatabase)
-              : MOVE_STATS_SEED,
+          // localStorageの内容を採用する。ただしチュートリアルぶんは、ローカルの
+          // 古い下書き（tutorial.json追加前に保存されたもの等）に入っていないと
+          // 自動計算が働かなくなるため、常にMOVE_STATS_SEED側を優先して上書きする
+          moveStatsDatabase: {
+            ...baseMoveStatsDatabase,
+            [TUTORIAL_CHARACTER_ID]: MOVE_STATS_SEED[TUTORIAL_CHARACTER_ID],
+          },
           user: currentState.user,
           nickname: persisted?.isGuest ? 'ゲスト' : currentState.nickname,
           isPatchNotesModalOpen: false,

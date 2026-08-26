@@ -19,45 +19,7 @@
       "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
-    "溜め技(Lv. 1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 400,
-          "modifier": "",
-          "dGaugeGain": -1000,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
-    },
-    "溜め技(ODLv. 1)": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 600,
-          "modifier": "",
-          "dGaugeGain": -2000,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
-    },
-    "通常技": {
+    "反撃の技": {
       "isMultiHit": false,
       "hits": [
         {
@@ -73,67 +35,10 @@
           "airPlusFrame": ""
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": ["とどめの一撃"],
       "sharesModifierAcrossHits": false
     },
-    "生ラッシュ": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 0,
-          "modifier": "",
-          "dGaugeGain": -3000,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
-    },
-    "追撃": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 800,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
-    },
-    "SA前の技": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 200,
-          "modifier": "",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": ["とどめSA"],
-      "sharesModifierAcrossHits": false
-    },
-    "とどめSA": {
+    "とどめの一撃": {
       "isMultiHit": false,
       "hits": [
         {
@@ -145,63 +50,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": 0,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
-    },
-    "パリィ後①": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 300,
-          "modifier": "始動補正20%",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
-    },
-    "反撃②": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 300,
-          "modifier": "始動補正20%",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
-        }
-      ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
-    },
-    "反撃③": {
-      "isMultiHit": false,
-      "hits": [
-        {
-          "damage": 1200,
-          "modifier": "コンボ補正20%",
-          "dGaugeGain": 0,
-          "saGaugeGain": 0,
-          "dGaugeChip": null,
-          "dGaugeChipPunishCounter": null,
-          "minDamageGuaranteePercent": null,
-          "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
           "airPlusFrame": ""
         }
