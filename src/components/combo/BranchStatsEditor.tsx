@@ -139,6 +139,24 @@ export function BranchStatsEditor({
 
   return (
     <div style={{ display: 'grid', gap: 10 }}>
+      {/* コンボ/グループの締めのノード（このコンポーネント自体がそこにしか表示されない）を
+          お気に入り登録できるようにする。評価項目ではなく単独の目印なので、一番目立つ
+          最上部に置く（ユーザー要望） */}
+      <button
+        type="button"
+        onClick={() => update({ isFavorite: !stats.isFavorite })}
+        disabled={readOnly}
+        style={{
+          ...styles.favoriteButton,
+          borderColor: stats.isFavorite ? 'var(--accent-amber-border)' : 'var(--border)',
+          background: stats.isFavorite ? 'var(--accent-amber-bg)' : 'var(--bg-elevated)',
+          color: stats.isFavorite ? 'var(--accent-amber-text)' : 'var(--text-secondary)',
+          cursor: readOnly ? 'default' : 'pointer',
+        }}
+      >
+        {stats.isFavorite ? '★ お気に入り登録済み' : '☆ お気に入りに登録'}
+      </button>
+
       <NumberField
         label="ダメージ"
         value={stats.damage}
@@ -272,24 +290,39 @@ export function BranchStatsEditor({
         autoValue={autoSaGaugeChange}
       />
 
-      <RatingField
-        label="ダメージ評価"
-        value={stats.damageRating}
-        onChange={(next) => update({ damageRating: next })}
-        disabled={readOnly}
-      />
-      <RatingField
-        label="Dゲージ評価"
-        value={stats.dGaugeRating}
-        onChange={(next) => update({ dGaugeRating: next })}
-        disabled={readOnly}
-      />
-      <RatingField
-        label="SAゲージ評価"
-        value={stats.saGaugeRating}
-        onChange={(next) => update({ saGaugeRating: next })}
-        disabled={readOnly}
-      />
+      <div style={styles.ratingGrid}>
+        <RatingField
+          label="ダメージ評価"
+          value={stats.damageRating}
+          onChange={(next) => update({ damageRating: next })}
+          disabled={readOnly}
+          compact
+        />
+        <RatingField
+          label="Dゲージ評価"
+          value={stats.dGaugeRating}
+          onChange={(next) => update({ dGaugeRating: next })}
+          disabled={readOnly}
+          compact
+        />
+        <RatingField
+          label="SAゲージ評価"
+          value={stats.saGaugeRating}
+          onChange={(next) => update({ saGaugeRating: next })}
+          disabled={readOnly}
+          compact
+        />
+        <RatingField
+          label="運び評価"
+          value={stats.carryRating}
+          onChange={(next) => update({ carryRating: next })}
+          disabled={readOnly}
+          compact
+        />
+      </div>
+
+      {/* 総合評価だけは他の評価より目立たせたいため、ボタンサイズを縮めず単独で1行に配置する
+          （ユーザー指定：「総合評価のサイズは変えずに他の評価の数字を小さくしていく」方針） */}
       <RatingField
         label="総合評価"
         value={stats.overallRating}
@@ -563,11 +596,15 @@ function RatingField({
   value,
   onChange,
   disabled = false,
+  // trueの時、総合評価より小さいボタンサイズを使う（ratingButtonCompact参照）。
+  // 総合評価だけを目立たせるため、縮めるのは他の評価側という方針
+  compact = false,
 }: {
   label: string;
   value: Rating5 | null;
   onChange: (next: Rating5 | null) => void;
   disabled?: boolean;
+  compact?: boolean;
 }) {
   return (
     <label style={styles.fieldLabel}>
@@ -580,7 +617,7 @@ function RatingField({
             onClick={() => onChange(value === n ? null : n)}
             disabled={disabled}
             style={{
-              ...styles.ratingButton,
+              ...(compact ? styles.ratingButtonCompact : styles.ratingButton),
               borderColor: value === n ? 'var(--accent)' : 'var(--border)',
               background: value === n ? 'var(--accent)' : 'var(--bg-elevated)',
               color: value === n ? '#fff' : 'var(--text-secondary)',
@@ -596,6 +633,15 @@ function RatingField({
 }
 
 const styles: Record<string, CSSProperties> = {
+  favoriteButton: {
+    width: '100%',
+    padding: '8px 10px',
+    borderRadius: 10,
+    border: '1.5px solid var(--border)',
+    fontSize: 13,
+    fontWeight: 800,
+    textAlign: 'center',
+  },
   fieldLabel: {
     display: 'grid',
     gap: 4,
@@ -685,12 +731,28 @@ const styles: Record<string, CSSProperties> = {
   debugBreakdownRow: {
     lineHeight: 1.5,
   },
+  // ダメージ評価/Dゲージ評価/SAゲージ評価/運び評価を2×2で並べるためのグリッド。
+  // 総合評価はこのグリッドの外に単独で置き、サイズを変えずに目立たせる
+  ratingGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 10,
+  },
   ratingButton: {
     width: 26,
     height: 26,
     borderRadius: 8,
     border: '1px solid var(--border)',
     fontSize: 11,
+    fontWeight: 800,
+    cursor: 'pointer',
+  },
+  ratingButtonCompact: {
+    width: 19,
+    height: 19,
+    borderRadius: 6,
+    border: '1px solid var(--border)',
+    fontSize: 9,
     fontWeight: 800,
     cursor: 'pointer',
   },
