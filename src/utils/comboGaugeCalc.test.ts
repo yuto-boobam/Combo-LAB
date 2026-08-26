@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateBranchDGaugeBreakdown,
   calculateBranchDGaugeChange,
+  calculateBranchDGaugeMinimumRequired,
   calculateBranchDamage,
   calculateBranchOpponentDGaugeChip,
   calculateBranchSaGaugeChange,
@@ -39,7 +41,6 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     isRushStart: false,
     usesCA: false,
     finishingSpecialVariant: null,
-    includesEarlyDGaugeRecovery: true,
     finishingSuperArtName: null,
     ...overrides,
   };
@@ -71,6 +72,7 @@ function makeHit(overrides: Partial<MoveHitStats> = {}): MoveHitStats {
     dGaugeGainDuringRush: null,
     groundPlusFrame: '',
     airPlusFrame: '',
+    cancelType: null,
     ...overrides,
   };
 }
@@ -338,10 +340,8 @@ describe('calculateBranchDGaugeChange', () => {
     expect(calculateBranchDGaugeChange('ingrid', {}, [], node, 'a')).toBeNull();
   });
 
-  it('includesEarlyDGaugeRecoveryがfalseだと、最初のゲージ消費(キャンセルラッシュ)より前の回復を除いて合計する', () => {
-    const afterRush = makeNode('after', '中K', {
-      branchStats: makeBranchStats({ includesEarlyDGaugeRecovery: false }),
-    });
+  it('最初のゲージ消費(キャンセルラッシュ)より前の回復も除外せず合計に含める（2026-08-26〜: 除外トグルは廃止、常に合計に含める）', () => {
+    const afterRush = makeNode('after', '中K');
     const rush = makeNode('rush', 'キャンセルラッシュ', { children: [afterRush] });
     const starter = makeNode('starter', '強P', { children: [rush] });
 
@@ -353,48 +353,12 @@ describe('calculateBranchDGaugeChange', () => {
       },
     };
 
-    // 強P(3000)はキャンセルラッシュより前の回復なので除外。
-    // キャンセルラッシュ自身(-2000、消費技本体)以降だけを合計する → -2000 + 0(ラッシュ後の中Kは回復しない) = -2000
-    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'after')).toBe(-2000);
-  });
-
-  it('includesEarlyDGaugeRecoveryがfalseでも、消費技が経路上に無ければ従来通り全体を合計する', () => {
-    const b = makeNode('b', '中P', {
-      branchStats: makeBranchStats({ includesEarlyDGaugeRecovery: false }),
-    });
-    const a = makeNode('a', '弱P', { children: [b] });
-
-    const moveStatsDatabase: MoveStatsDatabase = {
-      ryu: {
-        '弱P': makeStats([makeHit({ dGaugeGain: 250 })]),
-        '中P': makeStats([makeHit({ dGaugeGain: 1500 })]),
-      },
-    };
-
-    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, [], a, 'b')).toBe(1750);
-  });
-
-  it('includesEarlyDGaugeRecoveryを省略(未設定)すると、これまで通り経路全体をそのまま合計する', () => {
-    const afterRush = makeNode('after', '中K'); // branchStats未設定
-    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [afterRush] });
-    const starter = makeNode('starter', '強P', { children: [rush] });
-
-    const moveStatsDatabase: MoveStatsDatabase = {
-      ingrid: {
-        '強P': makeStats([makeHit({ dGaugeGain: 3000 })]),
-        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -2000 })]),
-        '中K': makeStats([makeHit({ dGaugeGain: 2000 })]),
-      },
-    };
-
+    // 強P(3000) + キャンセルラッシュ(-2000) + 0(ラッシュ後の中Kは回復しない) = 1000
     expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'after')).toBe(1000);
   });
 
-  it('includesEarlyDGaugeRecoveryがfalseの場合、usesODが付いたノードも「消費技」として扱われる', () => {
-    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 2)', {
-      usesOD: true,
-      branchStats: makeBranchStats({ includesEarlyDGaugeRecovery: false }),
-    });
+  it('usesODが付いたノードより前の回復も除外せず合計に含める', () => {
+    const beam = makeNode('beam', '強サンフレア(ビーム|Lv. 2)', { usesOD: true });
     const starter = makeNode('starter', '強P', { children: [beam] });
 
     const moveStatsDatabase: MoveStatsDatabase = {
@@ -404,8 +368,146 @@ describe('calculateBranchDGaugeChange', () => {
       },
     };
 
-    // 強P(3000)はビーム(OD使用=消費技)より前の回復なので除外し、ビーム自身の-20000だけになる
-    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'beam')).toBe(-20000);
+    expect(calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'beam')).toBe(-17000);
+  });
+});
+
+describe('calculateBranchDGaugeBreakdown', () => {
+  it('1ノードずつの増減と、その合計(calculateBranchDGaugeChangeと一致)を返す。最初のゲージ消費(キャンセルラッシュ)より前のステップにはisEarlyRecovery:trueが付く', () => {
+    const afterRush = makeNode('after', '中K');
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [afterRush] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeGain: 3000 })]),
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -2000 })]),
+        '中K': makeStats([makeHit({ dGaugeGain: 2000 })]),
+      },
+    };
+
+    const breakdown = calculateBranchDGaugeBreakdown('ingrid', moveStatsDatabase, [], starter, 'after');
+
+    // 強P(+3000、キャンセルラッシュより前なのでisEarlyRecovery) → キャンセルラッシュ(-2000) → 中K(ラッシュ後は回復0)
+    expect(breakdown?.steps.map(({ label, value, isEarlyRecovery }) => ({
+      label,
+      value,
+      isEarlyRecovery,
+    }))).toEqual([
+      { label: '強P', value: 3000, isEarlyRecovery: true },
+      { label: 'キャンセルラッシュ', value: -2000, isEarlyRecovery: undefined },
+      { label: '中K', value: 0, isEarlyRecovery: undefined },
+    ]);
+    expect(breakdown?.total).toBe(1000);
+    expect(breakdown?.total).toBe(
+      calculateBranchDGaugeChange('ingrid', moveStatsDatabase, [], starter, 'after'),
+    );
+  });
+
+  it('totalExcludingEarlyRecoveryは、最初のゲージ消費より前の回復ぶんを除いた参考値になる（合計欄の括弧書き用）', () => {
+    const afterRush = makeNode('after', '中K');
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [afterRush] });
+    const starter = makeNode('starter', '強P', { children: [rush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeGain: 2000 })]),
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -27500 })]),
+        '中K': makeStats([makeHit({ dGaugeGain: 2000 })]),
+      },
+    };
+
+    const breakdown = calculateBranchDGaugeBreakdown('ingrid', moveStatsDatabase, [], starter, 'after');
+
+    // total = 2000(強P) + -27500(キャンセルラッシュ) + 0(ラッシュ後の中Kは回復しない) = -25500
+    // totalExcludingEarlyRecovery = 強P(早期回復ぶん)を除いた -27500 + 0 = -27500
+    expect(breakdown?.total).toBe(-25500);
+    expect(breakdown?.totalExcludingEarlyRecovery).toBe(-27500);
+  });
+
+  it('経路上に消費技（キャンセルラッシュ/生ラッシュ/OD)が無ければ、totalExcludingEarlyRecoveryはtotalと一致する（呼び出し側は括弧書きを表示しない）', () => {
+    const b = makeNode('b', '中P');
+    const a = makeNode('a', '弱P', { children: [b] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ dGaugeGain: 250 })]),
+        '中P': makeStats([makeHit({ dGaugeGain: 1500 })]),
+      },
+    };
+
+    const breakdown = calculateBranchDGaugeBreakdown('ryu', moveStatsDatabase, [], a, 'b');
+    expect(breakdown?.total).toBe(1750);
+    expect(breakdown?.totalExcludingEarlyRecovery).toBe(1750);
+  });
+
+  it('技データが1件も登録されていない経路ではnullを返す', () => {
+    const node = makeNode('a', '未登録の技');
+    expect(calculateBranchDGaugeBreakdown('ingrid', {}, [], node, 'a')).toBeNull();
+  });
+});
+
+describe('calculateBranchDGaugeMinimumRequired', () => {
+  it('経路上に消費行動（キャンセルラッシュ/生ラッシュ/OD）が無ければ0を返す', () => {
+    const b = makeNode('b', '中P');
+    const a = makeNode('a', '弱P', { children: [b] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ dGaugeGain: 250 })]),
+        '中P': makeStats([makeHit({ dGaugeGain: 1500 })]),
+      },
+    };
+
+    expect(calculateBranchDGaugeMinimumRequired('ryu', moveStatsDatabase, [], a, 'b')).toBe(0);
+  });
+
+  it('消費行動の間に十分な回復があれば、名目コストの合計より遥かに少ないゲージ(=1)で足りる（消費は0にfloorされ、実際には満額を持っている必要が無いため）', () => {
+    // 強P(回復) -> 生ラッシュ(消費30000) -> 中K(回復10000) -> 生ラッシュ(消費30000) -> 中P(回復40000) -> 生ラッシュ(消費30000)
+    // 生ラッシュはキャンセルラッシュと違い「以降の通常技の回復を0にする」抑制を掛けないため、
+    // 間の中K・中Pの回復がそのまま効く（inRushの複雑さを避けたテスト構成）
+    const rush3 = makeNode('rush3', '生ラッシュ');
+    const afterRush2 = makeNode('afterRush2', '中P', { children: [rush3] });
+    const rush2 = makeNode('rush2', '生ラッシュ', { children: [afterRush2] });
+    const afterRush1 = makeNode('afterRush1', '中K', { children: [rush2] });
+    const rush1 = makeNode('rush1', '生ラッシュ', { children: [afterRush1] });
+    const starter = makeNode('starter', '強P', { children: [rush1] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeGain: 1000 })]),
+        '生ラッシュ': makeStats([makeHit({ dGaugeGain: -30000 })]),
+        '中K': makeStats([makeHit({ dGaugeGain: 10000 })]),
+        '中P': makeStats([makeHit({ dGaugeGain: 40000 })]),
+      },
+    };
+
+    expect(
+      calculateBranchDGaugeMinimumRequired('ingrid', moveStatsDatabase, [], starter, 'rush3'),
+    ).toBe(1);
+  });
+
+  it('消費行動が回復を挟まず連続すると、1つ目を「払い切って余りを残す」必要があるため名目コストを超える量が必要になる', () => {
+    // キャンセルラッシュ(消費30000) -> 生ラッシュ(消費30000)、間に回復なし
+    const rawRush = makeNode('rawRush', '生ラッシュ');
+    const rush = makeNode('rush', 'キャンセルラッシュ', { children: [rawRush] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -30000 })]),
+        '生ラッシュ': makeStats([makeHit({ dGaugeGain: -30000 })]),
+      },
+    };
+
+    // 1つ目のキャンセルラッシュ消費後に1でも残す必要があるため、30000ちょうどでは足りず30001必要
+    expect(
+      calculateBranchDGaugeMinimumRequired('ingrid', moveStatsDatabase, [], rush, 'rawRush'),
+    ).toBe(30001);
+  });
+
+  it('技データが1件も登録されていない経路ではnullを返す', () => {
+    const node = makeNode('a', '未登録の技');
+    expect(calculateBranchDGaugeMinimumRequired('ingrid', {}, [], node, 'a')).toBeNull();
   });
 });
 
@@ -790,19 +892,16 @@ describe('finishingSuperArtName（末端の直後、木にノードを追加せ�
     expect(calculateBranchSaGaugeChange('ryu', moveStatsDatabase, starter, 'after')).toBe(-5500);
   });
 
-  it('Dゲージ計算では、末端ノードのincludesEarlyDGaugeRecoveryが合成したSAにも引き継がれて効く', () => {
+  it('Dゲージ計算は、木にノードを追加していない合成後のSAまで含めて経路全体を合計する', () => {
     const after = makeNode('after', '強P', {
-      branchStats: makeBranchStats({
-        finishingSuperArtName: 'SA3',
-        includesEarlyDGaugeRecovery: false,
-      }),
+      branchStats: makeBranchStats({ finishingSuperArtName: 'SA3' }),
     });
     const rush = makeNode('rush', 'キャンセルラッシュ', { children: [after] });
     const starter = makeNode('starter', '中K', { children: [rush] });
 
     const moveStatsDatabase: MoveStatsDatabase = {
       ryu: {
-        '中K': makeStats([makeHit({ dGaugeGain: 999 })]), // ラッシュ消費より前なので除かれる
+        '中K': makeStats([makeHit({ dGaugeGain: 999 })]),
         'キャンセルラッシュ': makeStats([makeHit({ dGaugeGain: -3000 })]),
         '強P': makeStats([makeHit({ dGaugeGain: 500 })]), // ラッシュ中の通常技は回復0
         SA3: makeStats([makeHit({ dGaugeGain: 100, dGaugeGainDuringRush: 400 })]),
@@ -810,8 +909,8 @@ describe('finishingSuperArtName（末端の直後、木にノードを追加せ�
     };
     const moveList: MoveDefinition[] = [makeMove('SA3', 'superArt')];
 
-    // 中K(除外) + キャンセルラッシュ:-3000 + 強P:0(ラッシュ中の通常技) + SA3:400(dGaugeGainDuringRush)
-    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(-2600);
+    // 中K:999 + キャンセルラッシュ:-3000 + 強P:0(ラッシュ中の通常技) + SA3:400(dGaugeGainDuringRush)
+    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(-1601);
   });
 
   it('合成したSAの技データが未登録でも、他のノードの合計は保たれる', () => {

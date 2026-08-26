@@ -27,9 +27,11 @@ import type { CSSProperties } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import AccordionSection from '../components/AccordionSection';
-import type { MoveHitStats, MoveStats, MoveStrength } from '../types';
+import { CANCEL_TYPES } from '../types';
+import type { CancelType, MoveHitStats, MoveStats, MoveStrength } from '../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../data/commonMoves';
 import { canEditMoveStatsLocally } from '../utils/localEditAccess';
+import { deriveCancelableSuperArtNames } from '../utils/cancelType';
 import { getSpecialVariantOptions } from '../utils/specialVariant';
 import { calculateOdLevelConstraintForVariant } from '../utils/comboGaugeCalc';
 
@@ -49,6 +51,7 @@ const EMPTY_HIT: MoveHitStats = {
   dGaugeGainDuringRush: null,
   groundPlusFrame: '',
   airPlusFrame: '',
+  cancelType: null,
 };
 const EMPTY_STATS: MoveStats = {
   isMultiHit: false,
@@ -122,13 +125,6 @@ export function MoveStatsPage() {
       ? move.specialVariantOptions.map((variant) => `${move.name}(${variant})`)
       : [move.name],
   );
-  // 「SAキャンセル」欄の選択肢。「SAで締める」機能（ノード側）と同じく、特殊性能なしの
-  // 単純なSAだけを対象にする（特殊性能ありのSAはfinishesComboOnSelectの仕組みが別にあるため）。
-  // CA（クリティカルアーツ）はSA3と同じ技のキャンセル可否になる（SA3へキャンセル可能なら
-  // CAへも可能）ため、独立したボタンは出さずSA3側のチェックだけで表す（ユーザー確認済み）
-  const cancelableSuperArtOptions = superArtMoves
-    .filter((move) => !move.hasSpecialVariant && move.name !== 'CA')
-    .map((move) => move.name);
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -161,7 +157,7 @@ export function MoveStatsPage() {
               moveNames={normalMoveNames}
               moveStats={moveStats}
               readOnly={readOnly}
-              cancelableSuperArtOptions={cancelableSuperArtOptions}
+              showCancelTypeSelector
             />
           </AccordionSection>
 
@@ -178,7 +174,7 @@ export function MoveStatsPage() {
                 moveNames={specialMoveNames}
                 moveStats={moveStats}
                 readOnly={readOnly}
-                cancelableSuperArtOptions={cancelableSuperArtOptions}
+                showCancelTypeSelector
               />
             ) : (
               <p style={styles.emptyHint}>
@@ -235,7 +231,7 @@ function MoveStatsTable({
   showMinGuaranteeColumn = false,
   showDuringRushColumn = false,
   saGaugeColumnLabel = 'SAゲージ回収',
-  cancelableSuperArtOptions = [],
+  showCancelTypeSelector = false,
 }: {
   characterId: string;
   moveNames: string[];
@@ -253,9 +249,9 @@ function MoveStatsTable({
   // SA自身は撃つとSAゲージを「消費」する（他の技のようにヒットで「回収」するわけではない）ため、
   // superArtセクションだけラベルを差し替えられるようにする
   saGaugeColumnLabel?: string;
-  // 「SAキャンセル」欄の選択肢。1件以上あれば技ごとにキャンセル可能なSAを選べるようにする。
-  // SA自身からSAへのキャンセルは無いため、superArt/systemセクションでは渡さない（空のまま）
-  cancelableSuperArtOptions?: string[];
+  // 「キャンセルの種類」欄（6ボタン、段ごと）を出すかどうか。SA自身からSAへの
+  // キャンセルは無いため、superArt/systemセクションでは渡さない（falseのまま）
+  showCancelTypeSelector?: boolean;
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
@@ -278,12 +274,24 @@ function MoveStatsTable({
     });
   };
 
-  const toggleCancelableSuperArt = (moveName: string, superArtName: string) => {
+  // この段（複数ヒット技なら段ごと、単発技ならhits[0]）でのキャンセルの種類を選ぶ
+  // （同じ種類をもう一度押すと選択解除。2段技で両方の段が別々の種類を持てる）。
+  // 「全般」「SAすべて」「SA2以上」「SA3のみ」のいずれかが1段でもあれば、技全体を
+  // SA3(・CA)へキャンセル可能とみなしcancelableSuperArtNamesへ自動反映する
+  // （末端ノードの「SAで締める」機能はSA3のみを対象とする運用のため、個別にSA名を
+  // 選ばせる手動UIは廃止した。2026-08-26ユーザー指定）
+  const setHitCancelType = (moveName: string, hitIndex: number, cancelType: CancelType) => {
     const current = moveStats[moveName] ?? EMPTY_STATS;
-    const next = current.cancelableSuperArtNames.includes(superArtName)
-      ? current.cancelableSuperArtNames.filter((name) => name !== superArtName)
-      : [...current.cancelableSuperArtNames, superArtName];
-    setMoveStats(characterId, moveName, { ...current, cancelableSuperArtNames: next });
+    const nextHits = current.hits.map((hit, index) =>
+      index === hitIndex
+        ? { ...hit, cancelType: hit.cancelType === cancelType ? null : cancelType }
+        : hit,
+    );
+    setMoveStats(characterId, moveName, {
+      ...current,
+      hits: nextHits,
+      cancelableSuperArtNames: deriveCancelableSuperArtNames(nextHits),
+    });
   };
 
   const updateHitField = (
@@ -374,55 +382,40 @@ function MoveStatsTable({
               )}
             </div>
 
-            {cancelableSuperArtOptions.length > 0 && (
-              <div style={styles.cancelRow}>
-                <span style={styles.cancelRowLabel}>SAキャンセル</span>
-                {cancelableSuperArtOptions.map((superArtName) => {
-                  const active = stats.cancelableSuperArtNames.includes(superArtName);
-                  return (
-                    <button
-                      key={superArtName}
-                      type="button"
-                      disabled={readOnly}
-                      onClick={() => toggleCancelableSuperArt(moveName, superArtName)}
-                      style={{
-                        ...styles.cancelPill,
-                        borderColor: active ? 'var(--accent)' : 'var(--border)',
-                        background: active ? 'var(--accent)' : 'var(--bg-elevated)',
-                        color: active ? '#fff' : 'var(--text-secondary)',
-                        cursor: readOnly ? 'default' : 'pointer',
-                      }}
-                    >
-                      {superArtName}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
             {stats.isMultiHit ? (
               <div style={styles.hitsBlock}>
                 {stats.hits.map((hit, index) => (
-                  <div key={index} style={rowGridStyle}>
-                    <span style={styles.hitLabelCell}>{index + 1}段目</span>
-                    <HitFields
-                      hit={hit}
-                      readOnly={readOnly}
-                      showMinGuaranteeColumn={showMinGuaranteeColumn}
-                      showDuringRushColumn={showDuringRushColumn}
-                      onChange={(field, value) => updateHitField(moveName, index, field, value)}
-                    />
-                    <span style={styles.hitRemoveCell}>
-                      <button
-                        type="button"
-                        title="この段を削除"
-                        style={styles.hitRemoveButton}
-                        disabled={readOnly || stats.hits.length <= 1}
-                        onClick={() => removeHit(moveName, index)}
-                      >
-                        ×
-                      </button>
-                    </span>
+                  <div key={index} style={styles.hitBlock}>
+                    {showCancelTypeSelector && (
+                      <CancelTypeButtons
+                        label={`${index + 1}段目のキャンセルの種類`}
+                        value={hit.cancelType}
+                        readOnly={readOnly}
+                        onSelect={(cancelType) => setHitCancelType(moveName, index, cancelType)}
+                      />
+                    )}
+
+                    <div style={rowGridStyle}>
+                      <span style={styles.hitLabelCell}>{index + 1}段目</span>
+                      <HitFields
+                        hit={hit}
+                        readOnly={readOnly}
+                        showMinGuaranteeColumn={showMinGuaranteeColumn}
+                        showDuringRushColumn={showDuringRushColumn}
+                        onChange={(field, value) => updateHitField(moveName, index, field, value)}
+                      />
+                      <span style={styles.hitRemoveCell}>
+                        <button
+                          type="button"
+                          title="この段を削除"
+                          style={styles.hitRemoveButton}
+                          disabled={readOnly || stats.hits.length <= 1}
+                          onClick={() => removeHit(moveName, index)}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </div>
                   </div>
                 ))}
 
@@ -437,19 +430,70 @@ function MoveStatsTable({
                 </button>
               </div>
             ) : (
-              <div style={rowGridStyle}>
-                <span style={styles.hitLabelCell} />
-                <HitFields
-                  hit={stats.hits[0] ?? EMPTY_HIT}
-                  readOnly={readOnly}
-                  showMinGuaranteeColumn={showMinGuaranteeColumn}
-                  showDuringRushColumn={showDuringRushColumn}
-                  onChange={(field, value) => updateHitField(moveName, 0, field, value)}
-                />
-                <span style={styles.hitRemoveCell} />
+              <div style={styles.hitBlock}>
+                {showCancelTypeSelector && (
+                  <CancelTypeButtons
+                    label="キャンセルの種類"
+                    value={stats.hits[0]?.cancelType ?? null}
+                    readOnly={readOnly}
+                    onSelect={(cancelType) => setHitCancelType(moveName, 0, cancelType)}
+                  />
+                )}
+
+                <div style={rowGridStyle}>
+                  <span style={styles.hitLabelCell} />
+                  <HitFields
+                    hit={stats.hits[0] ?? EMPTY_HIT}
+                    readOnly={readOnly}
+                    showMinGuaranteeColumn={showMinGuaranteeColumn}
+                    showDuringRushColumn={showDuringRushColumn}
+                    onChange={(field, value) => updateHitField(moveName, 0, field, value)}
+                  />
+                  <span style={styles.hitRemoveCell} />
+                </div>
               </div>
             )}
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// この段（複数ヒット技は段ごと、単発技は1回）のキャンセルの種類を6択ボタンで選ぶ。
+// もう一度同じボタンを押すと選択解除（他のトグルボタン群と同じ考え方）
+function CancelTypeButtons({
+  label,
+  value,
+  readOnly,
+  onSelect,
+}: {
+  label: string;
+  value: CancelType | null;
+  readOnly: boolean;
+  onSelect: (cancelType: CancelType) => void;
+}) {
+  return (
+    <div style={styles.cancelRow}>
+      <span style={styles.cancelRowLabel}>{label}</span>
+      {CANCEL_TYPES.map((cancelType) => {
+        const active = value === cancelType;
+        return (
+          <button
+            key={cancelType}
+            type="button"
+            disabled={readOnly}
+            onClick={() => onSelect(cancelType)}
+            style={{
+              ...styles.cancelPill,
+              borderColor: active ? 'var(--accent)' : 'var(--border)',
+              background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+              color: active ? '#fff' : 'var(--text-secondary)',
+              cursor: readOnly ? 'default' : 'pointer',
+            }}
+          >
+            {cancelType}
+          </button>
         );
       })}
     </div>
@@ -469,13 +513,18 @@ function HitFields({
   showDuringRushColumn?: boolean;
   onChange: (field: keyof MoveHitStats, rawValue: string) => void;
 }) {
-  const baseNumberFields: { key: keyof MoveHitStats }[] = [
+  // cancelTypeのような文字列/オブジェクト項目を誤ってinputのvalueへ渡さないよう、数値項目だけに絞った型にする
+  type NumericHitField = Extract<
+    keyof MoveHitStats,
+    'dGaugeGain' | 'saGaugeGain' | 'dGaugeChip' | 'dGaugeChipPunishCounter' | 'minDamageGuaranteePercent' | 'dGaugeGainDuringRush'
+  >;
+  const baseNumberFields: { key: NumericHitField }[] = [
     { key: 'dGaugeGain' },
     { key: 'saGaugeGain' },
     { key: 'dGaugeChip' },
     { key: 'dGaugeChipPunishCounter' },
   ];
-  const extraNumberFields: { key: keyof MoveHitStats }[] = [
+  const extraNumberFields: { key: NumericHitField }[] = [
     ...(showMinGuaranteeColumn ? [{ key: 'minDamageGuaranteePercent' as const }] : []),
     ...(showDuringRushColumn ? [{ key: 'dGaugeGainDuringRush' as const }] : []),
   ];
@@ -634,6 +683,10 @@ const styles: Record<string, CSSProperties> = {
     gap: 4,
     paddingLeft: 10,
     borderLeft: '2px solid var(--border)',
+  },
+  hitBlock: {
+    display: 'grid',
+    gap: 2,
   },
   hitRow: {
     display: 'grid',

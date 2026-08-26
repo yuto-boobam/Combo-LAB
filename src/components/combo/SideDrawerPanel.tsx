@@ -24,8 +24,11 @@ import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import {
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
+  calculateBranchDGaugeBreakdown,
   calculateBranchDGaugeChange,
+  calculateBranchDGaugeMinimumRequired,
   calculateBranchOpponentDGaugeChip,
+  calculateBranchSaGaugeBreakdown,
   calculateBranchSaGaugeChange,
   calculateOdLevelConstraint,
   calculateRequiredStartHitCondition,
@@ -598,7 +601,6 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
     stats.isRushStart,
     stats.usesCA,
     stats.finishingSpecialVariant !== null,
-    stats.includesEarlyDGaugeRecovery === false, // デフォルトはtrueなので、外した時だけ数える
     stats.finishingSuperArtName !== null,
   ].filter(Boolean).length;
 }
@@ -682,18 +684,6 @@ function ReadOnlyNodeView({
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff') ||
     (selectedNode.recordsBranchStats ?? false);
 
-  const autoSaGaugeChange = root
-    ? calculateBranchSaGaugeChange(characterId, moveStatsDatabase, root, selectedNode.id)
-    : null;
-  const autoDGaugeChange = root
-    ? calculateBranchDGaugeChange(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
-    : null;
-  const autoOpponentDGaugeChip = root
-    ? calculateBranchOpponentDGaugeChip(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
-    : null;
-  const autoDamage = root
-    ? calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
-    : null;
   const requiredStartHitCondition = root
     ? calculateRequiredStartHitCondition(root, selectedNode.id)
     : null;
@@ -723,10 +713,6 @@ function ReadOnlyNodeView({
             onChange={() => {}}
             readOnly
             requiredStartHitCondition={requiredStartHitCondition}
-            autoSaGaugeChange={autoSaGaugeChange}
-            autoDGaugeChange={autoDGaugeChange}
-            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
-            autoDamage={autoDamage}
             groundPlusFrame={groundPlusFrame}
             airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
@@ -898,7 +884,31 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  // SAゲージ増加欄の「合計⇄内訳」表示切替（BranchStatsEditor側）用
+  const saGaugeBreakdown = calculateBranchSaGaugeBreakdown(
+    characterId,
+    moveStatsDatabase,
+    root,
+    selectedNode.id,
+  );
   const autoDGaugeChange = calculateBranchDGaugeChange(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
+  // Dゲージ増減欄の「合計⇄内訳」表示切替（BranchStatsEditor側）用。1ノードずつの
+  // 増減（例:「+200→+200→-20000」）
+  const dGaugeBreakdown = calculateBranchDGaugeBreakdown(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
+  // このコンボを最後まで遂行するために最低限必要な開始時Dゲージ量（Dゲージ増減欄の下に表示）
+  const dGaugeMinimumRequired = calculateBranchDGaugeMinimumRequired(
     characterId,
     moveStatsDatabase,
     moveList,
@@ -953,6 +963,42 @@ function NodeEditor({
     });
   }, [odNodesOnPath, characterId, treeId, setNodeUsesOD]);
 
+  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加は、未入力（null）のまま自動計算値が
+  // 出ている間だけ、その値でそのまま欄を埋めておく（「この値を使う」ボタンは廃止。
+  // 埋めた後は普通の入力欄として自由に上書きできる＝間違っていたらそこで直接修正する
+  // 運用にする、というユーザー指定）。一度でも値が入れば(0を含む)対象から外れるため、
+  // 手動で0に修正した場合や、経路変更で自動計算がnullに戻った場合に上書きし続けることはない
+  useEffect(() => {
+    if (!showStatsEditor) return;
+    const current = selectedNode.branchStats;
+    const patch: Partial<ComboBranchStats> = {};
+    if ((current?.damage ?? null) === null && autoDamage !== null) patch.damage = autoDamage;
+    if ((current?.opponentDGaugeChip ?? null) === null && autoOpponentDGaugeChip !== null) {
+      patch.opponentDGaugeChip = autoOpponentDGaugeChip;
+    }
+    if ((current?.dGaugeChange ?? null) === null && autoDGaugeChange !== null) {
+      patch.dGaugeChange = autoDGaugeChange;
+    }
+    if ((current?.saGaugeGain ?? null) === null && autoSaGaugeChange !== null) {
+      patch.saGaugeGain = autoSaGaugeChange;
+    }
+    if (Object.keys(patch).length === 0) return;
+    setNodeBranchStats(characterId, treeId, selectedNode.id, {
+      ...(current ?? DEFAULT_BRANCH_STATS),
+      ...patch,
+    });
+  }, [
+    showStatsEditor,
+    selectedNode,
+    autoDamage,
+    autoOpponentDGaugeChip,
+    autoDGaugeChange,
+    autoSaGaugeChange,
+    characterId,
+    treeId,
+    setNodeBranchStats,
+  ]);
+
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
 
@@ -998,11 +1044,10 @@ function NodeEditor({
             value={selectedNode.branchStats}
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
             requiredStartHitCondition={requiredStartHitCondition}
-            autoSaGaugeChange={autoSaGaugeChange}
-            autoDGaugeChange={autoDGaugeChange}
-            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
-            autoDamage={autoDamage}
             damageBreakdown={damageBreakdown}
+            dGaugeBreakdown={dGaugeBreakdown}
+            dGaugeMinimumRequired={dGaugeMinimumRequired}
+            saGaugeBreakdown={saGaugeBreakdown}
             groundPlusFrame={groundPlusFrame}
             airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
