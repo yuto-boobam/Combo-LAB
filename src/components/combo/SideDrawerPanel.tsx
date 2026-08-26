@@ -683,7 +683,7 @@ function ReadOnlyNodeView({
     <>
       {showStats && (
         <AccordionSection
-          title="コンボの情報"
+          title="コンボの情報（ダメージ・フレームなど）"
           icon="📊"
           count={countFilledBranchStats(selectedNode.branchStats)}
           isOpen={isStatsOpen}
@@ -714,7 +714,7 @@ function ReadOnlyNodeView({
       )}
 
       <AccordionSection
-        title={`選択中のノード：${selectedNode.moveName}`}
+        title={`選択中のノードについて：${selectedNode.moveName}`}
         icon="👁️"
         count={selectedNode.attributes.length}
         isOpen={isOpen}
@@ -948,7 +948,7 @@ function NodeEditor({
     <>
       {showStatsEditor && (
         <AccordionSection
-          title="コンボの情報"
+          title="コンボの情報（ダメージ・フレームなど）"
           icon="📊"
           count={countFilledBranchStats(selectedNode.branchStats)}
           isOpen={isStatsOpen}
@@ -979,7 +979,7 @@ function NodeEditor({
       )}
 
       <AccordionSection
-        title={`選択中のノード：${selectedNode.moveName}`}
+        title={`選択中のノードについて：${selectedNode.moveName}`}
         icon="✏️"
         count={selectedNode.attributes.length}
         isOpen={isEditorOpen}
@@ -1124,7 +1124,7 @@ function NodeEditor({
       </AccordionSection>
 
       <AccordionSection
-        title={`「${selectedNode.moveName}」に技を繋げる${newMoveName ? `： ${newMoveName}` : ''}`}
+        title={`「${selectedNode.moveName}」に繋げる技を選ぶ${newMoveName ? `： ${newMoveName}` : ''}`}
         icon="➕"
         count={newAttributes.length}
         isOpen={isAddFormOpen}
