@@ -1,5 +1,25 @@
 [
   {
+    "id": "2026-08-26-5174de03",
+    "date": "2026-08-26",
+    "buildNumber": 24,
+    "type": "feature",
+    "title": "サイドドロワーの開閉機能実装",
+    "description": "画面の縮尺を変えずにコンボが見える範囲を広げる。そしてチュートリアル用で誘導を作成した。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260826-build24-after.png?v=1787726573683"
+  },
+  {
+    "id": "2026-08-26-1d10e0d8",
+    "date": "2026-08-26",
+    "buildNumber": 23,
+    "type": "spec-change",
+    "title": "コンボ情報の欄を簡略化し、見やすくした",
+    "description": "ダメージの計算式を開閉式にした。「詳しく知りたいのなら押す」ということをすればいいため。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260826-build23-after.png?v=1787722639074"
+  },
+  {
     "id": "2026-08-24-388191d9",
     "date": "2026-08-24",
     "buildNumber": 22,

@@ -15,8 +15,7 @@
 // 違わず一致させる必要がある。説明文はmoveNameに詰め込まず specialNote（ノード下の
 // 小さな注記）側に書く。
 
-import type { Character, ComboBranchStats, MoveDefinition, MoveNode } from '../types';
-import { DEFAULT_BRANCH_STATS } from '../utils/branchStatsDefaults';
+import type { Character, MoveDefinition, MoveNode } from '../types';
 
 export const TUTORIAL_CHARACTER_ID = 'tutorial';
 
@@ -44,11 +43,7 @@ function makeNode(
   };
 }
 
-function branchStats(overrides: Partial<ComboBranchStats>): ComboBranchStats {
-  return { ...DEFAULT_BRANCH_STATS, ...overrides };
-}
-
-const MOVE_LIST: MoveDefinition[] = [{ id: nextId('move'), name: 'とどめの一撃', category: 'superArt' }];
+const MOVE_LIST: MoveDefinition[] = [];
 
 export function createTutorialCharacter(): Character {
   const now = new Date(0).toISOString();
@@ -91,14 +86,7 @@ export function createTutorialCharacter(): Character {
     makeNode('共通1', { groupId }, [makeNode('共通2', { groupId }, [makeNode('Bの続き')])]),
   ]);
 
-  // ④木を編集せずに、末端の選択肢だけで計算結果に追加の要素を合成できる
-  // （実データは変えずに「もしこう繋いだら」を計算に反映する、というデータ設計の工夫）
-  const treeFinishing = makeNode('反撃の技', {
-    branchStats: branchStats({ finishingSuperArtName: 'とどめの一撃' }),
-    specialNote: '「SAで締める」から選択済み・木は触っていない',
-  });
-
-  // ⑤一致検索: ある枝を選ぶと、木をまたいで同じ並びの枝を自動で見つけて一括修正できる。
+  // ④一致検索: ある枝を選ぶと、木をまたいで同じ並びの枝を自動で見つけて一括修正できる。
   // あえてグループ化はせず（独立した2つの配置に見える）、検索で初めて共通点が分かる
   // 見せ方にする
   const treeMatchA = makeNode('配置A', {}, [
@@ -120,9 +108,8 @@ export function createTutorialCharacter(): Character {
       { id: nextId('tree'), label: '②ダメージは自動計算', root: treeDamage },
       { id: nextId('tree'), label: '③グループ化(始動A)', root: treeGroupA },
       { id: nextId('tree'), label: '③グループ化(始動B)', root: treeGroupB },
-      { id: nextId('tree'), label: '④木を触らず要素を合成', root: treeFinishing },
-      { id: nextId('tree'), label: '⑤一致検索(配置A)', root: treeMatchA },
-      { id: nextId('tree'), label: '⑤一致検索(配置B)', root: treeMatchB },
+      { id: nextId('tree'), label: '④一致検索(配置A)', root: treeMatchA },
+      { id: nextId('tree'), label: '④一致検索(配置B)', root: treeMatchB },
     ],
     namedComboGroups: [{ id: groupId, name: '共通の締め方' }],
     createdBy: '',
