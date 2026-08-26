@@ -8,8 +8,12 @@ import { NODE_WIDTH, NODE_DEFAULT_HEIGHT } from '../utils/nodeSizing';
 export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
   cardWidth: NODE_WIDTH,
   rootWidth: NODE_WIDTH,
-  // NODE_WIDTHの縮小(88→68px)に合わせて列間隔も同程度縮め、間延びして見えないようにする
-  gapX: 28,
+  // NODE_WIDTHの縮小(88→68px)に合わせて列間隔も同程度縮め、間延びして見えないようにする。
+  // 幅広ノード(specialNote/グループピル)がある列でも間隔が常に均一になるよう列内で
+  // 右寄せ配置に変更した(layout.ts参照)。当初18まで詰めたが、分岐が多いノードから
+  // 複数の接続線が近い間隔で扇状に伸びる際に線同士が交差して見えたため、24に戻した
+  // (2026-08-24ユーザー報告)
+  gapX: 24,
   // 縦方向の「隙間」の実体。分岐なし(子1つ)のノードでも子の前後2箇所ぶん(=2倍)が
   // 積み上がるため、深い一本道のコンボほど本来のノード高さ以上に間延びしやすい。
   // 10pxだとその累積が無視できないサイズになっていたため縮小した(ユーザー指摘により調整)

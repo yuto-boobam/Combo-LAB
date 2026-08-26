@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateBranchDGaugeChange,
   calculateBranchDamage,
+  calculateBranchOpponentDGaugeChip,
   calculateBranchSaGaugeChange,
   calculateOdLevelConstraint,
   calculateOdLevelConstraintForVariant,
@@ -21,12 +22,14 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
   return {
     damage: null,
     dGaugeChange: null,
+    opponentDGaugeChip: null,
     saGaugeGain: null,
     damageRating: null,
     dGaugeRating: null,
     saGaugeRating: null,
     overallRating: null,
     plusFrame: null,
+    plusFrameHitType: null,
     isThrowRange: false,
     canOkizeme: false,
     startHitCondition: null,
@@ -145,6 +148,46 @@ describe('calculateBranchSaGaugeChange', () => {
   it('対象ノードが木の中に存在しなければnullを返す', () => {
     const a = makeNode('a', '弱P');
     expect(calculateBranchSaGaugeChange('ryu', {}, a, '存在しないid')).toBeNull();
+  });
+});
+
+describe('calculateBranchOpponentDGaugeChip', () => {
+  it('経路上のSAヒットのdGaugeChipPunishCounterを合計する。SA以外は寄与0', () => {
+    const sa = makeNode('sa', 'コズミックレイ');
+    const starter = makeNode('starter', '強P', { children: [sa] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '強P': makeStats([makeHit({ dGaugeChipPunishCounter: 9999 })]),
+        'コズミックレイ': makeStats([makeHit({ dGaugeChipPunishCounter: 2000 })]),
+      },
+    };
+    const moveList = [makeMove('コズミックレイ', 'superArt')];
+
+    expect(
+      calculateBranchOpponentDGaugeChip('ingrid', moveStatsDatabase, moveList, starter, 'sa'),
+    ).toBe(2000);
+  });
+
+  it('末端のbranchStats.isJustParryStartがtrueなら合計を半分にする', () => {
+    const sa = makeNode('sa', 'コズミックレイ', {
+      branchStats: makeBranchStats({ isJustParryStart: true }),
+    });
+    const starter = makeNode('starter', '強P', { children: [sa] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: { 'コズミックレイ': makeStats([makeHit({ dGaugeChipPunishCounter: 2000 })]) },
+    };
+    const moveList = [makeMove('コズミックレイ', 'superArt')];
+
+    expect(
+      calculateBranchOpponentDGaugeChip('ingrid', moveStatsDatabase, moveList, starter, 'sa'),
+    ).toBe(1000);
+  });
+
+  it('技データが1件も登録されていない経路ではnullを返す', () => {
+    const node = makeNode('a', '未登録の技');
+    expect(calculateBranchOpponentDGaugeChip('ingrid', {}, [], node, 'a')).toBeNull();
   });
 });
 
@@ -383,6 +426,28 @@ describe('calculateBranchDamage', () => {
     // 強K: 2中Kの始動補正20%ぶん前倒しで進んだ段(80%)にラッシュ0.85倍 → 1000*0.68=680
     // 合計: 1000+0+680=1680
     expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'hitK')).toBe(1680);
+  });
+
+  it('ジャストパリィ始動(常にパニカン扱い)の実機確認済みの例を再現する: 弱P(60%)→弱K(始動補正20%を直接引いて40%)→中サンライズ(自然減衰半分で35%)', () => {
+    const naka = makeNode('naka', '中サンライズ', { branchStats: makeBranchStats({ isJustParryStart: true }) });
+    const weakK = makeNode('weakK', '弱K', { children: [naka] });
+    const starter = makeNode('starter', '弱P', { children: [weakK] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: {
+        '弱P': makeStats([makeHit({ damage: 300, modifier: '始動補正20%' })]),
+        '弱K': makeStats([makeHit({ damage: 300, modifier: '始動補正20%' })]),
+        '中サンライズ': makeStats([makeHit({ damage: 1200, modifier: 'コンボ補正20%' })]),
+      },
+    };
+
+    // 1発目 弱P: startBase60% → 300*60%=180
+    // 2発目 弱K: 弱Pの始動補正20%を直接引いて60-20=40% → 300*40%=120
+    //   （弱K自身の始動補正20%は起点でないノードには効かないため、次には反映されない）
+    // 3発目 中サンライズ: 技固有の補正が無い自然減衰。本来のテーブル通りなら40→30だが、
+    //   ジャストパリィ始動は自然減衰が半分になるため40→35 → 1200*35%=420
+    // 合計: 180+120+420=720
+    expect(calculateBranchDamage('ingrid', moveStatsDatabase, [], starter, 'naka')).toBe(720);
   });
 
   it('ターゲットコンボ(1ノードに複数ヒット)は、その段数ぶん標準テーブルの位置を消費する', () => {

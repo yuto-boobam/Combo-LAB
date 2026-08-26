@@ -235,7 +235,7 @@ function applyOdVariantLookup(node: MoveNode, name: string): string {
  * （例:「SA1(Lv. 1)」）を使う。それ以外は従来通りnode.moveNameそのまま。
  * さらに、usesODが付いていればapplyOdVariantLookupでOD版専用のキーへ差し替える
  */
-function lookupMoveName(node: MoveNode, isTargetNode: boolean): string {
+export function lookupMoveName(node: MoveNode, isTargetNode: boolean): string {
   const variant = isTargetNode ? node.branchStats?.finishingSpecialVariant : null;
   const baseName = variant ? `${node.moveName}(${variant})` : node.moveName;
   return applyOdVariantLookup(node, baseName);
@@ -282,6 +282,53 @@ export function calculateBranchSaGaugeChange(
   });
 
   return hasAnyData ? total : null;
+}
+
+/**
+ * root〜targetNodeId（両端含む）の経路上にあるSA（スーパーアーツ）のヒットで、相手の
+ * Dゲージを削った量の合計を求める。`MoveHitStats.dGaugeChipPunishCounter`はSAに限り
+ * 「ヒット時」の削り量として扱う仕様（MoveStatsPage参照）。通常技のガード時チップ
+ * （`dGaugeChip`/`dGaugeChipPunishCounter`）はこの自動計算のスコープ外（未実装）。
+ *
+ * 末端ノードのbranchStats.isJustParryStartがtrue（常にパニッシュカウンター扱い）の場合、
+ * 合計を半分にする（実機確認済み。攻撃側自身のDゲージ増減=calculateBranchDGaugeChangeとは独立）。
+ * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
+ */
+export function calculateBranchOpponentDGaugeChip(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): number | null {
+  const rawPath = findPathToNode(root, targetNodeId);
+  if (!rawPath) return null;
+  const path = withFinishingSuperArt(rawPath);
+
+  const characterStats = moveStatsDatabase[characterId];
+  if (!characterStats) return null;
+
+  let total = 0;
+  let hasAnyData = false;
+
+  path.forEach((node, index) => {
+    const isSuperArt = moveList.some(
+      (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
+    );
+    if (!isSuperArt) return;
+
+    const isTargetNode = index === path.length - 1;
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
+    if (!stats) return;
+    hasAnyData = true;
+    total += stats.hits.reduce((sum, hit) => sum + (hit.dGaugeChipPunishCounter ?? 0), 0);
+  });
+
+  if (!hasAnyData) return null;
+
+  const targetNode = path[path.length - 1];
+  const isJustParryStart = targetNode.branchStats?.isJustParryStart ?? false;
+  return isJustParryStart ? Math.round(total / 2) : total;
 }
 
 const CANCEL_RUSH_MOVE_NAME = 'キャンセルラッシュ';
@@ -389,15 +436,36 @@ export function calculateBranchDGaugeChange(
   return contributions.slice(startIndex).reduce((sum, value) => sum + value, 0);
 }
 
-function startBaseFromPath(path: MoveNode[]): number {
+/**
+ * startBase: 1発目自身の表示ダメージに使う基準値。
+ * scalingBase: 2発目以降の減衰ペースが基準にする値（省略時はcalculateDamageScalingPath側の
+ * デフォルト=100）。カウンター/パニカン始動の120%は1発目への一回限りのボーナスで、2発目
+ * 以降は通常の100%始動と同じペースで減衰することが実機確認済みのため、scalingBaseは返さない
+ * （＝100のまま）。ジャストパリィ始動はパニカン(120%)の50%＝60%スタートのまま2発目以降も
+ * その基準で標準テーブルの段を進む（技固有の補正がテーブル位置を特定する起点になる）ことが
+ * 実機確認済みのため、scalingBaseにもstartBaseと同じ60を使う。
+ * floorScale: 非SAの最低保証(8%/10%)にかける倍率。ジャストパリィ始動は最低保証も半分
+ * （4%/5%）になることが実機確認済み。SA自身のminDamageGuaranteePercentは対象外（変化なし）
+ * naturalStepScale: 技固有の補正が無いヒットの「標準テーブルからの自然な1段ぶんの減衰」に
+ * かける倍率。ジャストパリィ始動はこの自然減衰だけ半分になることが実機確認済み（技固有の
+ * 補正による直接引き算は満額のまま、対象外）
+ */
+function startBaseFromPath(
+  path: MoveNode[],
+): { startBase: number; scalingBase?: number; floorScale?: number; naturalStepScale?: number } {
   const targetNode = path[path.length - 1];
   const branchStats = targetNode.branchStats;
   const condition = effectiveStartHitCondition(branchStats, path);
   const isJustParryStart = branchStats?.isJustParryStart ?? false;
-  // ジャストパリィ後にパニカンで始動すると50%からスタート（カウンター/パニカンの120%ルールより優先）
-  if (isJustParryStart && condition === 'パニカン') return 50;
-  if (condition === 'カウンター' || condition === 'パニカン') return 120;
-  return 100;
+  // ジャストパリィ始動は常にパニッシュカウンター扱いのため、始動条件トグルが未設定でも
+  // パニカン(120%)の50%＝60%スタートにする（BranchStatsEditor.tsx側でも同じ考え方で
+  // パニッシュカウンターへ自動で引き上げているが、閲覧専用ビュー等その自動引き上げが
+  // 効かない経路の保険も兼ねる）
+  if (isJustParryStart) {
+    return { startBase: 60, scalingBase: 60, floorScale: 0.5, naturalStepScale: 0.5 };
+  }
+  if (condition === 'カウンター' || condition === 'パニカン') return { startBase: 120 };
+  return { startBase: 100 };
 }
 
 type FlatDamageHit = DamageHitInput & { damage: number; moveName: string; hitLabel: string };
@@ -407,11 +475,18 @@ function buildFlatDamageHits(
   moveStatsDatabase: MoveStatsDatabase,
   moveList: MoveDefinition[],
   path: MoveNode[],
-): { flatHits: FlatDamageHit[]; rushTriggerPosition: number | null; startBase: number } | null {
+): {
+  flatHits: FlatDamageHit[];
+  rushTriggerPosition: number | null;
+  startBase: number;
+  scalingBase?: number;
+  floorScale?: number;
+  naturalStepScale?: number;
+} | null {
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
 
-  const startBase = startBaseFromPath(path);
+  const { startBase, scalingBase, floorScale, naturalStepScale } = startBaseFromPath(path);
 
   const flatHits: FlatDamageHit[] = [];
   let rushTriggerPosition: number | null = null;
@@ -470,7 +545,7 @@ function buildFlatDamageHits(
 
   if (!hasAnyData || flatHits.length === 0) return null;
 
-  return { flatHits, rushTriggerPosition, startBase };
+  return { flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale };
 }
 
 /**
@@ -499,8 +574,8 @@ export function calculateBranchDamage(
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;
 
-  const { flatHits, rushTriggerPosition, startBase } = built;
-  const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase);
+  const { flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale } = built;
+  const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale);
   // システム動作(isSystemAction)はpercentがnull(補正対象外)。damageが常に0のためどちらにせよ
   // 寄与は0だが、念のため明示的に0扱いする
   const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * (percents[index] ?? 0)) / 100, 0);
@@ -531,8 +606,9 @@ export type DamageBreakdown = {
 };
 
 /**
- * calculateBranchDamageと同じ計算を、デバッグ用に1ヒットずつの内訳付きで返す。
- * 一時的な検証用途（計算結果に食い違いが出た時に、どの段で想定とズレたかを特定するため）。
+ * calculateBranchDamageと同じ計算を、1ヒットずつの内訳付きで返す。
+ * BranchStatsEditor.tsxの「計算式」ボタンから、普段は閉じた状態で見せる
+ * （計算根拠を見たい人向けの正式な機能。デバッグ調査用の一時的なものではない）。
  */
 export function calculateBranchDamageBreakdown(
   characterId: string,
@@ -548,8 +624,8 @@ export function calculateBranchDamageBreakdown(
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;
 
-  const { flatHits, rushTriggerPosition, startBase } = built;
-  const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase);
+  const { flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale } = built;
+  const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale);
 
   const entries: DamageBreakdownEntry[] = flatHits.map((hit, index) => {
     const percent = percents[index];

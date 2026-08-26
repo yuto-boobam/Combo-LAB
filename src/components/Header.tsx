@@ -47,6 +47,9 @@ interface HeaderProps {
   subtitle?: string;
   breadcrumbs?: HeaderBreadcrumbItem[];
   rightSlot?: ReactNode;
+  // rightSlotとは違い、パッチノート／バックアップ／ログアウトより後ろ（右端）に表示する。
+  // ページ固有の常設ボタン（例: サイドドロワー開閉）向け。
+  trailingSlot?: ReactNode;
   // 指定すると「エクスポート」「上書き保存」がこのキャラ1人分だけを対象にする。
   // 未指定（例: キャラ選択画面）の場合はその2項目自体を出さない。
   character?: Character;
@@ -60,6 +63,7 @@ export default function Header({
   subtitle,
   breadcrumbs,
   rightSlot,
+  trailingSlot,
   character,
 }: HeaderProps) {
   const isGuest = useAppStore((state) => state.isGuest);
@@ -470,6 +474,8 @@ export default function Header({
               <span>🚪</span>
               <span style={styles.compactButtonText}>ログアウト</span>
             </button>
+
+            {trailingSlot}
           </div>
         </div>
 
@@ -545,9 +551,13 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 0,
     display: 'flex',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 9,
     flex: '1 1 auto',
-    overflow: 'hidden',
+    // 横幅が足りない時、ニックネームがoverflow:hiddenで見えなくなるのではなく
+    // ブランドアイコンの下へ折り返して表示されるようにする（flexWrapのみで対応、
+    // JSでの幅判定は使わない）
+    rowGap: 2,
   },
   brand: {
     flex: '0 0 auto',

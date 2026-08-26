@@ -322,6 +322,47 @@ describe('共通区間を名前付きグループとして折りたたむ機能'
     expect(firstA.groupId).toBe(secondA.groupId);
   });
 
+  it('renameComboGroup: groupIdは変えずに名前だけ変更する。全出現箇所は同じgroupIdのまま影響を受ける', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+
+    const first = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(first.aId);
+    useAppStore.getState().setGroupSelectedIds([first.bId, first.cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const second = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(second.aId);
+    useAppStore.getState().setGroupSelectedIds([second.bId, second.cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const groupId = getCharacter(characterId).namedComboGroups[0].id;
+    useAppStore.getState().renameComboGroup(characterId, groupId, '改名後');
+
+    const character = getCharacter(characterId);
+    expect(character.namedComboGroups).toHaveLength(1);
+    expect(character.namedComboGroups[0].id).toBe(groupId);
+    expect(character.namedComboGroups[0].name).toBe('改名後');
+
+    // 実データ側のgroupIdは変わらないため、両方の出現箇所とも引き続き同じグループとして扱われる
+    const firstA = findNodeByMoveName(character.comboTrees[0].root, 'a');
+    const secondA = findNodeByMoveName(character.comboTrees[1].root, 'a');
+    expect(firstA.groupId).toBe(groupId);
+    expect(secondA.groupId).toBe(groupId);
+  });
+
+  it('renameComboGroup: 空文字（トリム後）を渡した場合は変更しない', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const { aId, bId, cId } = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(aId);
+    useAppStore.getState().setGroupSelectedIds([bId, cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    const groupId = getCharacter(characterId).namedComboGroups[0].id;
+    useAppStore.getState().renameComboGroup(characterId, groupId, '   ');
+
+    expect(getCharacter(characterId).namedComboGroups[0].name).toBe('コンボA');
+  });
+
   it('buildGroupViewで表示すると、対象区間が1個のピルにまとまり、末尾ノードの先の子はそのまま繋がる', () => {
     const characterId = useAppStore.getState().characters[0].id;
 
@@ -492,12 +533,14 @@ describe('一致箇所への一括反映機能', () => {
     store.setNodeBranchStats(characterId, target.treeId, target.ids[1], {
       damage: 1234,
       dGaugeChange: null,
+      opponentDGaugeChip: null,
       saGaugeGain: null,
       damageRating: null,
       dGaugeRating: null,
       saGaugeRating: null,
       overallRating: null,
       plusFrame: null,
+      plusFrameHitType: null,
       isThrowRange: false,
       canOkizeme: false,
       startHitCondition: null,

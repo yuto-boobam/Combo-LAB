@@ -16,6 +16,7 @@ import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import type { Character } from '../types';
 import { computeSquareGridFit } from '../utils/squareGridFit';
+import { TUTORIAL_CHARACTER_ID } from '../data/tutorialCharacter';
 
 const GRID_GAP = 10;
 // containerRefを付けた要素自身のpadding。clientWidth/clientHeightにはこのpaddingが
@@ -48,7 +49,9 @@ function useSquareGridFit(count: number, gap: number) {
 }
 
 export function CharacterSelectPage() {
-  const characters = useVisibleCharacters();
+  const allCharacters = useVisibleCharacters();
+  const tutorialCharacter = allCharacters.find((character) => character.id === TUTORIAL_CHARACTER_ID);
+  const characters = allCharacters.filter((character) => character.id !== TUTORIAL_CHARACTER_ID);
   const selectCharacter = useAppStore((state) => state.selectCharacter);
   const openMoveStatsEditor = useAppStore((state) => state.openMoveStatsEditor);
   const { containerRef, columns, cellSize } = useSquareGridFit(characters.length, GRID_GAP);
@@ -77,6 +80,18 @@ export function CharacterSelectPage() {
               />
             ))}
           </div>
+        )}
+
+        {tutorialCharacter && (
+          <button
+            type="button"
+            onClick={() => selectCharacter(tutorialCharacter.id)}
+            title="使い方をチュートリアルで見る（自由に編集できます。内容は次に開いた時に元へ戻ります）"
+            style={styles.tutorialCard}
+          >
+            <span style={styles.tutorialCardIcon}>📘</span>
+            <span style={styles.tutorialCardLabel}>使い方ガイド</span>
+          </button>
         )}
       </main>
     </div>
@@ -161,6 +176,7 @@ function clamp(value: number, min: number, max: number): number {
 
 const styles: Record<string, CSSProperties> = {
   main: {
+    position: 'relative',
     flex: '1 1 auto',
     minHeight: 0,
     minWidth: 0,
@@ -169,6 +185,29 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: 'center',
     padding: CONTAINER_PADDING,
     overflow: 'hidden',
+  },
+  tutorialCard: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 14px',
+    borderRadius: 999,
+    border: '1px solid var(--accent-teal-border)',
+    background: 'var(--accent-teal-bg)',
+    color: 'var(--accent-teal-text)',
+    cursor: 'pointer',
+    fontWeight: 800,
+    fontSize: 13,
+  },
+  tutorialCardIcon: {
+    fontSize: 16,
+    lineHeight: 1,
+  },
+  tutorialCardLabel: {
+    whiteSpace: 'nowrap',
   },
   grid: {
     display: 'grid',

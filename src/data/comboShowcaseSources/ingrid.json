@@ -181,7 +181,8 @@
                   "isRushStart": false,
                   "usesCA": false,
                   "finishingSpecialVariant": null,
-                  "includesEarlyDGaugeRecovery": true
+                  "includesEarlyDGaugeRecovery": true,
+                  "plusFrameHitType": "ground"
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-15T03:49:37.977Z",
@@ -295,7 +296,11 @@
                   {
                     "id": "mt2lsv13eq0axtqpv3j",
                     "moveName": "強K",
-                    "attributes": [],
+                    "attributes": [
+                      {
+                        "type": "rush"
+                      }
+                    ],
                     "specialNote": "",
                     "branchStats": null,
                     "createdBy": "ローカル",
@@ -487,7 +492,26 @@
                             "displayName": "チャージ",
                             "attributes": [],
                             "specialNote": "",
-                            "branchStats": null,
+                            "branchStats": {
+                              "damage": null,
+                              "dGaugeChange": null,
+                              "saGaugeGain": null,
+                              "damageRating": null,
+                              "dGaugeRating": null,
+                              "saGaugeRating": null,
+                              "overallRating": null,
+                              "plusFrame": null,
+                              "plusFrameHitType": null,
+                              "isThrowRange": false,
+                              "canOkizeme": false,
+                              "startHitCondition": "カウンター",
+                              "isJustParryStart": false,
+                              "isRushStart": false,
+                              "usesCA": false,
+                              "finishingSpecialVariant": null,
+                              "includesEarlyDGaugeRecovery": true,
+                              "finishingSuperArtName": null
+                            },
                             "createdBy": "ローカル",
                             "createdAt": "2026-08-17T08:21:00.710Z",
                             "children": []
@@ -1073,64 +1097,6 @@
           }
         ]
       }
-    },
-    {
-      "id": "mt3x8dbaqo0ikwr6gj",
-      "label": "キャンセルラッシュ",
-      "root": {
-        "id": "mt3x8dba5k1wyfnrrqp",
-        "moveName": "キャンセルラッシュ",
-        "attributes": [],
-        "specialNote": "",
-        "branchStats": null,
-        "createdBy": "ローカル",
-        "createdAt": "2026-08-22T05:11:54.214Z",
-        "children": [
-          {
-            "id": "mt3x8xxmwrsg2jrgp7f",
-            "moveName": "弱P",
-            "attributes": [],
-            "specialNote": "",
-            "branchStats": null,
-            "createdBy": "ローカル",
-            "createdAt": "2026-08-22T05:12:20.938Z",
-            "children": [
-              {
-                "id": "mt3x95jhvxomcxq7qqp",
-                "moveName": "中K",
-                "attributes": [],
-                "specialNote": "",
-                "branchStats": null,
-                "createdBy": "ローカル",
-                "createdAt": "2026-08-22T05:12:30.797Z",
-                "children": [
-                  {
-                    "id": "mt3x9shimf8ndoq4qvn",
-                    "moveName": "中サンライズ",
-                    "displayName": "中ライズ",
-                    "attributes": [],
-                    "specialNote": "",
-                    "branchStats": null,
-                    "createdBy": "ローカル",
-                    "createdAt": "2026-08-22T05:13:00.534Z",
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "id": "mt3x9am8aaduqcnyjem",
-                "moveName": "中P → 中K",
-                "attributes": [],
-                "specialNote": "",
-                "branchStats": null,
-                "createdBy": "ローカル",
-                "createdAt": "2026-08-22T05:12:37.376Z",
-                "children": []
-              }
-            ]
-          }
-        ]
-      }
     }
   ],
   "namedComboGroups": [
@@ -1141,5 +1107,5 @@
   ],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-23T14:19:53.985Z"
+  "updatedAt": "2026-08-24T14:13:40.226Z"
 }

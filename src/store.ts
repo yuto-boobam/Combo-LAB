@@ -24,6 +24,7 @@ import {
   createDefaultCriticalArtMove,
 } from './data/characterRoster';
 import { MOVE_STATS_SEED } from './data/moveStatsSeed';
+import { TUTORIAL_CHARACTER_ID, createTutorialCharacter } from './data/tutorialCharacter';
 import { canEditMoveStatsLocally } from './utils/localEditAccess';
 import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode, buildParentMap, collectGroupChain } from './lib/tree';
@@ -516,6 +517,8 @@ export type AppState = {
   confirmGroupSelection: (characterId: string, name: string) => void;
   /** 指定ノードを含む「同じgroupIdが連続する区間」全体のグループ化を解除する */
   ungroupNode: (characterId: string, treeId: string, nodeId: string) => void;
+  /** 名前付きグループの名前を変更する（groupIdは変えないため、全出現箇所に一括で反映される） */
+  renameComboGroup: (characterId: string, groupId: string, name: string) => void;
 
   /** 折りたたまれた区間のうち、展開表示中のものの先頭ノードIDの一覧（出現箇所ごとに独立） */
   expandedGroupIds: string[];
@@ -644,7 +647,7 @@ export const useAppStore = create<AppState>()(
 
       // ──── キャラクター選択 ────────────────────────────────────────────
 
-      characters: createInitialCharacterRoster(),
+      characters: [...createInitialCharacterRoster(), createTutorialCharacter()],
       selectedCharacterId: null,
 
       selectCharacter: (characterId) => {
@@ -1115,13 +1118,26 @@ export const useAppStore = create<AppState>()(
       confirmCopy: (characterId) => {
         set((state) => {
           const { copyModeAnchorId, copySelectedIds } = state;
-          if (!copyModeAnchorId || copySelectedIds.length === 0) {
+          if (!copyModeAnchorId) {
             return { copyModeAnchorId: null, copySelectedIds: [] };
           }
 
           const character = state.characters.find((item) => item.id === characterId);
           const found = character ? findNodeInComboTrees(character.comboTrees, copyModeAnchorId) : null;
           if (!found) return { copyModeAnchorId: null, copySelectedIds: [] };
+
+          // 起点が末端ノード（続く枝が無い）だと選べる候補が1つも無いため、何も選ばなくても
+          // 起点自身をコピー対象にする（SideDrawerPanel側のisAnchorLeafと同じ考え方）
+          if (copySelectedIds.length === 0) {
+            if (found.node.children.length > 0) {
+              return { copyModeAnchorId: null, copySelectedIds: [] };
+            }
+            return {
+              clipboard: [found.node],
+              copyModeAnchorId: null,
+              copySelectedIds: [],
+            };
+          }
 
           const parentOf = buildParentMap(found.tree.root);
           const selectedSet = new Set(copySelectedIds);
@@ -1327,6 +1343,26 @@ export const useAppStore = create<AppState>()(
 
           return {
             characters: updateComboTreeRoot(state.characters, characterId, treeId, () => nextRoot),
+          };
+        });
+      },
+
+      renameComboGroup: (characterId, groupId, name) => {
+        set((state) => {
+          const trimmedName = name.trim();
+          if (!trimmedName) return state;
+
+          return {
+            characters: state.characters.map((character) =>
+              character.id === characterId
+                ? {
+                    ...character,
+                    namedComboGroups: character.namedComboGroups.map((group) =>
+                      group.id === groupId ? { ...group, name: trimmedName } : group,
+                    ),
+                  }
+                : character,
+            ),
           };
         });
       },
@@ -1653,7 +1689,9 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         theme: state.theme,
         isGuest: state.isGuest,
-        characters: state.characters,
+        // チュートリアル用キャラクターは編集内容を保存しない（アプリを開くたびに
+        // 必ず新品の状態に戻したいため）。永続化対象からは常に除外する
+        characters: state.characters.filter((character) => character.id !== TUTORIAL_CHARACTER_ID),
         selectedCharacterId: state.selectedCharacterId,
         collapsedNodeIds: state.collapsedNodeIds,
         expandedGroupIds: state.expandedGroupIds,
@@ -1663,23 +1701,35 @@ export const useAppStore = create<AppState>()(
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<AppState> | undefined;
 
+        // 保存済みデータが壊れている/空の場合は初期ロースターにフォールバックする。
+        // SA1〜3の初期枠はこの機能の実装後に追加されたため、それより前に保存された
+        // キャラには入っていない。読み込み時に不足していれば補完する
+        const restoredCharacters = (
+          Array.isArray(persisted?.characters) && persisted.characters.length > 0
+            ? persisted.characters.map(migrateLegacyCharacter)
+            : currentState.characters
+        ).filter((character) => character.id !== TUTORIAL_CHARACTER_ID);
+
+        const baseMoveStatsDatabase =
+          canEditMoveStatsLocally() && persisted?.moveStatsDatabase
+            ? normalizeMoveStatsDatabase(persisted.moveStatsDatabase)
+            : MOVE_STATS_SEED;
+
         return {
           ...currentState,
           ...persisted,
-          // 保存済みデータが壊れている/空の場合は初期ロースターにフォールバックする。
-          // SA1〜3の初期枠はこの機能の実装後に追加されたため、それより前に保存された
-          // キャラには入っていない。読み込み時に不足していれば補完する
-          characters:
-            Array.isArray(persisted?.characters) && persisted.characters.length > 0
-              ? persisted.characters.map(migrateLegacyCharacter)
-              : currentState.characters,
+          // チュートリアル用キャラクターは永続化対象外(partialize参照)のため、
+          // 読み込みのたびに必ず新品の状態を追加し直す
+          characters: [...restoredCharacters, createTutorialCharacter()],
           // 技データは「ローカル環境でのみ編集できる」運用のため、それ以外では常に
           // ビルド同梱の正本（MOVE_STATS_SEED）を使う。ローカル編集中の下書きだけ
-          // localStorageの内容を採用する
-          moveStatsDatabase:
-            canEditMoveStatsLocally() && persisted?.moveStatsDatabase
-              ? normalizeMoveStatsDatabase(persisted.moveStatsDatabase)
-              : MOVE_STATS_SEED,
+          // localStorageの内容を採用する。ただしチュートリアルぶんは、ローカルの
+          // 古い下書き（tutorial.json追加前に保存されたもの等）に入っていないと
+          // 自動計算が働かなくなるため、常にMOVE_STATS_SEED側を優先して上書きする
+          moveStatsDatabase: {
+            ...baseMoveStatsDatabase,
+            [TUTORIAL_CHARACTER_ID]: MOVE_STATS_SEED[TUTORIAL_CHARACTER_ID],
+          },
           user: currentState.user,
           nickname: persisted?.isGuest ? 'ゲスト' : currentState.nickname,
           isPatchNotesModalOpen: false,
@@ -1698,5 +1748,9 @@ export const useAppStore = create<AppState>()(
 export function useVisibleCharacters(): Character[] {
   const isGuest = useAppStore((state) => state.isGuest);
   const characters = useAppStore((state) => state.characters);
-  return isGuest ? SHOWCASE_CHARACTERS : characters;
+  // チュートリアル用キャラクターはゲスト/ログインどちらでも常に一覧に含める
+  // （state.charactersに常駐しているので、ここから拾って基本のリストに足すだけでよい）
+  const tutorial = characters.find((character) => character.id === TUTORIAL_CHARACTER_ID);
+  const base = isGuest ? SHOWCASE_CHARACTERS : characters.filter((character) => character.id !== TUTORIAL_CHARACTER_ID);
+  return tutorial ? [...base, tutorial] : base;
 }
