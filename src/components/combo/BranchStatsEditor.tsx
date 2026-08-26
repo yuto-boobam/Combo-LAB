@@ -801,22 +801,24 @@ const styles: Record<string, CSSProperties> = {
     background: 'var(--border-hover)',
   },
   // 計算式の内訳表示（元は調査用のデバッグ表示だったが、計算根拠を見せる機能として
-  // 「計算式」ボタンの開閉式に変更した。2026-08-26ユーザー指定）
+  // 「計算式」ボタンの開閉式に変更した。2026-08-26ユーザー指定）。当初の赤枠・赤文字は
+  // デバッグ表示時代の名残でサイトの雰囲気から浮いていたため、灰色の枠線・明るい白文字・
+  // 背景(黒と枠線グレーの中間)へ変更した（2026-08-27ユーザー指定）
   debugBreakdown: {
     display: 'grid',
     gap: 3,
     marginTop: -2,
     padding: '8px 10px',
     borderRadius: 8,
-    border: '1px dashed var(--accent-rose-border)',
-    background: 'var(--accent-rose-bg)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
     fontFamily: 'monospace',
     fontSize: 10.5,
-    color: 'var(--text-secondary)',
+    color: 'var(--text-primary)',
   },
   debugBreakdownHeader: {
     fontWeight: 800,
-    color: 'var(--accent-rose-text)',
+    color: 'var(--text-primary)',
   },
   debugBreakdownRow: {
     lineHeight: 1.5,
