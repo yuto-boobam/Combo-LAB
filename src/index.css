@@ -343,6 +343,31 @@ body {
 }
 .tutorial-guide-bubble { animation: tutorialGuideBounce 1.6s ease-in-out infinite; }
 
+/* チュートリアル: スポットライト演出（2026-08-27ユーザー指定、使用箇所は未定・準備のみ）。
+   「注目してほしい要素だけ残し、それ以外を暗くする」ための汎用クラス。使い方は、
+   注目させたい要素（ボタン・ノード・カード等、何でもよい）にこのクラス名を足すだけ。
+   overlay用のDOM要素やJSでの座標計算は不要——box-shadowの拡散(spread)を9999px（実質無限）
+   にすることで、要素自身の影が画面全体を覆い、要素の形そのままの「穴」だけが暗くならずに
+   見える、という定番テクニックを使っている（要素にposition:relativeとz-indexを持たせて
+   他の要素より前面に出す必要がある。ズーム/scale変形の中の要素に付けても、spread値が
+   十分大きいためほぼ影響なく機能する）。
+   .tutorial-spotlight-dim は暗くするだけの最小構成、.tutorial-spotlight はさらに
+   accentカラーの縁取りを足して「ここです」と分かりやすくした版（用途に応じて使い分ける） */
+.tutorial-spotlight-dim {
+  position: relative;
+  z-index: 200;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+  transition: box-shadow 0.25s ease;
+}
+.tutorial-spotlight {
+  position: relative;
+  z-index: 200;
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 0 9999px rgba(0, 0, 0, 0.72);
+  transition: box-shadow 0.25s ease;
+}
+
 /* ドラッグ中のスタイル */
 .drag-over {
   border-color: var(--accent) !important;
