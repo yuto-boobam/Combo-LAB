@@ -192,8 +192,32 @@ export function ComboTreePage() {
     [matchChainIds],
   );
 
+  // ── 誘導ガイド（チュートリアルキャラクター限定）: 「①ドロワーを開く」→「②ダメージ自動計算
+  // ノードをクリックする」→「③コンボの情報を開く」の3段階を順番に見せる。各ステップの
+  // ハイライト自体はComboTreePage(ドロワー開閉ボタン・②のノード)とSideDrawerPanel
+  // (コンボの情報欄)それぞれの持ち場で描くが、「今どの段階か」はここで一元管理する。
+  // handleNodeClickより前で宣言する必要がある（useCallbackの依存配列がここを参照するため）
+  type TutorialGuideStep = 'openDrawer' | 'clickDamageNode' | 'openComboInfo' | 'done';
+  const [tutorialGuideStep, setTutorialGuideStep] = useState<TutorialGuideStep>(() =>
+    character?.id === TUTORIAL_CHARACTER_ID ? 'openDrawer' : 'done',
+  );
+
+  // ②「ダメージは自動計算」の木にある、自動計算の説明文付きの末端ノード
+  // （tutorialCharacter.tsのtreeDamage: 500ダメージ→500ダメージ→500ダメージ、の3つ目）
+  const tutorialDamageTargetNodeId = useMemo(() => {
+    if (character?.id !== TUTORIAL_CHARACTER_ID) return null;
+    const damageTree = trees.find((tree) => tree.label === '②ダメージは自動計算');
+    return damageTree?.root.children[0]?.children[0]?.id ?? null;
+  }, [character, trees]);
+
   const handleNodeClick = useCallback(
     (nodeId: string) => {
+      // ステップ2でガイド対象ノードをクリックしたら、副作用(useEffect)ではなくこの
+      // クリックイベント自体をきっかけに次のステップへ進める
+      if (tutorialGuideStep === 'clickDamageNode' && nodeId === tutorialDamageTargetNodeId) {
+        setTutorialGuideStep('openComboInfo');
+      }
+
       if (copyModeAnchorId) {
         if (copyCandidateIds?.has(nodeId)) toggleCopySelection(nodeId);
         return;
@@ -225,6 +249,8 @@ export function ComboTreePage() {
       selectNode(nodeId);
     },
     [
+      tutorialGuideStep,
+      tutorialDamageTargetNodeId,
       copyModeAnchorId,
       copyCandidateIds,
       toggleCopySelection,
@@ -252,12 +278,6 @@ export function ComboTreePage() {
   // チュートリアルキャラクターだけは、初回に「クリックして開く」を体験してもらうため
   // 閉じた状態から始める（それ以外のキャラは従来通り開いた状態から始まる）
   const [isDrawerOpen, setIsDrawerOpen] = useState(() => character?.id !== TUTORIAL_CHARACTER_ID);
-
-  // ── サイドドロワー開閉ボタンの誘導ガイド（チュートリアルキャラクター限定）。
-  // ボタンを一度でも押したら、以降このセッション中は二度と出さない
-  const [drawerGuideDismissed, setDrawerGuideDismissed] = useState(false);
-  const showDrawerOpenGuide =
-    character?.id === TUTORIAL_CHARACTER_ID && !isDrawerOpen && !drawerGuideDismissed;
 
   // ── コンボ/グループ表示モードの切り替え。「グループ」は名前付きグループの
   // 全出現箇所だけを一覧する読み取り中心のビュー（実データはcomboTreesのまま）
@@ -570,10 +590,10 @@ export function ComboTreePage() {
               type="button"
               onClick={() => {
                 setIsDrawerOpen((open) => !open);
-                setDrawerGuideDismissed(true);
+                if (tutorialGuideStep === 'openDrawer') setTutorialGuideStep('clickDamageNode');
               }}
               title={isDrawerOpen ? 'サイドドロワーを閉じる' : 'サイドドロワーを開く'}
-              className={showDrawerOpenGuide ? 'tutorial-guide-pulse' : undefined}
+              className={tutorialGuideStep === 'openDrawer' ? 'tutorial-guide-pulse' : undefined}
               style={{
                 flexShrink: 0,
                 width: 30,
@@ -595,7 +615,7 @@ export function ComboTreePage() {
             </button>
 
             {/* サイドドロワー開閉ボタンの誘導ガイド。チュートリアルキャラクターの初回のみ表示 */}
-            {showDrawerOpenGuide && (
+            {tutorialGuideStep === 'openDrawer' && (
               <div
                 className="tutorial-guide-bubble"
                 style={{
@@ -863,6 +883,10 @@ export function ComboTreePage() {
                                 : undefined
                             }
                             onPasteDrop={() => pasteClipboard(character.id, column.treeId, node.id)}
+                            isGuideTarget={
+                              tutorialGuideStep === 'clickDamageNode' &&
+                              node.id === tutorialDamageTargetNodeId
+                            }
                           />
                         )}
                       </div>
@@ -945,7 +969,15 @@ export function ComboTreePage() {
         </div>
 
         {/* ── サイドドロワー（開閉可能。開閉ボタンはHeaderのtrailingSlot参照） */}
-        <SideDrawerPanel characterId={character.id} comboTrees={trees} isOpen={isDrawerOpen} />
+        <SideDrawerPanel
+          characterId={character.id}
+          comboTrees={trees}
+          isOpen={isDrawerOpen}
+          highlightComboInfoNodeId={
+            tutorialGuideStep === 'openComboInfo' ? tutorialDamageTargetNodeId : null
+          }
+          onComboInfoOpened={() => setTutorialGuideStep('done')}
+        />
       </div>
     </div>
   );

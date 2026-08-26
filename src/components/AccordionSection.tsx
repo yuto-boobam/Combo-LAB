@@ -11,6 +11,9 @@ type AccordionSectionProps = {
   isOpen: boolean;
   onToggle: () => void;
   children: ReactNode;
+  // trueの間、見出しをパルスさせて注意を引く（誘導ガイド向け。index.cssの
+  // tutorialGuidePulseキーフレームを再利用。呼び出し側が「今ここを見てほしい」を判断する）
+  highlight?: boolean;
 };
 
 export default function AccordionSection({
@@ -20,6 +23,7 @@ export default function AccordionSection({
   isOpen,
   onToggle,
   children,
+  highlight = false,
 }: AccordionSectionProps) {
   return (
     <section style={styles.section}>
@@ -28,6 +32,7 @@ export default function AccordionSection({
         style={{
           ...styles.sectionHeader,
           borderRadius: isOpen ? '13px 13px 0 0' : 13,
+          ...(highlight ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
         }}
         onClick={onToggle}
       >

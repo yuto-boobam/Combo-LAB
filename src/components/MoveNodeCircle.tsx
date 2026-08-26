@@ -50,6 +50,9 @@ type Props = {
   groupBadge?: { groupName: string; onCollapse: () => void };
   // クリップボードをドラッグ&ドロップで貼り付けられた時に呼ばれる
   onPasteDrop?: () => void;
+  // trueの間、枠をパルスさせて注意を引く（誘導ガイド向け。呼び出し側が
+  // 「今このノードをクリックしてほしい」を判断する）
+  isGuideTarget?: boolean;
 };
 
 export function MoveNodeCircle({
@@ -73,6 +76,7 @@ export function MoveNodeCircle({
   isGroupSelected = false,
   groupBadge,
   onPasteDrop,
+  isGuideTarget = false,
 }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isLeaf = node.children.length === 0;
@@ -149,6 +153,7 @@ export function MoveNodeCircle({
         opacity: isInactiveDuringMode ? 0.35 : 1,
         cursor: isInactiveDuringMode ? 'default' : 'pointer',
         transition: 'border-color 0.15s, box-shadow 0.15s, opacity 0.15s',
+        ...(isGuideTarget ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
       }}
     >
       {(isCopySelected || isGroupSelected) && (
