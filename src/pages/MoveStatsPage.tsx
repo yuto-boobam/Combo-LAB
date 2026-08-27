@@ -27,7 +27,6 @@ import type { CSSProperties } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import AccordionSection from '../components/AccordionSection';
-import { CANCEL_TYPES } from '../types';
 import type { CancelType, MoveHitStats, MoveStats, MoveStrength } from '../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../data/commonMoves';
 import { canEditMoveStatsLocally } from '../utils/localEditAccess';
@@ -36,6 +35,13 @@ import { getSpecialVariantOptions } from '../utils/specialVariant';
 import { calculateOdLevelConstraintForVariant } from '../utils/comboGaugeCalc';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
+
+// 「キャンセルの種類」ボタンは通常技・必殺技で選択肢が異なる（2026-08-27ユーザー指定）。
+// 通常技は「全般/SAすべて」のような広いキャンセル先を、必殺技は「SA2以上/SA3のみ」の
+// ようなSAレベル基準の狭いキャンセル先を選ぶ（実機のキャンセルルートの違いに合わせる）。
+// 「一部の必殺」「不可」はどちらにも共通
+const NORMAL_MOVE_CANCEL_TYPES: CancelType[] = ['全般', 'SAすべて', '一部の必殺', '不可'];
+const SPECIAL_MOVE_CANCEL_TYPES: CancelType[] = ['SA2以上', 'SA3のみ', '一部の必殺', '不可'];
 
 // 数値ではなく自由記述の文字列として保存するフィールド（modifierと有利フレームの2種）
 const TEXT_HIT_FIELDS = new Set<keyof MoveHitStats>(['modifier', 'groundPlusFrame', 'airPlusFrame']);
@@ -157,7 +163,7 @@ export function MoveStatsPage() {
               moveNames={normalMoveNames}
               moveStats={moveStats}
               readOnly={readOnly}
-              showCancelTypeSelector
+              cancelTypeOptions={NORMAL_MOVE_CANCEL_TYPES}
             />
           </AccordionSection>
 
@@ -174,7 +180,7 @@ export function MoveStatsPage() {
                 moveNames={specialMoveNames}
                 moveStats={moveStats}
                 readOnly={readOnly}
-                showCancelTypeSelector
+                cancelTypeOptions={SPECIAL_MOVE_CANCEL_TYPES}
               />
             ) : (
               <p style={styles.emptyHint}>
@@ -231,7 +237,7 @@ function MoveStatsTable({
   showMinGuaranteeColumn = false,
   showDuringRushColumn = false,
   saGaugeColumnLabel = 'SAゲージ回収',
-  showCancelTypeSelector = false,
+  cancelTypeOptions = [],
 }: {
   characterId: string;
   moveNames: string[];
@@ -249,9 +255,11 @@ function MoveStatsTable({
   // SA自身は撃つとSAゲージを「消費」する（他の技のようにヒットで「回収」するわけではない）ため、
   // superArtセクションだけラベルを差し替えられるようにする
   saGaugeColumnLabel?: string;
-  // 「キャンセルの種類」欄（6ボタン、段ごと）を出すかどうか。SA自身からSAへの
-  // キャンセルは無いため、superArt/systemセクションでは渡さない（falseのまま）
-  showCancelTypeSelector?: boolean;
+  // 「キャンセルの種類」欄（段ごと）に出す選択肢。空配列（省略時）なら欄自体を出さない。
+  // SA自身からSAへのキャンセルは無いため、superArt/systemセクションでは渡さない。
+  // 通常技/必殺技で選択肢の中身が異なる（呼び出し側がNORMAL_MOVE_CANCEL_TYPES /
+  // SPECIAL_MOVE_CANCEL_TYPESのどちらかを渡す。2026-08-27ユーザー指定）
+  cancelTypeOptions?: CancelType[];
 }) {
   const setMoveStats = useAppStore((state) => state.setMoveStats);
 
@@ -386,9 +394,10 @@ function MoveStatsTable({
               <div style={styles.hitsBlock}>
                 {stats.hits.map((hit, index) => (
                   <div key={index} style={styles.hitBlock}>
-                    {showCancelTypeSelector && (
+                    {cancelTypeOptions.length > 0 && (
                       <CancelTypeButtons
                         label={`${index + 1}段目のキャンセルの種類`}
+                        options={cancelTypeOptions}
                         value={hit.cancelType}
                         readOnly={readOnly}
                         onSelect={(cancelType) => setHitCancelType(moveName, index, cancelType)}
@@ -399,6 +408,8 @@ function MoveStatsTable({
                       <span style={styles.hitLabelCell}>{index + 1}段目</span>
                       <HitFields
                         hit={hit}
+                        hitIndex={index}
+                        sharesModifierAcrossHits={stats.sharesModifierAcrossHits}
                         readOnly={readOnly}
                         showMinGuaranteeColumn={showMinGuaranteeColumn}
                         showDuringRushColumn={showDuringRushColumn}
@@ -431,9 +442,10 @@ function MoveStatsTable({
               </div>
             ) : (
               <div style={styles.hitBlock}>
-                {showCancelTypeSelector && (
+                {cancelTypeOptions.length > 0 && (
                   <CancelTypeButtons
                     label="キャンセルの種類"
+                    options={cancelTypeOptions}
                     value={stats.hits[0]?.cancelType ?? null}
                     readOnly={readOnly}
                     onSelect={(cancelType) => setHitCancelType(moveName, 0, cancelType)}
@@ -444,6 +456,8 @@ function MoveStatsTable({
                   <span style={styles.hitLabelCell} />
                   <HitFields
                     hit={stats.hits[0] ?? EMPTY_HIT}
+                    hitIndex={0}
+                    sharesModifierAcrossHits={stats.sharesModifierAcrossHits}
                     readOnly={readOnly}
                     showMinGuaranteeColumn={showMinGuaranteeColumn}
                     showDuringRushColumn={showDuringRushColumn}
@@ -460,15 +474,18 @@ function MoveStatsTable({
   );
 }
 
-// この段（複数ヒット技は段ごと、単発技は1回）のキャンセルの種類を6択ボタンで選ぶ。
+// この段（複数ヒット技は段ごと、単発技は1回）のキャンセルの種類を選ぶ。選択肢は
+// 呼び出し側から渡す（通常技/必殺技で内容が異なるため。2026-08-27ユーザー指定）。
 // もう一度同じボタンを押すと選択解除（他のトグルボタン群と同じ考え方）
 function CancelTypeButtons({
   label,
+  options,
   value,
   readOnly,
   onSelect,
 }: {
   label: string;
+  options: CancelType[];
   value: CancelType | null;
   readOnly: boolean;
   onSelect: (cancelType: CancelType) => void;
@@ -476,7 +493,7 @@ function CancelTypeButtons({
   return (
     <div style={styles.cancelRow}>
       <span style={styles.cancelRowLabel}>{label}</span>
-      {CANCEL_TYPES.map((cancelType) => {
+      {options.map((cancelType) => {
         const active = value === cancelType;
         return (
           <button
@@ -500,19 +517,55 @@ function CancelTypeButtons({
   );
 }
 
+// damageModifierCalc.tsの計算上、この段の補正欄に書いても無視される補正の種類を
+// 判定する。canBeComboStarter=false（2段目以降）の段では「始動補正」は常に無視される
+// （コンボ全体の1発目にしかなり得ないため）。さらにsharesModifierAcrossHits=true
+// （「段ごとに補正を分けない」＝強Kの2段目等）の非1段目は、標準テーブルの段を進めない
+// （advanceを呼ばない）ため「即時補正」以外（始動補正/コンボ補正/乗算補正）が丸ごと
+// 無視される（damageModifierCalc.tsのsharesTableStepWithPreviousの早期returnを参照）。
+// 「多重にかかってしまわないか」というユーザー懸念への回答＝多重適用にはならず、単に
+// 無視されるだけだが、それはそれで気づきにくいため入力欄側で警告する
+// （2026-08-27ユーザー指定）
+const NON_STARTER_INEFFECTIVE_KEYWORDS = ['始動補正'];
+const SHARED_NON_FIRST_HIT_INEFFECTIVE_KEYWORDS = ['始動補正', 'コンボ補正', '乗算補正'];
+
 function HitFields({
   hit,
+  hitIndex,
+  sharesModifierAcrossHits,
   readOnly,
   showMinGuaranteeColumn = false,
   showDuringRushColumn = false,
   onChange,
 }: {
   hit: MoveHitStats;
+  // このHitFieldsが技の何段目か（0始まり）
+  hitIndex: number;
+  // 呼び出し元の技のMoveStats.sharesModifierAcrossHits（「段ごとに補正を分けない」）
+  sharesModifierAcrossHits: boolean;
   readOnly: boolean;
   showMinGuaranteeColumn?: boolean;
   showDuringRushColumn?: boolean;
   onChange: (field: keyof MoveHitStats, rawValue: string) => void;
 }) {
+  const canBeComboStarter = hitIndex === 0;
+  const isSharedNonFirstHit = sharesModifierAcrossHits && !canBeComboStarter;
+  const ineffectiveKeywords = canBeComboStarter
+    ? []
+    : isSharedNonFirstHit
+      ? SHARED_NON_FIRST_HIT_INEFFECTIVE_KEYWORDS
+      : NON_STARTER_INEFFECTIVE_KEYWORDS;
+  const hasIneffectiveModifier = ineffectiveKeywords.some((keyword) => hit.modifier.includes(keyword));
+  const modifierPlaceholder = canBeComboStarter
+    ? '始動補正20%＋コンボ補正20% など'
+    : isSharedNonFirstHit
+      ? '即時補正10% など'
+      : 'コンボ補正20% など';
+  const modifierWarningTitle = !hasIneffectiveModifier
+    ? undefined
+    : isSharedNonFirstHit
+      ? '「段ごとに補正を分けない」がオンのため、この段では「即時補正」以外（始動補正・コンボ補正・乗算補正）は計算に反映されません（1段目の補正だけがコンボ全体の計算に使われます）'
+      : 'この段はコンボ全体の1発目にはなり得ないため、「始動補正」を書いても計算には反映されません（1段目の欄でだけ意味を持ちます）';
   // cancelTypeのような文字列/オブジェクト項目を誤ってinputのvalueへ渡さないよう、数値項目だけに絞った型にする
   type NumericHitField = Extract<
     keyof MoveHitStats,
@@ -548,8 +601,12 @@ function HitFields({
       <input
         type="text"
         className="input-field"
-        style={styles.modInput}
-        placeholder="始動補正20% など"
+        style={{
+          ...styles.modInput,
+          ...(hasIneffectiveModifier ? styles.modInputWarning : null),
+        }}
+        placeholder={modifierPlaceholder}
+        title={modifierWarningTitle}
         value={hit.modifier}
         readOnly={readOnly}
         onChange={(event) => onChange('modifier', event.target.value)}
@@ -694,8 +751,17 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
     alignItems: 'center',
   },
+  // 見出し行。下にスクロールしてもその技セクション（通常技・必殺技など、MoveStatsTable
+  // 1個分＝moveList）の中に留まる間だけ追従する。position:stickyは自分の親要素（moveList）
+  // の範囲を超えては留まれない性質があるため、セクションをまたいだ瞬間に自然に手放され、
+  // 次のセクション自身の見出し行に引き継がれる（JS不要。2026-08-27ユーザー指定）
   headerRow: {
-    paddingBottom: 2,
+    position: 'sticky',
+    top: 0,
+    zIndex: 5,
+    background: 'var(--bg-elevated)',
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   hitLabelCell: {
     fontSize: 10,
@@ -725,13 +791,13 @@ const styles: Record<string, CSSProperties> = {
   numHeaderCell: {
     fontSize: 10,
     fontWeight: 800,
-    color: 'var(--text-muted)',
+    color: 'var(--text-secondary)',
     textAlign: 'center',
   },
   modHeaderCell: {
     fontSize: 10,
     fontWeight: 800,
-    color: 'var(--text-muted)',
+    color: 'var(--text-secondary)',
     textAlign: 'left',
   },
   modInput: {
@@ -739,6 +805,12 @@ const styles: Record<string, CSSProperties> = {
     boxSizing: 'border-box',
     fontSize: 12,
     padding: '5px 6px',
+  },
+  // 1段目以外の欄に「始動補正」を書いても計算に反映されないことを視覚的に警告する
+  // （2026-08-27ユーザー指定）
+  modInputWarning: {
+    borderColor: 'var(--accent-amber-border)',
+    background: 'var(--accent-amber-bg)',
   },
   numInput: {
     width: '100%',

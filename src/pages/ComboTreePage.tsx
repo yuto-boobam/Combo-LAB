@@ -16,6 +16,7 @@ import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
 import { nodeWidthFor, GROUP_PILL_WIDTH } from '../utils/nodeSizing';
+import { applyManualLineBreaks } from '../utils/textDisplay';
 import { TUTORIAL_CHARACTER_ID } from '../data/tutorialCharacter';
 import {
   computeTreeLayout,
@@ -193,11 +194,16 @@ export function ComboTreePage() {
   );
 
   // ── 誘導ガイド（チュートリアルキャラクター限定）: 「①ドロワーを開く」→「②ダメージ自動計算
-  // ノードをクリックする」→「③コンボの情報を開く」の3段階を順番に見せる。各ステップの
-  // ハイライト自体はComboTreePage(ドロワー開閉ボタン・②のノード)とSideDrawerPanel
-  // (コンボの情報欄)それぞれの持ち場で描くが、「今どの段階か」はここで一元管理する。
+  // ノードをクリックする」→「③コンボの情報を開く」→「④計算式を開く」の4段階を順番に見せる。
+  // 各ステップのハイライト自体はComboTreePage(ドロワー開閉ボタン・②のノード)とSideDrawerPanel
+  // (コンボの情報欄・計算式ボタン)それぞれの持ち場で描くが、「今どの段階か」はここで一元管理する。
   // handleNodeClickより前で宣言する必要がある（useCallbackの依存配列がここを参照するため）
-  type TutorialGuideStep = 'openDrawer' | 'clickDamageNode' | 'openComboInfo' | 'done';
+  type TutorialGuideStep =
+    | 'openDrawer'
+    | 'clickDamageNode'
+    | 'openComboInfo'
+    | 'openFormula'
+    | 'done';
   const [tutorialGuideStep, setTutorialGuideStep] = useState<TutorialGuideStep>(() =>
     character?.id === TUTORIAL_CHARACTER_ID ? 'openDrawer' : 'done',
   );
@@ -976,7 +982,11 @@ export function ComboTreePage() {
           highlightComboInfoNodeId={
             tutorialGuideStep === 'openComboInfo' ? tutorialDamageTargetNodeId : null
           }
-          onComboInfoOpened={() => setTutorialGuideStep('done')}
+          onComboInfoOpened={() => setTutorialGuideStep('openFormula')}
+          highlightFormulaNodeId={
+            tutorialGuideStep === 'openFormula' ? tutorialDamageTargetNodeId : null
+          }
+          onFormulaOpened={() => setTutorialGuideStep('done')}
         />
       </div>
     </div>
@@ -1477,7 +1487,7 @@ function GroupOccurrenceHeader({
         />
       ) : (
         <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
-          {groupName}
+          {applyManualLineBreaks(groupName)}
           {treeLabel}
         </span>
       )}

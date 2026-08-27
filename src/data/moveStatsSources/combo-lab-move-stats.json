@@ -12,11 +12,14 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+5",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "中P": {
@@ -31,11 +34,14 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "*1",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "強P": {
@@ -50,8 +56,9 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+3",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -69,11 +76,14 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+3",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "中K": {
@@ -88,11 +98,14 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "++4",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "強K": {
@@ -108,7 +121,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         },
         {
           "damage": 400,
@@ -119,12 +133,15 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+4",
+          "airPlusFrame": "",
+          "cancelType": "SAすべて"
         }
       ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": true
     },
     "2弱P": {
       "isMultiHit": false,
@@ -138,11 +155,14 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+4",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "2中P": {
@@ -157,11 +177,14 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+6",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "2強P": {
@@ -176,11 +199,14 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+1",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "2弱K": {
@@ -195,8 +221,9 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "*3",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -214,11 +241,14 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+1",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "2強K": {
@@ -233,8 +263,9 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+30",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -252,8 +283,9 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+7~9",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -271,11 +303,14 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+10~+11",
+          "airPlusFrame": "",
+          "cancelType": "SA3のみ"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "J強P": {
@@ -290,8 +325,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+9~+15",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -309,8 +345,9 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+5~+10",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -328,8 +365,9 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+9~+13",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -347,8 +385,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+11~+15",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -366,8 +405,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+3",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -385,8 +425,9 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+38",
+          "airPlusFrame": "",
+          "cancelType": "一部の必殺"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -404,8 +445,9 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+1",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         },
         {
           "damage": 700,
@@ -416,11 +458,14 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "-3",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "4中K->強P": {
@@ -435,8 +480,9 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+4",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         },
         {
           "damage": 800,
@@ -447,8 +493,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+44",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -467,7 +514,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         },
         {
           "damage": 800,
@@ -479,7 +527,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -498,7 +547,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         },
         {
           "damage": 600,
@@ -510,7 +560,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -528,11 +579,14 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "-2~+11",
+          "airPlusFrame": "",
+          "cancelType": "SA3のみ"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "中サンシュート": {
@@ -547,11 +601,14 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "-2~+17",
+          "airPlusFrame": "",
+          "cancelType": "SA3のみ"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "強サンシュート": {
@@ -566,11 +623,14 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "-1~+9",
+          "airPlusFrame": "",
+          "cancelType": "SA3のみ"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "ODサンシュート": {
@@ -586,7 +646,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -604,8 +665,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+36",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -623,18 +685,19 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+38",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
       "sharesModifierAcrossHits": false
     },
     "強サンライズ": {
-      "isMultiHit": false,
+      "isMultiHit": true,
       "hits": [
         {
-          "damage": 1300,
+          "damage": 200,
           "modifier": "始動補正20%＋コンボ補正20%",
           "dGaugeGain": 2250,
           "saGaugeGain": 800,
@@ -643,17 +706,57 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
+        },
+        {
+          "damage": 200,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "",
+          "airPlusFrame": "",
+          "cancelType": "不可"
+        },
+        {
+          "damage": 500,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "",
+          "airPlusFrame": "",
+          "cancelType": "不可"
+        },
+        {
+          "damage": 400,
+          "modifier": "始動補正20%＋コンボ補正20%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "",
+          "airPlusFrame": "",
+          "cancelType": "一部の必殺"
         }
       ],
       "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
+      "sharesModifierAcrossHits": true
     },
     "ODサンライズ": {
-      "isMultiHit": false,
+      "isMultiHit": true,
       "hits": [
         {
-          "damage": 1600,
+          "damage": 200,
           "modifier": "コンボ補正20%",
           "dGaugeGain": -20000,
           "saGaugeGain": 1200,
@@ -662,11 +765,53 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
+        },
+        {
+          "damage": 200,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "",
+          "airPlusFrame": "",
+          "cancelType": "不可"
+        },
+        {
+          "damage": 500,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "",
+          "airPlusFrame": "",
+          "cancelType": "SA2以上"
+        },
+        {
+          "damage": 700,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "+40",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
-      "cancelableSuperArtNames": [],
-      "sharesModifierAcrossHits": false
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": true
     },
     "ODサンヴェール": {
       "isMultiHit": false,
@@ -680,8 +825,9 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+52",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -700,7 +846,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -719,7 +866,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -738,7 +886,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -757,7 +906,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -776,7 +926,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -795,7 +946,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -814,7 +966,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -833,7 +986,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -852,7 +1006,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -871,7 +1026,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -890,7 +1046,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -909,7 +1066,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -927,8 +1085,9 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+23",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -946,8 +1105,9 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+23",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -965,8 +1125,9 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+23",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -985,7 +1146,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1003,8 +1165,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+48",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1022,8 +1185,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+44",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1042,7 +1206,8 @@
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "+12",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1061,7 +1226,8 @@
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "+17",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1080,7 +1246,8 @@
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "+20",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1099,7 +1266,8 @@
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "+30",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1118,7 +1286,8 @@
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1137,7 +1306,8 @@
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1156,7 +1326,8 @@
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1175,7 +1346,8 @@
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "+30",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1193,8 +1365,9 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+45",
+          "airPlusFrame": "",
+          "cancelType": "不可"
         },
         {
           "damage": 800,
@@ -1205,11 +1378,14 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+43",
+          "airPlusFrame": "",
+          "cancelType": "全般"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "キャンセルラッシュ": {
@@ -1225,7 +1401,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1244,7 +1421,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": null
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1263,7 +1441,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1281,11 +1460,14 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+47",
+          "airPlusFrame": "",
+          "cancelType": "SA3のみ"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ビーム|Lv. 1)": {
@@ -1300,11 +1482,14 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+68",
+          "airPlusFrame": "",
+          "cancelType": "SA3のみ"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ビーム|Lv. 2)": {
@@ -1319,11 +1504,14 @@
           "dGaugeChipPunishCounter": -9000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+76",
+          "airPlusFrame": "",
+          "cancelType": "SA3のみ"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "ソーラーフレア(空中|チャージ)": {
@@ -1339,7 +1527,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1358,7 +1547,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1377,7 +1567,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1396,7 +1587,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1414,11 +1606,14 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+68",
+          "airPlusFrame": "",
+          "cancelType": "SA2以上"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ODビーム|Lv. 2)": {
@@ -1433,11 +1628,14 @@
           "dGaugeChipPunishCounter": -9000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+76",
+          "airPlusFrame": "",
+          "cancelType": "SA2以上"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "サンフレア(ODビーム|Lv. 3)": {
@@ -1452,11 +1650,14 @@
           "dGaugeChipPunishCounter": -12000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "groundPlusFrame": "+87",
+          "airPlusFrame": "",
+          "cancelType": "SA2以上"
         }
       ],
-      "cancelableSuperArtNames": [],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
       "sharesModifierAcrossHits": false
     },
     "ソーラーフレア(OD空中ビーム|Lv. 1)": {
@@ -1472,7 +1673,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1491,7 +1693,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],
@@ -1510,7 +1713,8 @@
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
-          "airPlusFrame": ""
+          "airPlusFrame": "",
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],

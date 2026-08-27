@@ -8,6 +8,7 @@
 // 位置移動（自分をドラッグして並び替える）自体はグループ区間ごと正しく動くため許可する。
 
 import { GROUP_PILL_WIDTH, NODE_DEFAULT_HEIGHT } from '../utils/nodeSizing';
+import { applyManualLineBreaks } from '../utils/textDisplay';
 
 type Props = {
   id: string;
@@ -87,6 +88,8 @@ export function GroupPillNode({
           fontWeight: 800,
           color: 'var(--accent)',
           lineHeight: 1.25,
+          // グループ名中の「｜」で明示的に改行できるようにする（MoveNodeCircle.tsxと同じ規約）
+          whiteSpace: 'pre-line',
           wordBreak: 'break-word',
           overflow: 'hidden',
           display: '-webkit-box',
@@ -95,7 +98,7 @@ export function GroupPillNode({
         }}
         title={groupName}
       >
-        {groupName}
+        {applyManualLineBreaks(groupName)}
       </span>
     </div>
   );

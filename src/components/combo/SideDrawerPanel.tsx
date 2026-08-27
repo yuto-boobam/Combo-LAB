@@ -53,6 +53,10 @@ type Props = {
   // （このコンポーネント自身はチュートリアルの手順そのものは知らない）
   highlightComboInfoNodeId?: string | null;
   onComboInfoOpened?: () => void;
+  // 誘導ガイドの次の段階: このノードIDが選択されている間だけ「ダメージ・計算式」欄を
+  // 光らせ、「計算式」を開くよう誘導する。考え方はhighlightComboInfoNodeIdと同じ
+  highlightFormulaNodeId?: string | null;
+  onFormulaOpened?: () => void;
 };
 
 const DRAWER_WIDTH = 400;
@@ -63,6 +67,8 @@ export function SideDrawerPanel({
   isOpen = true,
   highlightComboInfoNodeId = null,
   onComboInfoOpened,
+  highlightFormulaNodeId = null,
+  onFormulaOpened,
 }: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
@@ -119,6 +125,8 @@ export function SideDrawerPanel({
             selectedNode={selectedInfo.node}
             highlightComboInfo={highlightComboInfoNodeId === selectedInfo.node.id}
             onComboInfoOpened={onComboInfoOpened}
+            highlightFormula={highlightFormulaNodeId === selectedInfo.node.id}
+            onFormulaOpened={onFormulaOpened}
           />
         ) : (
           <p style={styles.hint}>
@@ -809,6 +817,8 @@ function NodeEditor({
   selectedNode,
   highlightComboInfo = false,
   onComboInfoOpened,
+  highlightFormula = false,
+  onFormulaOpened,
 }: {
   characterId: string;
   treeId: string;
@@ -816,6 +826,8 @@ function NodeEditor({
   selectedNode: MoveNode;
   highlightComboInfo?: boolean;
   onComboInfoOpened?: () => void;
+  highlightFormula?: boolean;
+  onFormulaOpened?: () => void;
 }) {
   const selectNode = useAppStore((state) => state.selectNode);
   const addChildNode = useAppStore((state) => state.addChildNode);
@@ -1048,6 +1060,14 @@ function NodeEditor({
             dGaugeBreakdown={dGaugeBreakdown}
             dGaugeMinimumRequired={dGaugeMinimumRequired}
             saGaugeBreakdown={saGaugeBreakdown}
+            // チュートリアルキャラクターだけ、未入力の項目を畳んで初見の情報量を減らす
+            // （実キャラの編集画面では従来通り全項目を表示する。2026-08-27ユーザー指定）
+            hideEmptyFields={characterId === TUTORIAL_CHARACTER_ID}
+            highlightDamageFormula={highlightFormula}
+            onFormulaOpened={onFormulaOpened}
+            // 計算式を開いた時、チュートリアルキャラクターだけ計算の意味を一言添える
+            // （2026-08-27ユーザー指定）
+            showFormulaExplanation={characterId === TUTORIAL_CHARACTER_ID}
             groundPlusFrame={groundPlusFrame}
             airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}

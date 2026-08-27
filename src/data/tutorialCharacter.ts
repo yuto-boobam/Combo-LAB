@@ -78,7 +78,7 @@ export function createTutorialCharacter(): Character {
   // 2本の木にまたがって同じ連携があるケースを想定し、グループタブでも横断確認できる
   const groupId = 'tut-group-1';
   const treeGroupA = makeNode('始動A', {}, [
-    makeNode('共通1', { groupId, specialNote: 'ここから2ノード分がグループ' }, [
+    makeNode('共通1', { groupId, specialNote: '次のノードまでグループ' }, [
       makeNode('共通2', { groupId }, [makeNode('Aの続き')]),
     ]),
   ]);
@@ -97,7 +97,10 @@ export function createTutorialCharacter(): Character {
       { id: nextId('tree'), label: '③グループ化(始動A)', root: treeGroupA },
       { id: nextId('tree'), label: '③グループ化(始動B)', root: treeGroupB },
     ],
-    namedComboGroups: [{ id: groupId, name: '共通の締め方' }],
+    // グループ名は折りたたみピル(GroupPillNode)にそのまま表示される。「共通の締め方」のような
+    // 抽象的な名前は初見の人に伝わりにくいため、中身（共通1→共通2）が一目で分かる名前にする
+    // （｜は改行トリガー。2026-08-27ユーザー指定）
+    namedComboGroups: [{ id: groupId, name: 'グループ｜共通1->共通2' }],
     createdBy: '',
     createdAt: now,
     updatedAt: now,
