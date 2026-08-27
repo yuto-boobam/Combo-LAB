@@ -428,7 +428,7 @@ function SpecialMoveGroupBody({
                   setMoveDefinitionHasFlatVariants(characterId, pickingMove.id, event.target.checked)
                 }
               />
-              強度を分けず、下の選択肢から直接選べるようにする（イングリッドのビーム等）
+              強度ではなく、レベルで区別する技
             </label>
           </fieldset>
 
