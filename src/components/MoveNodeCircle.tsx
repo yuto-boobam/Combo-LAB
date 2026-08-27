@@ -13,15 +13,7 @@ import {
   CANCEL_RUSH_MOVE_NAME,
 } from '../utils/nodeVisualStyle';
 import { NODE_DEFAULT_HEIGHT, isTutorialNode, nodeWidthFor } from '../utils/nodeSizing';
-
-/**
- * ノード表示名の中の「｜」を改行に変換する。自動折り返しが意図しない位置（例:
- * "Lv."と"1"の間）で発生する問題を避けるため、改行を入れたい位置をユーザーが
- * 「｜」で明示的に指定できるようにするための変換
- */
-function applyManualLineBreaks(text: string): string {
-  return text.replace(/｜|\|/g, '\n');
-}
+import { applyManualLineBreaks } from '../utils/textDisplay';
 
 type DraggedNodeData = { id: string; parentId: string | null; index: number };
 
