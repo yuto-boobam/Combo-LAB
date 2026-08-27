@@ -1,0 +1,440 @@
+{
+  "id": "ryu",
+  "name": "リュウ",
+  "imageUrl": null,
+  "moveList": [
+    {
+      "id": "sa-868",
+      "name": "SA1",
+      "category": "superArt",
+      "hasSpecialVariant": true,
+      "specialVariantOptions": [
+        "SA1",
+        "電刃SA1"
+      ]
+    },
+    {
+      "id": "sa-869",
+      "name": "SA2",
+      "category": "superArt",
+      "hasSpecialVariant": true,
+      "specialVariantOptions": [
+        "SA2|Lv. 1",
+        "SA2|Lv. 2",
+        "SA2|Lv. 3",
+        "電刃SA2|Lv. 1",
+        "電刃SA2|Lv. 2",
+        "電刃SA2|Lv. 3"
+      ]
+    },
+    {
+      "id": "sa-870",
+      "name": "SA3",
+      "category": "superArt"
+    },
+    {
+      "id": "sa-507",
+      "name": "CA",
+      "category": "superArt"
+    },
+    {
+      "id": "mtb1885s17p4qin3d8k",
+      "name": "6中P",
+      "category": "unique"
+    },
+    {
+      "id": "mtb18dsn3qt6iyb1ljk",
+      "name": "4強P",
+      "category": "unique"
+    },
+    {
+      "id": "mtb18i70vtruvq10q7s",
+      "name": "6強P",
+      "category": "unique"
+    },
+    {
+      "id": "mtb1awia24wwla1ulor",
+      "name": "波動拳",
+      "category": "special"
+    },
+    {
+      "id": "mtb1bkwa0909oev9azl",
+      "name": "竜巻旋風脚",
+      "category": "special",
+      "shortName": "竜巻"
+    },
+    {
+      "id": "mtb4o9lgb624cnru779",
+      "name": "4強K",
+      "category": "unique"
+    },
+    {
+      "id": "mtb4prigszm8q4eg9w",
+      "name": "6強K",
+      "category": "unique"
+    },
+    {
+      "id": "mtb4pv3761fys82xq2e",
+      "name": "強P->強K",
+      "category": "unique"
+    },
+    {
+      "id": "mtb4pzcjk88x52vs8cg",
+      "name": "中P->弱K->強K",
+      "category": "unique"
+    },
+    {
+      "id": "mtb5t905uizbt5o3sa",
+      "name": "上段足刀蹴り",
+      "category": "special",
+      "shortName": "足刀"
+    },
+    {
+      "id": "mtb5u7vg7h807h1ryk9",
+      "name": "空中竜巻旋風脚",
+      "category": "special",
+      "shortName": "空中竜巻",
+      "hasSpecialVariant": true,
+      "specialVariantsByStrength": {
+        "中": [
+          "空中竜巻"
+        ]
+      }
+    },
+    {
+      "id": "mtb5uz9lbp22h13zozn",
+      "name": "昇龍拳",
+      "category": "special",
+      "hasSpecialVariant": false
+    },
+    {
+      "id": "mtb5wxn396ow7okaqhk",
+      "name": "波掌撃",
+      "category": "special",
+      "hasSpecialVariant": true,
+      "specialVariantsByStrength": {
+        "強": [
+          "強波掌",
+          "電刃波掌"
+        ],
+        "OD": [
+          "OD波掌",
+          "OD電刃波掌"
+        ]
+      }
+    }
+  ],
+  "comboTrees": [
+    {
+      "id": "mtb17ivebr4viumezug",
+      "label": "2中K",
+      "root": {
+        "id": "mtb17ive95gqxvtb50w",
+        "moveName": "2中K",
+        "attributes": [],
+        "specialNote": "",
+        "branchStats": {
+          "damage": 500,
+          "dGaugeChange": 1000,
+          "opponentDGaugeChip": null,
+          "saGaugeGain": 500,
+          "damageRating": null,
+          "dGaugeRating": null,
+          "saGaugeRating": null,
+          "carryRating": null,
+          "overallRating": null,
+          "plusFrame": null,
+          "plusFrameHitType": null,
+          "isThrowRange": false,
+          "canOkizeme": false,
+          "isFavorite": false,
+          "startHitCondition": null,
+          "isJustParryStart": false,
+          "isRushStart": false,
+          "usesCA": false,
+          "finishingSpecialVariant": null,
+          "finishingSuperArtName": null
+        },
+        "createdBy": "ローカル",
+        "createdAt": "2026-08-27T04:37:36.458Z",
+        "children": [
+          {
+            "id": "mtb17n6xutah2t9nxsn",
+            "moveName": "キャンセルラッシュ",
+            "attributes": [],
+            "specialNote": "",
+            "branchStats": {
+              "damage": 500,
+              "dGaugeChange": -29000,
+              "opponentDGaugeChip": null,
+              "saGaugeGain": 500,
+              "damageRating": null,
+              "dGaugeRating": null,
+              "saGaugeRating": null,
+              "carryRating": null,
+              "overallRating": null,
+              "plusFrame": null,
+              "plusFrameHitType": null,
+              "isThrowRange": false,
+              "canOkizeme": false,
+              "isFavorite": false,
+              "startHitCondition": null,
+              "isJustParryStart": false,
+              "isRushStart": false,
+              "usesCA": false,
+              "finishingSpecialVariant": null,
+              "finishingSuperArtName": null
+            },
+            "createdBy": "ローカル",
+            "createdAt": "2026-08-27T04:37:42.057Z",
+            "children": [
+              {
+                "id": "mtb17tb3w69g9um6ade",
+                "moveName": "強P",
+                "attributes": [],
+                "specialNote": "",
+                "branchStats": {
+                  "damage": 1044,
+                  "dGaugeChange": -29000,
+                  "opponentDGaugeChip": null,
+                  "saGaugeGain": 1500,
+                  "damageRating": null,
+                  "dGaugeRating": null,
+                  "saGaugeRating": null,
+                  "carryRating": null,
+                  "overallRating": null,
+                  "plusFrame": null,
+                  "plusFrameHitType": null,
+                  "isThrowRange": false,
+                  "canOkizeme": false,
+                  "isFavorite": false,
+                  "startHitCondition": null,
+                  "isJustParryStart": false,
+                  "isRushStart": false,
+                  "usesCA": false,
+                  "finishingSpecialVariant": null,
+                  "finishingSuperArtName": null
+                },
+                "createdBy": "ローカル",
+                "createdAt": "2026-08-27T04:37:49.983Z",
+                "children": [
+                  {
+                    "id": "mtb1am5g7enbzl0ko9",
+                    "moveName": "4強P",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": {
+                      "damage": 1044,
+                      "dGaugeChange": -29000,
+                      "opponentDGaugeChip": null,
+                      "saGaugeGain": 1500,
+                      "damageRating": null,
+                      "dGaugeRating": null,
+                      "saGaugeRating": null,
+                      "carryRating": null,
+                      "overallRating": null,
+                      "plusFrame": null,
+                      "plusFrameHitType": null,
+                      "isThrowRange": false,
+                      "canOkizeme": false,
+                      "isFavorite": false,
+                      "startHitCondition": null,
+                      "isJustParryStart": false,
+                      "isRushStart": false,
+                      "usesCA": false,
+                      "finishingSpecialVariant": null,
+                      "finishingSuperArtName": null
+                    },
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-27T04:40:00.676Z",
+                    "children": [
+                      {
+                        "id": "mtb339tc96q1ujl4t18",
+                        "moveName": "強昇竜拳",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": {
+                          "damage": 1044,
+                          "dGaugeChange": -29000,
+                          "opponentDGaugeChip": null,
+                          "saGaugeGain": 1500,
+                          "damageRating": null,
+                          "dGaugeRating": null,
+                          "saGaugeRating": null,
+                          "carryRating": null,
+                          "overallRating": null,
+                          "plusFrame": null,
+                          "plusFrameHitType": null,
+                          "isThrowRange": false,
+                          "canOkizeme": false,
+                          "isFavorite": false,
+                          "startHitCondition": null,
+                          "isJustParryStart": false,
+                          "isRushStart": false,
+                          "usesCA": false,
+                          "finishingSpecialVariant": null,
+                          "finishingSuperArtName": null
+                        },
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-27T05:30:17.328Z",
+                        "children": []
+                      },
+                      {
+                        "id": "mtb48a77b9tfts26trm",
+                        "moveName": "強上段足刀蹴り",
+                        "displayName": "強足刀",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": {
+                          "damage": 1044,
+                          "dGaugeChange": -29000,
+                          "opponentDGaugeChip": null,
+                          "saGaugeGain": 1500,
+                          "damageRating": null,
+                          "dGaugeRating": null,
+                          "saGaugeRating": null,
+                          "carryRating": null,
+                          "overallRating": null,
+                          "plusFrame": null,
+                          "plusFrameHitType": null,
+                          "isThrowRange": false,
+                          "canOkizeme": false,
+                          "isFavorite": false,
+                          "startHitCondition": null,
+                          "isJustParryStart": false,
+                          "isRushStart": false,
+                          "usesCA": false,
+                          "finishingSpecialVariant": null,
+                          "finishingSuperArtName": null
+                        },
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-27T06:02:10.723Z",
+                        "children": [
+                          {
+                            "id": "mtb48jkp7fv7yngr94s",
+                            "moveName": "中昇龍拳",
+                            "attributes": [
+                              {
+                                "type": "situational"
+                              }
+                            ],
+                            "specialNote": "",
+                            "branchStats": {
+                              "damage": 1044,
+                              "dGaugeChange": -29000,
+                              "opponentDGaugeChip": null,
+                              "saGaugeGain": 1500,
+                              "damageRating": null,
+                              "dGaugeRating": null,
+                              "saGaugeRating": null,
+                              "carryRating": null,
+                              "overallRating": null,
+                              "plusFrame": null,
+                              "plusFrameHitType": null,
+                              "isThrowRange": false,
+                              "canOkizeme": false,
+                              "isFavorite": false,
+                              "startHitCondition": null,
+                              "isJustParryStart": false,
+                              "isRushStart": false,
+                              "usesCA": false,
+                              "finishingSpecialVariant": null,
+                              "finishingSuperArtName": null
+                            },
+                            "createdBy": "ローカル",
+                            "createdAt": "2026-08-27T06:02:22.873Z",
+                            "children": [],
+                            "groupId": "mtb8iv1wjtduq9lzqv8"
+                          }
+                        ],
+                        "groupId": "mtb8iv1wjtduq9lzqv8"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "mtb497nm1yr8itdedm6",
+                    "moveName": "強波掌撃",
+                    "attributes": [],
+                    "specialNote": "",
+                    "branchStats": {
+                      "damage": 1516,
+                      "dGaugeChange": -29000,
+                      "opponentDGaugeChip": null,
+                      "saGaugeGain": 2600,
+                      "damageRating": null,
+                      "dGaugeRating": null,
+                      "saGaugeRating": null,
+                      "carryRating": null,
+                      "overallRating": null,
+                      "plusFrame": null,
+                      "plusFrameHitType": null,
+                      "isThrowRange": false,
+                      "canOkizeme": false,
+                      "isFavorite": false,
+                      "startHitCondition": null,
+                      "isJustParryStart": false,
+                      "isRushStart": false,
+                      "usesCA": false,
+                      "finishingSpecialVariant": null,
+                      "finishingSuperArtName": null
+                    },
+                    "createdBy": "ローカル",
+                    "createdAt": "2026-08-27T06:02:54.082Z",
+                    "children": [
+                      {
+                        "id": "mtb4dtu2wm6rl6kikqn",
+                        "moveName": "中竜巻旋風脚",
+                        "displayName": "中竜巻",
+                        "attributes": [],
+                        "specialNote": "",
+                        "branchStats": {
+                          "damage": 2026,
+                          "dGaugeChange": -29000,
+                          "opponentDGaugeChip": null,
+                          "saGaugeGain": 3900,
+                          "damageRating": null,
+                          "dGaugeRating": null,
+                          "saGaugeRating": null,
+                          "carryRating": null,
+                          "overallRating": null,
+                          "plusFrame": null,
+                          "plusFrameHitType": null,
+                          "isThrowRange": false,
+                          "canOkizeme": false,
+                          "isFavorite": false,
+                          "startHitCondition": null,
+                          "isJustParryStart": false,
+                          "isRushStart": false,
+                          "usesCA": false,
+                          "finishingSpecialVariant": null,
+                          "finishingSuperArtName": null
+                        },
+                        "createdBy": "ローカル",
+                        "createdAt": "2026-08-27T06:06:29.450Z",
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "namedComboGroups": [
+    {
+      "id": "mtb76iutwm7xmg83o6",
+      "name": "引き強P強足刀"
+    },
+    {
+      "id": "mtb8iv1wjtduq9lzqv8",
+      "name": "画面端強足刀"
+    }
+  ],
+  "createdBy": "",
+  "createdAt": "2026-08-18T07:40:31.441Z",
+  "updatedAt": "2026-08-27T08:02:22.772Z",
+  "moveStats": {}
+}
