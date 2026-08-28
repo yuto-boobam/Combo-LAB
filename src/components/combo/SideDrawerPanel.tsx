@@ -979,7 +979,11 @@ function NodeEditor({
   // 出ている間だけ、その値でそのまま欄を埋めておく（「この値を使う」ボタンは廃止。
   // 埋めた後は普通の入力欄として自由に上書きできる＝間違っていたらそこで直接修正する
   // 運用にする、というユーザー指定）。一度でも値が入れば(0を含む)対象から外れるため、
-  // 手動で0に修正した場合や、経路変更で自動計算がnullに戻った場合に上書きし続けることはない
+  // 手動で0に修正した場合や、経路変更で自動計算がnullに戻った場合に上書きし続けることはない。
+  // 始動条件・SA締めのように「この枝の前提そのもの」が変わった時は、BranchStatsEditor.tsx側の
+  // 各ボタンが該当4フィールドを明示的にnullへ戻してから変更するため、ここへ戻ってきて
+  // 新しい自動計算値で再度埋まる（フィールド単体の値だけでは「自動のままか手で直したか」を
+  // 判別できないため、こちらでrefを使って追跡するより、変更の起点側でnullに戻す方が確実）
   useEffect(() => {
     if (!showStatsEditor) return;
     const current = selectedNode.branchStats;
@@ -1124,6 +1128,9 @@ function NodeEditor({
             この技名に変更する
           </button>
 
+          <div style={styles.sectionDivider} />
+          <div style={styles.fieldLabel}>属性</div>
+
           <AttributeEditor
             value={selectedNode.attributes}
             onChange={(next) => setNodeAttributes(characterId, treeId, selectedNode.id, next)}
@@ -1154,6 +1161,9 @@ function NodeEditor({
               readOnly={false}
             />
           )}
+
+          <div style={styles.sectionDivider} />
+          <div style={styles.fieldLabel}>その他</div>
 
           <button
             type="button"
@@ -1297,6 +1307,10 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.7,
     color: 'var(--text-muted)',
+  },
+  sectionDivider: {
+    borderTop: '1px solid var(--border)',
+    margin: '4px 0',
   },
   fieldLabel: {
     display: 'grid',

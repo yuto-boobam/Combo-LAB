@@ -129,7 +129,7 @@ function findMoveForNode(node: MoveNode, moveList: MoveDefinition[]): MoveDefini
 
 /**
  * その技が使っているLv.の範囲(最小〜最大)を求める。強度ごとの一覧(specialVariantsByStrength)・
- * フラットな一覧(specialVariantOptions、hasFlatVariantsな技用)の両方から集める。
+ * フラットな一覧(specialVariantOptions、strengthMode==='level'な技用)の両方から集める。
  * イングリッドのビームのように、最小Lv.は通常版でしか存在せず、最大Lv.はOD版でしか
  * 存在しない技で、その境界を判定するために使う。Lv.を持たない技やLv.が1種類しか無い技
  * （範囲で語る意味が無い）はnull

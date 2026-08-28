@@ -18,6 +18,7 @@ import type {
   MoveStrength,
   NamedComboGroup,
   NodeAttribute,
+  SpecialMoveStrengthMode,
 } from './types';
 import { supabase } from './utils/supabaseClient';
 import {
@@ -72,6 +73,8 @@ const VALID_MOVE_CATEGORIES: MoveCategory[] = [
 ];
 
 const VALID_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
+
+const VALID_SPECIAL_MOVE_STRENGTH_MODES: SpecialMoveStrengthMode[] = ['none', 'normalOd', 'level'];
 
 /** インポートしたJSONの1ノード分を、現行スキーマに合わせて正規化する（壊れたファイルでも落ちないようにする） */
 function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
@@ -134,7 +137,14 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     specialVariantsByStrength:
       Object.keys(specialVariantsByStrength).length > 0 ? specialVariantsByStrength : undefined,
     finishesComboOnSelect: move.finishesComboOnSelect === true ? true : undefined,
-    hasFlatVariants: move.hasFlatVariants === true ? true : undefined,
+    // 旧hasFlatVariants: trueで保存された下書きも、そのまま'level'として引き継ぐ
+    strengthMode: VALID_SPECIAL_MOVE_STRENGTH_MODES.includes(
+      move.strengthMode as SpecialMoveStrengthMode,
+    )
+      ? (move.strengthMode as SpecialMoveStrengthMode)
+      : (move as { hasFlatVariants?: boolean }).hasFlatVariants === true
+        ? 'level'
+        : undefined,
   };
 }
 
@@ -392,13 +402,14 @@ export type AppState = {
     finishesComboOnSelect: boolean,
   ) => void;
   /**
-   * 必殺技が「強度に依存しないフラットな選択肢」かどうかを編集する。trueなら
-   * specialVariantOptionsから直接選ばせ、技名にも強度を含めない
+   * 必殺技の強度モードを編集する。undefined = 従来通り弱/中/強/ODの4強度、
+   * 'none' = 強度が存在しない、'normalOd' = 無印/ODの2強度のみ、
+   * 'level' = 強度ではなくspecialVariantOptionsのレベル一覧から直接選ばせる（旧hasFlatVariants）
    */
-  setMoveDefinitionHasFlatVariants: (
+  setMoveDefinitionStrengthMode: (
     characterId: string,
     moveId: string,
-    hasFlatVariants: boolean,
+    strengthMode: SpecialMoveStrengthMode | undefined,
   ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
@@ -805,14 +816,14 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      setMoveDefinitionHasFlatVariants: (characterId, moveId, hasFlatVariants) => {
+      setMoveDefinitionStrengthMode: (characterId, moveId, strengthMode) => {
         set((state) => ({
           characters: state.characters.map((character) =>
             character.id === characterId
               ? {
                   ...character,
                   moveList: character.moveList.map((move) =>
-                    move.id === moveId ? { ...move, hasFlatVariants } : move,
+                    move.id === moveId ? { ...move, strengthMode } : move,
                   ),
                   updatedAt: new Date().toISOString(),
                 }
@@ -1695,7 +1706,6 @@ export const useAppStore = create<AppState>()(
         // チュートリアル用キャラクターは編集内容を保存しない（アプリを開くたびに
         // 必ず新品の状態に戻したいため）。永続化対象からは常に除外する
         characters: state.characters.filter((character) => character.id !== TUTORIAL_CHARACTER_ID),
-        selectedCharacterId: state.selectedCharacterId,
         collapsedNodeIds: state.collapsedNodeIds,
         expandedGroupIds: state.expandedGroupIds,
         moveStatsDatabase: state.moveStatsDatabase,
@@ -1738,6 +1748,10 @@ export const useAppStore = create<AppState>()(
           isPatchNotesModalOpen: false,
           selectedPatchNoteDate: null,
           selectedNodeId: null,
+          // 開き直すたびに前回開いていたコンボ画面へ直行せず、必ずキャラ一覧画面から
+          // 始まるようにする（自動ログイン時も同様。以前のpartializeに残っていた
+          // 古い永続化データを持つユーザーのぶんも、ここで明示的にnullへ戻す）
+          selectedCharacterId: null,
         };
       },
     },

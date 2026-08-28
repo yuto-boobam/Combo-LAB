@@ -61,7 +61,7 @@
         "ビーム|Lv. 2",
         "ビーム|Lv. 3"
       ],
-      "hasFlatVariants": true
+      "strengthMode": "level"
     },
     {
       "id": "msyfvk39bcqo5stx8oc",
@@ -75,7 +75,7 @@
         "空中ビーム|Lv. 2",
         "空中ビーム|Lv. 3"
       ],
-      "hasFlatVariants": true
+      "strengthMode": "level"
     },
     {
       "id": "mt13q4phs0qbwcgcbio",

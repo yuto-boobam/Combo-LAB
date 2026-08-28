@@ -22,6 +22,9 @@ export type MoveCategory = 'normal' | 'air' | 'unique' | 'special' | 'superArt' 
 /** 必殺技の強度4種 */
 export type MoveStrength = '弱' | '中' | '強' | 'OD';
 
+/** 必殺技の強度モード（MoveDefinition.strengthMode参照）。未設定なら弱/中/強/ODの4強度 */
+export type SpecialMoveStrengthMode = 'none' | 'normalOd' | 'level';
+
 /** キャラごとの技候補（サイドドロワーの「技」選択欄に並ぶ）。unique/special/superArtのみで使用 */
 export type MoveDefinition = {
   id: string;
@@ -57,14 +60,19 @@ export type MoveDefinition = {
    */
   finishesComboOnSelect?: boolean;
   /**
-   * 必殺技(special)のみで使う。trueなら、この技は強度（弱/中/強/OD）による選択肢の違いが
-   * 実質無く、`specialVariantOptions`のフラットな一覧から直接選ばせる（SA(superArt)と同じ
-   * 選び方）。技名も`${技名}(${特殊性能})`のように強度を含めずに確定する（例:
-   * 「サンフレア(ビーム|Lv. 1)」。イングリッドのビーム系(チャージ→Lv.0〜3)のように、
-   * 強度ボタンとLv.が実質無関係で「強度選択」という手順自体が不要な技向け。
-   * falseまたは未設定なら従来通り`specialVariantsByStrength`を使う強度ベースの選択のまま
+   * 必殺技(special)のみで使う。未設定なら従来通り弱/中/強/ODの4強度から選ばせる
+   * （`specialVariantsByStrength`を使う強度ベースの選択のまま）。
+   * - 'none': 強度そのものが存在しない技（例: 電刃錬気のような単発の構え技）。
+   *   技名は強度を挟まず`${技名}`のまま即確定する
+   * - 'normalOd': 強度が「無印」と「OD」の2つしかない技。`${技名}`と`OD${技名}`の
+   *   2択だけを出す（弱/中/強の3段階は無い）
+   * - 'level': 強度ではなく`specialVariantOptions`のフラットな一覧から直接選ばせる
+   *   （SA(superArt)と同じ選び方）。技名も`${技名}(${特殊性能})`のように強度を含めずに
+   *   確定する（例:「サンフレア(ビーム|Lv. 1)」。イングリッドのビーム系
+   *   (チャージ→Lv.0〜3)のように、強度ボタンとLv.が実質無関係で「強度選択」という
+   *   手順自体が不要な技向け。旧`hasFlatVariants: true`に相当）
    */
-  hasFlatVariants?: boolean;
+  strengthMode?: SpecialMoveStrengthMode;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────

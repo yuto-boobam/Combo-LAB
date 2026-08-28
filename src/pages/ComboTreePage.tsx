@@ -88,6 +88,7 @@ export function ComboTreePage() {
   const isGuest = useAppStore((state) => state.isGuest);
   const selectedCharacterId = useAppStore((state) => state.selectedCharacterId);
   const goToCharacterSelect = useAppStore((state) => state.goToCharacterSelect);
+  const selectCharacter = useAppStore((state) => state.selectCharacter);
   const collapsedNodeIds = useAppStore((state) => state.collapsedNodeIds);
   const toggleNodeExpanded = useAppStore((state) => state.toggleNodeExpanded);
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
@@ -207,6 +208,10 @@ export function ComboTreePage() {
   const [tutorialGuideStep, setTutorialGuideStep] = useState<TutorialGuideStep>(() =>
     character?.id === TUTORIAL_CHARACTER_ID ? 'openDrawer' : 'done',
   );
+
+  // 誘導ガイドの実例キャラクター。全ステップ完了後、下の画面遷移ボタンからここへ飛ばす。
+  // 今後ステップが増えても判定は変わらず「tutorialGuideStep === 'done'」の1箇所だけを見ればよい
+  const tutorialExampleCharacterId = 'ryu';
 
   // ②「ダメージは自動計算」の木にある、自動計算の説明文付きの末端ノード
   // （tutorialCharacter.tsのtreeDamage: 500ダメージ→500ダメージ→500ダメージ、の3つ目）
@@ -988,6 +993,36 @@ export function ComboTreePage() {
           }
           onFormulaOpened={() => setTutorialGuideStep('done')}
         />
+
+        {/* 誘導ガイドが全ステップ完了した時だけ表示する画面遷移ボタン。ステップ数が
+            将来増えても、判定は常に「最終的にdoneへ到達したか」の1箇所だけでよい */}
+        {character.id === TUTORIAL_CHARACTER_ID && tutorialGuideStep === 'done' && (
+          <button
+            type="button"
+            onClick={() => selectCharacter(tutorialExampleCharacterId)}
+            className="tutorial-guide-bubble"
+            style={{
+              position: 'fixed',
+              right: 24,
+              bottom: 24,
+              zIndex: 40,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '12px 18px',
+              borderRadius: 999,
+              border: 'none',
+              background: 'var(--accent)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 10px 28px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            コンボの実例を見る →
+          </button>
+        )}
       </div>
     </div>
   );
