@@ -127,6 +127,24 @@ export function BranchStatsEditor({
     onChange({ ...stats, ...patch });
   };
 
+  // 始動条件・SA締めのように、この枝のダメージ・ゲージ計算の前提そのものを変える変更は、
+  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加の4欄も明示的に未入力（null）へ戻す。
+  // これらの欄は「未入力の間だけ自動計算値で埋まる」仕様（SideDrawerPanel.tsx参照）なので、
+  // ここでnullに戻すことで新しい前提での自動計算値が改めて反映される。すでに手動で入力
+  // していた値もここでリセット対象になる点は、前提が変わった以上その値自体の根拠も
+  // 変わっているため妥当（2026-08-28ユーザー報告：カウンター/SA締めを変えてもダメージ欄が
+  // 追従しない不具合の修正）
+  const updateAndResetAutoFields = (patch: Partial<ComboBranchStats>) => {
+    onChange({
+      ...stats,
+      ...patch,
+      damage: null,
+      opponentDGaugeChip: null,
+      dGaugeChange: null,
+      saGaugeGain: null,
+    });
+  };
+
   // ジャストパリィ始動は常にパニッシュカウンター始動を伴う（実機仕様、パニッシュカウンターの
   // トグルとは別にオン/オフできるが、始動条件としては常に「パニッシュカウンター以上」を要求する）
   const justParryRequiredCondition: BranchStartHitCondition | null = stats.isJustParryStart
@@ -157,7 +175,7 @@ export function BranchStatsEditor({
 
   useEffect(() => {
     if (readOnly || satisfiesRequirement || !effectiveRequiredCondition) return;
-    onChange({ ...stats, startHitCondition: effectiveRequiredCondition });
+    updateAndResetAutoFields({ startHitCondition: effectiveRequiredCondition });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, satisfiesRequirement, effectiveRequiredCondition]);
 
@@ -456,7 +474,7 @@ export function BranchStatsEditor({
                 <button
                   key={condition}
                   type="button"
-                  onClick={() => update({ startHitCondition: active ? null : condition })}
+                  onClick={() => updateAndResetAutoFields({ startHitCondition: active ? null : condition })}
                   disabled={disabled}
                   style={{
                     ...styles.conditionButton,
@@ -474,7 +492,7 @@ export function BranchStatsEditor({
 
             <button
               type="button"
-              onClick={() => update({ isJustParryStart: !(stats.isJustParryStart ?? false) })}
+              onClick={() => updateAndResetAutoFields({ isJustParryStart: !(stats.isJustParryStart ?? false) })}
               disabled={readOnly}
               style={{
                 ...styles.conditionButton,
@@ -500,7 +518,7 @@ export function BranchStatsEditor({
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => update({ finishingSuperArtName: null })}
+              onClick={() => updateAndResetAutoFields({ finishingSuperArtName: null })}
               disabled={readOnly}
               style={{
                 ...styles.conditionButton,
@@ -518,7 +536,7 @@ export function BranchStatsEditor({
                 <button
                   key={name}
                   type="button"
-                  onClick={() => update({ finishingSuperArtName: active ? null : name })}
+                  onClick={() => updateAndResetAutoFields({ finishingSuperArtName: active ? null : name })}
                   disabled={readOnly}
                   style={{
                     ...styles.conditionButton,

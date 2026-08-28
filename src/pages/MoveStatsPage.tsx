@@ -102,14 +102,17 @@ export function MoveStatsPage() {
   // 特殊性能あり（hasSpecialVariant）の技は、強度ごとに登録された選択肢を持つ場合だけ
   // 実際にノードで確定する名前（`${強度}${技名}(${特殊性能})`）ごとに1行ずつ並べる。
   // 選択肢がない強度は特殊性能なしのプレーンな1行のまま（src/utils/specialVariant.ts参照）。
-  // hasFlatVariantsな技（イングリッドのビーム等、強度に依存しない技）は強度を挟まず
+  // strengthMode==='level'な技（イングリッドのビーム等、強度に依存しない技）は強度を挟まず
   // specialVariantOptionsを直接展開する（SAと同じ考え方）。さらに、Lv.を含む選択肢は
   // 「OD使用」時に別データを参照する仕組みになっているため、OD版の行もあわせて用意する
   // （src/utils/comboGaugeCalc.ts の applyOdVariantLookup 参照）。ただし最小Lv.は通常版
   // でしか、最大Lv.はOD版でしか実際には選べない（コンボ登録画面でボタンごと押せなく
-  // なっている）ため、その組み合わせの行はそもそも作らない
+  // なっている）ため、その組み合わせの行はそもそも作らない。
+  // strengthMode==='none'（強度が存在しない技）は`${技名}`の1行だけ、'normalOd'
+  // （強度が無印とODの2つだけの技）は`${技名}`/`OD${技名}`の2行だけを用意する
+  // （どちらも特殊性能の選択肢は持たない簡易モード。MoveNamePicker.tsx参照）
   const specialMoveNames = specialMoves.flatMap((move) => {
-    if (move.hasFlatVariants) {
+    if (move.strengthMode === 'level') {
       const options = move.specialVariantOptions ?? [];
       return options.flatMap((variant) => {
         const constraint = calculateOdLevelConstraintForVariant(variant, move);
@@ -119,6 +122,8 @@ export function MoveStatsPage() {
         return rows;
       });
     }
+    if (move.strengthMode === 'none') return [move.name];
+    if (move.strengthMode === 'normalOd') return [move.name, `OD${move.name}`];
     return SPECIAL_MOVE_STRENGTHS.flatMap((strength) => {
       const options = move.hasSpecialVariant ? getSpecialVariantOptions(move, strength) : [];
       return options.length > 0

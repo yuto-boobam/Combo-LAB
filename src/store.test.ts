@@ -112,7 +112,7 @@ describe('restoreCharacters', () => {
     expect(updated.comboTrees).toHaveLength(0);
   });
 
-  it('技マスタのhasSpecialVariant/specialVariantOptions/finishesComboOnSelect/hasFlatVariantsがインポート時に消えない', () => {
+  it('技マスタのhasSpecialVariant/specialVariantOptions/finishesComboOnSelect/strengthModeがインポート時に消えない', () => {
     const target = useAppStore.getState().characters[3];
 
     useAppStore.getState().restoreCharacters([
@@ -126,7 +126,7 @@ describe('restoreCharacters', () => {
             hasSpecialVariant: true,
             specialVariantOptions: ['ビームレベル2', 'ビームレベル3', 'ビームレベル4'],
             finishesComboOnSelect: true,
-            hasFlatVariants: true,
+            strengthMode: 'level',
           },
           { id: 'normal-move', name: '波動拳', category: 'special' }, // 特殊性能なしの技は影響なし
         ],
@@ -139,13 +139,32 @@ describe('restoreCharacters', () => {
     expect(beam?.hasSpecialVariant).toBe(true);
     expect(beam?.specialVariantOptions).toEqual(['ビームレベル2', 'ビームレベル3', 'ビームレベル4']);
     expect(beam?.finishesComboOnSelect).toBe(true);
-    expect(beam?.hasFlatVariants).toBe(true);
+    expect(beam?.strengthMode).toBe('level');
 
     const normalMove = updated.moveList.find((move) => move.id === 'normal-move');
     expect(normalMove?.hasSpecialVariant).toBeUndefined();
     expect(normalMove?.specialVariantOptions).toBeUndefined();
     expect(normalMove?.finishesComboOnSelect).toBeUndefined();
-    expect(normalMove?.hasFlatVariants).toBeUndefined();
+    expect(normalMove?.strengthMode).toBeUndefined();
+  });
+
+  it('旧hasFlatVariants: trueで保存された技マスタは、インポート時にstrengthMode: "level"へ移行される', () => {
+    const target = useAppStore.getState().characters[3];
+
+    useAppStore.getState().restoreCharacters([
+      {
+        id: target.id,
+        moveList: [
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 旧スキーマの下書きデータを模す
+          { id: 'beam', name: 'ビーム', category: 'special', hasFlatVariants: true } as any,
+        ],
+        comboTrees: [],
+      },
+    ]);
+
+    const updated = getCharacter(target.id);
+    const beam = updated.moveList.find((move) => move.id === 'beam');
+    expect(beam?.strengthMode).toBe('level');
   });
 
   it('ノードのgroupIdとキャラのnamedComboGroupsがインポート時に消えない', () => {
