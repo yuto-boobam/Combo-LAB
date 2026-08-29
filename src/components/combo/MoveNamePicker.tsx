@@ -71,6 +71,9 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(() =>
     computeInitialOpenSections(value, moveList),
   );
+  // 「歩き」ピルを押した時だけ詳細（方向・フレーム範囲）を開く。現在値が既に歩き系なら
+  // 最初から開いておく（2026-08-28ユーザー指定：他の技と同じくピルを押してから詳細を登録する形にする）
+  const [isWalkOpen, setIsWalkOpen] = useState(() => value.includes('歩き'));
 
   const toggleSection = (key: SectionKey) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -143,8 +146,14 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
           {SYSTEM_MOVE_NAMES.map((name) => (
             <MovePill key={name} label={name} active={value === name} onClick={() => onChange(name)} />
           ))}
+          <MovePill
+            label="歩き"
+            active={value.includes('歩き')}
+            pending={isWalkOpen && !value.includes('歩き')}
+            onClick={() => setIsWalkOpen((open) => !open)}
+          />
         </div>
-        <WalkPicker value={value} onChange={onChange} />
+        {isWalkOpen && <WalkPicker value={value} onChange={onChange} />}
       </AccordionSection>
     </div>
   );

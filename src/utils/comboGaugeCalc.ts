@@ -8,6 +8,7 @@ import type {
   BranchStartHitCondition,
   ComboBranchStats,
   MoveDefinition,
+  MoveHitStats,
   MoveNode,
   MoveStats,
   MoveStatsDatabase,
@@ -104,8 +105,30 @@ function withFinishingSuperArt(path: MoveNode[]): MoveNode[] {
   return [...path, superArtNode];
 }
 
-function sumSaGaugeGain(stats: MoveStats): number {
-  return stats.hits.reduce((sum, hit) => sum + (hit.saGaugeGain ?? 0), 0);
+/**
+ * node.hitIndicesを、そのhits配列で実在する段番号（1始まり）だけの昇順ソート済み一覧に
+ * 正規化する。未設定・空・全段数以上の値しか無い等で対象が0件になる場合は全段を返す
+ * （「全段当たった」がデフォルト）
+ */
+export function resolveHitIndices(stats: MoveStats, node: MoveNode): number[] {
+  const total = stats.hits.length;
+  const raw = node.hitIndices?.filter((n) => n >= 1 && n <= total) ?? [];
+  if (raw.length === 0) return Array.from({ length: total }, (_, i) => i + 1);
+  return Array.from(new Set(raw)).sort((a, b) => a - b);
+}
+
+/**
+ * 複数ヒット技で、そのノードが実際に何段目が当たったか（node.hitIndices）に応じて
+ * 対象のhitsだけを返す。未設定・不正な値ならそのまま全段を返す（2026-08-28ユーザー要望：
+ * 1〜最終段を並べて当たった段だけクリックする、というシンプルな選び方にする）
+ */
+function effectiveHits(stats: MoveStats, node: MoveNode): MoveHitStats[] {
+  const indices = resolveHitIndices(stats, node);
+  return indices.map((i) => stats.hits[i - 1]);
+}
+
+function sumSaGaugeGain(stats: MoveStats, node: MoveNode): number {
+  return effectiveHits(stats, node).reduce((sum, hit) => sum + (hit.saGaugeGain ?? 0), 0);
 }
 
 /**
@@ -254,7 +277,8 @@ function baseMoveName(moveName: string): string {
 
 /**
  * root〜targetNodeId（両端含む）の経路上にある各ノードの技データから、SAゲージ増減の合計を求める。
- * 複数ヒット技は「何段目が当たったか」を選ぶUIがまだ無いため、常に全段分の合計を使う。
+ * 複数ヒット技はnode.hitIndicesが指定されていればその段のhitsだけを合計に使う
+ * （effectiveHits参照。未指定なら従来通り全段）。
  * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
  */
 function buildSaGaugeSteps(
@@ -276,7 +300,7 @@ function buildSaGaugeSteps(
       return;
     }
     hasAnyData = true;
-    steps.push({ label: node.moveName, value: sumSaGaugeGain(stats) });
+    steps.push({ label: node.moveName, value: sumSaGaugeGain(stats, node) });
   });
 
   return hasAnyData ? steps : null;
@@ -355,7 +379,7 @@ export function calculateBranchOpponentDGaugeChip(
     const stats = characterStats[lookupMoveName(node, isTargetNode)];
     if (!stats) return;
     hasAnyData = true;
-    total += stats.hits.reduce((sum, hit) => sum + (hit.dGaugeChipPunishCounter ?? 0), 0);
+    total += effectiveHits(stats, node).reduce((sum, hit) => sum + (hit.dGaugeChipPunishCounter ?? 0), 0);
   });
 
   if (!hasAnyData) return null;
@@ -439,7 +463,7 @@ function buildDGaugeContributions(
       let value = 0;
       if (stats) {
         hasAnyData = true;
-        value = stats.hits.reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
+        value = effectiveHits(stats, node).reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
       }
       contributions.push({ label: node.moveName, value, isConsuming: true });
       if (node.moveName === CANCEL_RUSH_MOVE_NAME) inRush = true;
@@ -470,7 +494,7 @@ function buildDGaugeContributions(
     // （そうしないとOD使用時の値が握りつぶされ、ODチェックが効かなくなってしまう）
     const isWalkMove = node.moveName.includes('歩き');
 
-    const value = stats.hits.reduce((sum, hit) => {
+    const value = effectiveHits(stats, node).reduce((sum, hit) => {
       if (!inRush || isWalkMove || node.usesOD) return sum + (hit.dGaugeGain ?? 0);
       return sum + (isSuperArt ? (hit.dGaugeGainDuringRush ?? 0) : 0);
     }, 0);
@@ -677,7 +701,7 @@ function buildFlatDamageHits(
 
     if (stats) {
       hasAnyData = true;
-      stats.hits.forEach((hit, hitIndex) => {
+      effectiveHits(stats, node).forEach((hit, hitIndex) => {
         flatHits.push({
           damage: hit.damage ?? 0,
           modifierText: hit.modifier,

@@ -1114,3 +1114,84 @@ describe('usesODによる参照キーの切り替え（OD版は同じLv.の別�
     );
   });
 });
+
+describe('node.hitIndices（複数ヒット技のうち実際に何段目が当たったか）', () => {
+  const moveList: MoveDefinition[] = [makeMove('強K', 'normal'), makeMove('SA1', 'superArt')];
+
+  it('calculateBranchDamage: hitIndicesに1だけ指定すると、1段目のhitsだけを合計する', () => {
+    const twoHit = makeStats([makeHit({ damage: 1000 }), makeHit({ damage: 500 })], true);
+    const moveStatsDatabase: MoveStatsDatabase = { char: { 強K: twoHit } };
+
+    const full = makeNode('n', '強K');
+    const partial = makeNode('n', '強K', { hitIndices: [1] });
+
+    const fullDamage = calculateBranchDamage('char', moveStatsDatabase, moveList, full, 'n');
+    const partialDamage = calculateBranchDamage('char', moveStatsDatabase, moveList, partial, 'n');
+
+    // 始動技1発目は基準100%のため、1段目のみなら1000がそのまま合計になる
+    expect(partialDamage).toBe(1000);
+    // 2段目まで当たれば、2段目ぶんの補正済みダメージが上乗せされ1段目のみより大きくなる
+    expect(fullDamage).not.toBeNull();
+    expect(fullDamage!).toBeGreaterThan(partialDamage!);
+  });
+
+  it('calculateBranchSaGaugeChange: hitIndicesに2だけ指定すると、2段目のSAゲージ増加だけを合計する（2段技のうち2段目しか当たらないケース）', () => {
+    const twoHit = makeStats([makeHit({ saGaugeGain: 300 }), makeHit({ saGaugeGain: 200 })], true);
+    const moveStatsDatabase: MoveStatsDatabase = { char: { 強K: twoHit } };
+
+    const full = makeNode('n', '強K');
+    const onlyFirst = makeNode('n', '強K', { hitIndices: [1] });
+    const onlySecond = makeNode('n', '強K', { hitIndices: [2] });
+
+    expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, full, 'n')).toBe(500);
+    expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, onlyFirst, 'n')).toBe(300);
+    expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, onlySecond, 'n')).toBe(200);
+  });
+
+  it('calculateBranchDGaugeChange: hitIndicesに[2, 3]を指定すると、4段技のうち中間の段だけを合計する', () => {
+    const fourHit = makeStats(
+      [
+        makeHit({ dGaugeGain: 100 }),
+        makeHit({ dGaugeGain: 200 }),
+        makeHit({ dGaugeGain: 300 }),
+        makeHit({ dGaugeGain: 400 }),
+      ],
+      true,
+    );
+    const moveStatsDatabase: MoveStatsDatabase = { char: { 強K: fourHit } };
+
+    const full = makeNode('n', '強K');
+    // 4段技のうち2〜3段目だけ当たった
+    const middleOnly = makeNode('n', '強K', { hitIndices: [2, 3] });
+
+    expect(calculateBranchDGaugeChange('char', moveStatsDatabase, moveList, full, 'n')).toBe(1000);
+    expect(calculateBranchDGaugeChange('char', moveStatsDatabase, moveList, middleOnly, 'n')).toBe(500);
+  });
+
+  it('calculateBranchOpponentDGaugeChip: SA技でhitIndicesに1だけ指定すると、1段目の削り量だけを合計する', () => {
+    const twoHit = makeStats(
+      [makeHit({ dGaugeChipPunishCounter: -1000 }), makeHit({ dGaugeChipPunishCounter: -2000 })],
+      true,
+    );
+    const moveStatsDatabase: MoveStatsDatabase = { char: { SA1: twoHit } };
+
+    const full = makeNode('n', 'SA1');
+    const partial = makeNode('n', 'SA1', { hitIndices: [1] });
+
+    expect(calculateBranchOpponentDGaugeChip('char', moveStatsDatabase, moveList, full, 'n')).toBe(-3000);
+    expect(calculateBranchOpponentDGaugeChip('char', moveStatsDatabase, moveList, partial, 'n')).toBe(-1000);
+  });
+
+  it('hitIndicesが全段を含む、範囲外の値しか無い、または未設定なら従来通り全段を使う', () => {
+    const twoHit = makeStats([makeHit({ saGaugeGain: 300 }), makeHit({ saGaugeGain: 200 })], true);
+    const moveStatsDatabase: MoveStatsDatabase = { char: { 強K: twoHit } };
+
+    const allSelected = makeNode('n', '強K', { hitIndices: [1, 2] });
+    const outOfRange = makeNode('n', '強K', { hitIndices: [5] });
+    const unset = makeNode('n', '強K');
+
+    expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, allSelected, 'n')).toBe(500);
+    expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, outOfRange, 'n')).toBe(500);
+    expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, unset, 'n')).toBe(500);
+  });
+});
