@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
+import { buildParentMap, findNode } from '../../lib/tree';
 import type {
   ComboBranchStats,
   ComboTree,
@@ -20,6 +21,7 @@ import { TUTORIAL_CHARACTER_ID } from '../../data/tutorialCharacter';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { OdLevelToggle } from './OdLevelToggle';
+import { HitSelectionToggle } from './HitSelectionToggle';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import {
   calculateBranchDamage,
@@ -34,6 +36,7 @@ import {
   calculateRequiredStartHitCondition,
   findOdRelevantNodesOnPath,
   lookupMoveName,
+  resolveHitIndices,
 } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
@@ -645,10 +648,10 @@ function findFinishingSuperArtOptions(
     .map((move) => move.name);
 }
 
-// このノードの技（OD版・特殊性能を含めた解決キーで技データを引く。複数ヒット技は
-// 最終段を使う＝技全体が当たった後の状態を見るため。何段目が当たったかを選ぶUIはまだ無く、
-// ダメージ/ゲージの自動計算も常に技全体を対象にしているのと同じ考え方）に登録済みの
-// 有利フレームを、プラスフレーム欄の地上/空中トグルに渡す
+// このノードの技（OD版・特殊性能を含めた解決キーで技データを引く）に登録済みの
+// 有利フレームを、プラスフレーム欄の地上/空中トグルに渡す。複数ヒット技は、
+// node.hitIndicesが指定されていれば実際に当たった段のうち最後（それ以外は技全体の
+// 最終段）を使う＝「本当にヒットが終わった段」の状態を見るため
 function resolveNodePlusFrames(
   characterId: string,
   moveStatsDatabase: MoveStatsDatabase,
@@ -656,7 +659,8 @@ function resolveNodePlusFrames(
 ): { groundPlusFrame: string; airPlusFrame: string } {
   const key = lookupMoveName(node, true);
   const stats = moveStatsDatabase[characterId]?.[key];
-  const lastHit = stats?.hits[stats.hits.length - 1];
+  const indices = stats ? resolveHitIndices(stats, node) : [];
+  const lastHit = stats ? stats.hits[indices[indices.length - 1] - 1] : undefined;
   return {
     groundPlusFrame: lastHit?.groundPlusFrame ?? '',
     airPlusFrame: lastHit?.airPlusFrame ?? '',
@@ -705,6 +709,9 @@ function ReadOnlyNodeView({
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
   const odNodesOnPath = root ? findOdRelevantNodesOnPath(root, selectedNode.id, moveList) : [];
   const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
+  const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
+  const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
+  const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
 
   return (
     <>
@@ -754,6 +761,15 @@ function ReadOnlyNodeView({
 
           {odConstraint && (
             <OdLevelToggle constraint={odConstraint} usesOD={effectiveUsesOD} onChange={() => {}} readOnly />
+          )}
+
+          {selectedNodeHitTotal > 1 && (
+            <HitSelectionToggle
+              hitTotal={selectedNodeHitTotal}
+              selectedHits={selectedNodeHitIndices}
+              onChange={() => {}}
+              readOnly
+            />
           )}
         </div>
       </AccordionSection>
@@ -837,6 +853,8 @@ function NodeEditor({
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
   const setNodeUsesOD = useAppStore((state) => state.setNodeUsesOD);
+  const setNodeHitIndices = useAppStore((state) => state.setNodeHitIndices);
+  const moveNode = useAppStore((state) => state.moveNode);
   const setNodeRecordsBranchStats = useAppStore((state) => state.setNodeRecordsBranchStats);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const moveList = useAppStore(
@@ -961,6 +979,19 @@ function NodeEditor({
   // 途中にビーム等があれば含まれる）。「コンボの情報」欄からまとめて確認・変更できるようにする
   const odNodesOnPath = findOdRelevantNodesOnPath(root, selectedNode.id, moveList);
   const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
+  // 複数ヒット技（技データ側でisMultiHit）なら、実際に何段目が当たったかを選べるようにする
+  const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
+  const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
+  const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
+
+  // 兄弟ノード（同じ親を持つ枝）内での自分の位置。分岐している時だけ「上/下の枝と入れ替え」
+  // 操作を出す（2026-08-28ユーザー要望：枝同士の順序を入れ替えられるようにする）
+  const parentNode = (() => {
+    const parentId = buildParentMap(root).get(selectedNode.id);
+    return parentId ? findNode(root, parentId) : null;
+  })();
+  const siblingIndex = parentNode ? parentNode.children.findIndex((child) => child.id === selectedNode.id) : -1;
+  const siblingCount = parentNode?.children.length ?? 0;
 
   // Lv.によって通常/OD版の選択が一方に固定される場合、手動入力がまだそれを満たしていなければ
   // 自動で引き上げる（始動条件のカウンター制約と同じ考え方。ユーザー確認済み）。経路上の
@@ -1138,20 +1169,13 @@ function NodeEditor({
             onSpecialNoteChange={(note) =>
               updateNodeSpecialNote(characterId, treeId, selectedNode.id, note)
             }
+            recordsBranchStats={!isNaturalStatsEndpoint ? (selectedNode.recordsBranchStats ?? false) : undefined}
+            onRecordsBranchStatsChange={
+              !isNaturalStatsEndpoint
+                ? (checked) => setNodeRecordsBranchStats(characterId, treeId, selectedNode.id, checked)
+                : undefined
+            }
           />
-
-          {!isNaturalStatsEndpoint && (
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={selectedNode.recordsBranchStats ?? false}
-                onChange={(event) =>
-                  setNodeRecordsBranchStats(characterId, treeId, selectedNode.id, event.target.checked)
-                }
-              />
-              コンボ情報確認
-            </label>
-          )}
 
           {odConstraint && (
             <OdLevelToggle
@@ -1162,8 +1186,40 @@ function NodeEditor({
             />
           )}
 
+          {selectedNodeHitTotal > 1 && (
+            <HitSelectionToggle
+              hitTotal={selectedNodeHitTotal}
+              selectedHits={selectedNodeHitIndices}
+              onChange={(next) => setNodeHitIndices(characterId, treeId, selectedNode.id, next)}
+              readOnly={false}
+            />
+          )}
+
           <div style={styles.sectionDivider} />
           <div style={styles.fieldLabel}>その他</div>
+
+          {siblingCount > 1 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn-ghost justify-center"
+                style={{ flex: 1 }}
+                disabled={siblingIndex <= 0}
+                onClick={() => moveNode(characterId, treeId, selectedNode.id, parentNode!.id, siblingIndex - 1)}
+              >
+                ▲ 上の枝と入れ替え
+              </button>
+              <button
+                type="button"
+                className="btn-ghost justify-center"
+                style={{ flex: 1 }}
+                disabled={siblingIndex < 0 || siblingIndex >= siblingCount - 1}
+                onClick={() => moveNode(characterId, treeId, selectedNode.id, parentNode!.id, siblingIndex + 2)}
+              >
+                ▼ 下の枝と入れ替え
+              </button>
+            </div>
+          )}
 
           <button
             type="button"

@@ -840,3 +840,103 @@ describe('技データベース（moveStatsDatabase）', () => {
     expect(useAppStore.getState().moveStatsDatabase).toEqual({});
   });
 });
+
+describe('moveNode（兄弟内での入れ替え。SideDrawerPanelの「上/下の枝と入れ替え」ボタンが使う index 計算の検証）', () => {
+  beforeEach(() => {
+    useAppStore.setState({ characters: createInitialCharacterRoster() });
+  });
+
+  function makeChild(id: string, moveName: string): MoveNode {
+    return {
+      id,
+      moveName,
+      attributes: [],
+      specialNote: '',
+      branchStats: null,
+      createdBy: '',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      children: [],
+    };
+  }
+
+  it('上の枝と入れ替え（toIndex = 現在位置 - 1）で隣の兄弟と位置が入れ替わる', () => {
+    const target = useAppStore.getState().characters[0];
+
+    useAppStore.getState().restoreCharacters([
+      {
+        id: target.id,
+        moveList: [],
+        comboTrees: [
+          {
+            id: 't1',
+            label: '始動',
+            root: {
+              ...makeChild('root', '始動'),
+              children: [makeChild('a', 'A'), makeChild('b', 'B'), makeChild('c', 'C')],
+            },
+          },
+        ],
+      },
+    ]);
+
+    // Bを1つ上に移動 → [B, A, C]になるはず
+    useAppStore.getState().moveNode(target.id, 't1', 'b', 'root', 0);
+
+    const root = getCharacter(target.id).comboTrees[0].root;
+    expect(root.children.map((c) => c.id)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('下の枝と入れ替え（toIndex = 現在位置 + 2）で隣の兄弟と位置が入れ替わる', () => {
+    const target = useAppStore.getState().characters[0];
+
+    useAppStore.getState().restoreCharacters([
+      {
+        id: target.id,
+        moveList: [],
+        comboTrees: [
+          {
+            id: 't1',
+            label: '始動',
+            root: {
+              ...makeChild('root', '始動'),
+              children: [makeChild('a', 'A'), makeChild('b', 'B'), makeChild('c', 'C')],
+            },
+          },
+        ],
+      },
+    ]);
+
+    // Bを1つ下に移動 → [A, C, B]になるはず
+    useAppStore.getState().moveNode(target.id, 't1', 'b', 'root', 3);
+
+    const root = getCharacter(target.id).comboTrees[0].root;
+    expect(root.children.map((c) => c.id)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('先頭(index 0)を上に、末尾を下に動かそうとしても不正なindexは呼ばれない前提（UI側のdisabled）だが、念のため境界の入れ替えも正しく動く', () => {
+    const target = useAppStore.getState().characters[0];
+
+    useAppStore.getState().restoreCharacters([
+      {
+        id: target.id,
+        moveList: [],
+        comboTrees: [
+          {
+            id: 't1',
+            label: '始動',
+            root: {
+              ...makeChild('root', '始動'),
+              children: [makeChild('a', 'A'), makeChild('b', 'B')],
+            },
+          },
+        ],
+      },
+    ]);
+
+    // Aを1つ下に移動 → [B, A]になるはず（index 0 → toIndex 2）
+    useAppStore.getState().moveNode(target.id, 't1', 'a', 'root', 2);
+
+    const root = getCharacter(target.id).comboTrees[0].root;
+    expect(root.children.map((c) => c.id)).toEqual(['b', 'a']);
+  });
+});

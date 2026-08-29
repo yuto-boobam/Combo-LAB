@@ -3181,15 +3181,28 @@
       "sharesModifierAcrossHits": false
     },
     "4強K": {
-      "isMultiHit": false,
+      "isMultiHit": true,
       "hits": [
         {
-          "damage": 800,
+          "damage": 400,
           "modifier": "",
-          "dGaugeGain": 3500,
-          "saGaugeGain": 1000,
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
           "dGaugeChip": -3000,
           "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "groundPlusFrame": "0",
+          "airPlusFrame": "",
+          "cancelType": "不可"
+        },
+        {
+          "damage": 400,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 500,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "0",

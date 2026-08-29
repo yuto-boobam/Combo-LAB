@@ -93,6 +93,13 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
     groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
     usesOD: node.usesOD === true ? true : undefined,
     recordsBranchStats: node.recordsBranchStats === true ? true : undefined,
+    hitIndices: (() => {
+      if (!Array.isArray(node.hitIndices)) return undefined;
+      const filtered = node.hitIndices.filter(
+        (n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0,
+      );
+      return filtered.length > 0 ? filtered : undefined;
+    })(),
   };
 }
 
@@ -475,6 +482,17 @@ export type AppState = {
 
   /** 「OD版はレベル+1相当の性能になる」技（イングリッドのビーム等）で、OD版を使ったかどうか */
   setNodeUsesOD: (characterId: string, treeId: string, nodeId: string, usesOD: boolean) => void;
+
+  /**
+   * 複数ヒット技で実際に当たった段番号の一覧（1始まり）を丸ごと差し替える。
+   * 空配列またはnullを渡すと「全段当たった」扱い（未設定と同じ）に戻す
+   */
+  setNodeHitIndices: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    hitIndices: number[] | null,
+  ) => void;
 
   /** 葉ノードでなくても「コンボの情報」欄を表示・記録できるようにするフラグ（あえて途中で止めるケース用） */
   setNodeRecordsBranchStats: (
@@ -1100,6 +1118,17 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({ ...node, usesOD: usesOD ? true : undefined })),
+          ),
+        }));
+      },
+
+      setNodeHitIndices: (characterId, treeId, nodeId, hitIndices) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({
+              ...node,
+              hitIndices: hitIndices && hitIndices.length > 0 ? hitIndices : undefined,
+            })),
           ),
         }));
       },
