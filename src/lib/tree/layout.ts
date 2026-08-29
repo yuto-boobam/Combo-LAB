@@ -3,6 +3,17 @@
 import type { NodePosition, DropZoneSpec, TreeLayout, TreeLayoutConfig, TreeNodeLike } from './types';
 
 /**
+ * このノードの子を展開表示するかどうか。分岐（子が複数）していないノードは
+ * 開閉ボタン自体を持たない（2026-08-28ユーザー指定：開閉しても見た目がほぼ
+ * 変わらないため）。そのため、過去に複数の子を持っていた頃に折りたたまれた
+ * まま子が減って1つになったノードが、開くボタンも無いまま永久に折りたたまれた
+ * ように見えてしまわないよう、子が1つ以下のノードは常に展開扱いにする
+ */
+export function isNodeExpanded(node: TreeNodeLike, collapsedSet: Set<string>): boolean {
+  return node.children.length <= 1 || !collapsedSet.has(node.id);
+}
+
+/**
  * 実測したカード高さを元に、各ノードの座標を計算する。
  * 子を持つノードは「自分の子ノード群の中心」に縦位置を合わせ、葉ノードは
  * 木全体で重ならないよう順番に積み上げる（いわゆる tidy tree レイアウト）。
@@ -34,7 +45,7 @@ export function computeTreeLayout<T extends TreeNodeLike>(
   const widthOf = (id: string, isRoot: boolean) =>
     widths[id] ?? (isRoot ? rootWidth : cardWidth);
 
-  const isExpanded = (node: TreeNodeLike) => !collapsedSet.has(node.id);
+  const isExpanded = (node: TreeNodeLike) => isNodeExpanded(node, collapsedSet);
 
   // 0段目: 表示対象（閉じたノードの子孫は除く）の各深さで最大の幅を集計し、
   // 深さごとの開始x座標を前もって求める
