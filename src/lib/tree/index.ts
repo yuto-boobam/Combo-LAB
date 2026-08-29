@@ -11,7 +11,7 @@ export type {
   TreeLayoutConfig,
 } from './types';
 
-export { computeTreeLayout } from './layout';
+export { computeTreeLayout, isNodeExpanded } from './layout';
 export { useNodeHeights } from './useNodeHeights';
 export { findNode, buildParentMap, findConvergenceTarget } from './treeUtils';
 export { useTreeExpandAnimation } from './useTreeExpandAnimation';

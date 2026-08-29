@@ -84,10 +84,14 @@ export function GroupPillNode({
 
       <span
         style={{
-          fontSize: 9,
+          // 通常ノードの技名(10px)より読みにくいという指摘があったため、それより
+          // 大きい11pxへ引き上げた（ピル自体の幅(GROUP_PILL_WIDTH=116px)は元々
+          // 通常ノードより広く確保済みのため、この拡大で見切れやすくなることはない。
+          // 2026-08-28ユーザー指摘：グループ名が小さく、画数の多い漢字がつぶれて見える）
+          fontSize: 11,
           fontWeight: 800,
           color: 'var(--accent)',
-          lineHeight: 1.25,
+          lineHeight: 1.3,
           // グループ名中の「｜」で明示的に改行できるようにする（MoveNodeCircle.tsxと同じ規約）
           whiteSpace: 'pre-line',
           wordBreak: 'break-word',

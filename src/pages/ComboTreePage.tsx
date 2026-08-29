@@ -20,6 +20,7 @@ import { applyManualLineBreaks } from '../utils/textDisplay';
 import { TUTORIAL_CHARACTER_ID } from '../data/tutorialCharacter';
 import {
   computeTreeLayout,
+  isNodeExpanded,
   useNodeHeights,
   useTreeExpandAnimation,
   buildParentMap,
@@ -112,7 +113,8 @@ export function ComboTreePage() {
   const setMatchSelectedIds = useAppStore((state) => state.setMatchSelectedIds);
   const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
   const startEditingMatch = useAppStore((state) => state.startEditingMatch);
-  const startCopyMode = useAppStore((state) => state.startCopyMode);
+  const copyGroupToClipboard = useAppStore((state) => state.copyGroupToClipboard);
+  const startGroupSync = useAppStore((state) => state.startGroupSync);
   const replaceModeAnchorId = useAppStore((state) => state.replaceModeAnchorId);
   const cancelCopyMode = useAppStore((state) => state.cancelCopyMode);
   const cancelGroupMode = useAppStore((state) => state.cancelGroupMode);
@@ -360,13 +362,30 @@ export function ComboTreePage() {
     [selectNode],
   );
 
-  const startCopyFromGroupView = useCallback(
+  // グループ画面の「ここからコピー開始」は、通常のコピーモード（範囲を手動選択）を
+  // 経由せず、そのグループ全体（分岐を含む）を即座にクリップボードへコピーする。
+  // 手動選択の必要が無くなったためコンボタブへの切り替えもしない
+  // （2026-08-28ユーザー要望：グループ画面のコピーは常にグループ全体をコピーする）
+  const copyGroupFromGroupView = useCallback(
     (nodeId: string) => {
+      if (!selectedCharacterId) return;
+      copyGroupToClipboard(selectedCharacterId, nodeId);
+    },
+    [selectedCharacterId, copyGroupToClipboard],
+  );
+
+  // グループ画面から「このグループを編集して一括反映」を押した時の入り口。コンボタブへ
+  // 切り替えて該当ノードまでスクロールしつつ、他の出現箇所の検索・編集前スナップショットの
+  // 取得までまとめて済ませる（startGroupSync参照。2026-08-28ユーザー要望：
+  // グループ画面→自由に技を付け足す→他の一致箇所に反映、という流れを1クリックで開始する）
+  const startGroupSyncFromGroupView = useCallback(
+    (nodeId: string) => {
+      if (!selectedCharacterId) return;
       setTreeViewMode('combo');
-      startCopyMode(nodeId);
+      startGroupSync(selectedCharacterId, nodeId);
       setPendingJumpNodeId(nodeId);
     },
-    [startCopyMode],
+    [selectedCharacterId, startGroupSync],
   );
 
   // ── ドラッグで画面を動かす（パン）
@@ -457,7 +476,7 @@ export function ComboTreePage() {
       const columns: TaggedColumn[] = [];
       const visit = (node: MoveNode, depth: number) => {
         if (node.children.length === 0) return;
-        if (collapsedSet.has(node.id)) return;
+        if (!isNodeExpanded(node, collapsedSet)) return;
 
         columns.push({ parentId: node.id, nodes: node.children, depth, treeId: tree.id });
         for (const child of node.children) {
@@ -522,7 +541,7 @@ export function ComboTreePage() {
       const columns: TaggedColumn[] = [];
       const visit = (node: MoveNode, depth: number) => {
         if (node.children.length === 0) return;
-        if (collapsedSet.has(node.id)) return;
+        if (!isNodeExpanded(node, collapsedSet)) return;
 
         columns.push({ parentId: node.id, nodes: node.children, depth, treeId: syntheticTree.id });
         for (const child of node.children) {
@@ -710,9 +729,10 @@ export function ComboTreePage() {
                     selectedNodeId={selectedNodeId}
                     onSelectNode={selectNode}
                     onToggleExpand={toggleNodeExpanded}
-                    onStartCopyFrom={startCopyFromGroupView}
+                    onStartCopyFrom={copyGroupFromGroupView}
                     onJumpTo={jumpToNodeInComboView}
                     onRenameGroup={(groupId, name) => renameComboGroup(character.id, groupId, name)}
+                    onStartGroupSync={startGroupSyncFromGroupView}
                     isGuest={isReadOnly}
                   />
                 )}
@@ -795,9 +815,11 @@ export function ComboTreePage() {
                           isRoot
                           isSelected={selectedNodeId === rootId}
                           onClick={() => handleNodeClick(rootId)}
-                          isExpanded={!collapsedSet.has(rootId)}
+                          isExpanded={isNodeExpanded(block.viewRoot, collapsedSet)}
                           onToggleExpand={
-                            block.viewRoot.children.length > 0 ? () => toggleNodeExpanded(rootId) : undefined
+                            // 分岐（子が複数）していない開閉は見た目がほぼ変わらないため、
+                            // 分岐しているノードだけ開閉ボタンを出す（2026-08-28ユーザー指定）
+                            block.viewRoot.children.length > 1 ? () => toggleNodeExpanded(rootId) : undefined
                           }
                           parentId={null}
                           dragIndex={0}
@@ -866,9 +888,9 @@ export function ComboTreePage() {
                             node={node}
                             isSelected={selectedNodeId === node.id}
                             onClick={() => handleNodeClick(node.id)}
-                            isExpanded={!collapsedSet.has(node.id)}
+                            isExpanded={isNodeExpanded(node, collapsedSet)}
                             onToggleExpand={
-                              node.children.length > 0 ? () => toggleNodeExpanded(node.id) : undefined
+                              node.children.length > 1 ? () => toggleNodeExpanded(node.id) : undefined
                             }
                             parentId={column.parentId}
                             dragIndex={nodeIndex}
@@ -1352,6 +1374,7 @@ function GroupOverviewContent({
   onStartCopyFrom,
   onJumpTo,
   onRenameGroup,
+  onStartGroupSync,
   isGuest,
 }: {
   groupForest: GroupForestLike;
@@ -1363,6 +1386,7 @@ function GroupOverviewContent({
   onStartCopyFrom: (nodeId: string) => void;
   onJumpTo: (nodeId: string) => void;
   onRenameGroup: (groupId: string, name: string) => void;
+  onStartGroupSync: (nodeId: string) => void;
   isGuest: boolean;
 }) {
   return (
@@ -1390,6 +1414,7 @@ function GroupOverviewContent({
               onStartCopy={() => onStartCopyFrom(rootId)}
               onJump={() => onJumpTo(rootId)}
               onRename={!isGuest ? (name) => onRenameGroup(block.groupId, name) : undefined}
+              onSync={!isGuest ? () => onStartGroupSync(rootId) : undefined}
             />
 
             <div
@@ -1407,9 +1432,9 @@ function GroupOverviewContent({
                 isRoot
                 isSelected={selectedNodeId === rootId}
                 onClick={() => onSelectNode(rootId)}
-                isExpanded={!collapsedSet.has(rootId)}
+                isExpanded={isNodeExpanded(block.viewRoot, collapsedSet)}
                 onToggleExpand={
-                  block.viewRoot.children.length > 0 ? () => onToggleExpand(rootId) : undefined
+                  block.viewRoot.children.length > 1 ? () => onToggleExpand(rootId) : undefined
                 }
                 parentId={null}
                 dragIndex={0}
@@ -1444,8 +1469,8 @@ function GroupOverviewContent({
                 node={node}
                 isSelected={selectedNodeId === node.id}
                 onClick={() => onSelectNode(node.id)}
-                isExpanded={!collapsedSet.has(node.id)}
-                onToggleExpand={node.children.length > 0 ? () => onToggleExpand(node.id) : undefined}
+                isExpanded={isNodeExpanded(node, collapsedSet)}
+                onToggleExpand={node.children.length > 1 ? () => onToggleExpand(node.id) : undefined}
                 parentId={column.parentId}
                 dragIndex={nodeIndex}
                 readOnly
@@ -1469,6 +1494,7 @@ function GroupOccurrenceHeader({
   onStartCopy,
   onJump,
   onRename,
+  onSync,
 }: {
   groupName: string;
   treeLabel: string;
@@ -1478,6 +1504,8 @@ function GroupOccurrenceHeader({
   onJump: () => void;
   // 未指定（ゲスト等）なら編集アイコン自体を出さない
   onRename?: (name: string) => void;
+  // 未指定（ゲスト等）なら一括反映アイコン自体を出さない
+  onSync?: () => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(groupName);
@@ -1521,9 +1549,14 @@ function GroupOccurrenceHeader({
           style={{ fontSize: 14, fontWeight: 800, padding: '2px 6px', width: 160 }}
         />
       ) : (
-        <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+        // 末尾に元のツリーラベル(treeLabel)を付けていたのをやめ、グループ名だけを表示する
+        // （2026-08-28ユーザー指摘：グループを作成した親ノードの名前が不要に付いている）。
+        // どのツリーの出現箇所かはtitleでホバー確認できるようにしておく
+        <span
+          style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}
+          title={`${groupName}（${treeLabel}）`}
+        >
           {applyManualLineBreaks(groupName)}
-          {treeLabel}
         </span>
       )}
 
@@ -1539,11 +1572,23 @@ function GroupOccurrenceHeader({
         </button>
       )}
 
+      {onSync && (
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={onSync}
+          title="このグループを編集して他の出現箇所へ一括反映（コンボ表示モードへ切り替わります）"
+          style={{ width: 20, height: 20, fontSize: 11 }}
+        >
+          🔁
+        </button>
+      )}
+
       <button
         type="button"
         className="btn-icon"
         onClick={onStartCopy}
-        title="ここからコピー開始（コンボ表示モードへ切り替わります）"
+        title="このグループ全体をコピー"
         style={{ width: 20, height: 20, fontSize: 11 }}
       >
         📋

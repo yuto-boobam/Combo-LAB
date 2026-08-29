@@ -501,6 +501,14 @@ export type AppState = {
   clipboard: MoveNode[] | null;
   clearClipboard: () => void;
   pasteClipboard: (characterId: string, treeId: string, targetNodeId: string) => void;
+  /**
+   * グループ画面から「グループ全体をコピー」する専用の入り口。通常のコピーモード
+   * （startCopyMode→枝を手動選択→confirmCopy）を経由せず、occurrenceRootNodeId
+   * （その出現箇所の先頭ノード）から同じgroupIdを持つ子孫だけをすべて（分岐も含めて）
+   * 即座にクリップボードへ入れる。2026-08-28ユーザー要望：グループ画面のコピーは
+   * 範囲を選ばせず、常にグループ全体をコピーできるようにする
+   */
+  copyGroupToClipboard: (characterId: string, occurrenceRootNodeId: string) => void;
 
   // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────
   // グループ化モード: 1つ以上の「枝」（あるノードを起点に、そこから続く一本道＝分岐なしの
@@ -559,6 +567,16 @@ export type AppState = {
   confirmMatchSearch: (characterId: string, includeAttributes: boolean) => void;
   /** 一致箇所の一覧を破棄して機能全体を終了する */
   clearMatchResults: () => void;
+  /**
+   * 名前付きグループの内容を編集して他の出現箇所へ一括反映するための入り口。グループ画面
+   * (treeViewMode==='group')のヘッダーから呼ぶ想定。occurrenceRootNodeId（そのグループの
+   * 出現箇所の先頭ノード）から、groupIdが連続する一本道をできる限り辿ってパターンとし、
+   * confirmMatchSearchと同じ要領で他の出現箇所を検索した上で、そのノード自体を
+   * startEditingMatchした状態（編集前スナップショット付き）まで一気に進める。
+   * これにより「グループ画面→この技を編集して一括反映→自由に技を付け足す→他の一致箇所に反映」
+   * という一連の流れを1クリックで開始できる（2026-08-28ユーザー要望）
+   */
+  startGroupSync: (characterId: string, occurrenceRootNodeId: string) => void;
 
   /** 一致箇所の一覧から選んで編集を始めた瞬間のディープコピー（変更前プレビュー・差分計算用） */
   matchEditBeforeSnapshot: MoveNode | null;
@@ -974,7 +992,11 @@ export const useAppStore = create<AppState>()(
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, parentId, (node) => ({
               ...node,
-              children: [...node.children, newNode],
+              // 親が名前付きグループに属していれば、新しい子もそのグループの続きとして
+              // 自動的に同じgroupIdを引き継ぐ（グループ区間は「同じgroupIdの連続」で
+              // 定義されるため、末尾に技を付け足す操作は自然にグループを延長する。
+              // 2026-08-28ユーザー要望：グループ画面で自由に技を付け足せるようにするため）
+              children: [...node.children, node.groupId ? { ...newNode, groupId: node.groupId } : newNode],
             })),
           ),
         }));
@@ -1184,6 +1206,29 @@ export const useAppStore = create<AppState>()(
 
       clearClipboard: () => {
         set({ clipboard: null });
+      },
+
+      copyGroupToClipboard: (characterId, occurrenceRootNodeId) => {
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          if (!character) return state;
+
+          const found = findNodeInComboTrees(character.comboTrees, occurrenceRootNodeId);
+          if (!found) return state;
+
+          const groupId = found.node.groupId;
+          if (!groupId) return state;
+
+          // occurrenceRootNodeId以下、同じgroupIdを持つ子孫だけを（分岐も含めて）残す。
+          // idはそのまま（元ノード参照）にしておき、実際の新規ID発行は他のコピーと同じく
+          // pasteClipboard側のcloneWithFreshIdsに任せる
+          const collectGroupSubtree = (node: MoveNode): MoveNode => ({
+            ...node,
+            children: node.children.filter((child) => child.groupId === groupId).map(collectGroupSubtree),
+          });
+
+          return { clipboard: [collectGroupSubtree(found.node)] };
+        });
       },
 
       pasteClipboard: (characterId, treeId, targetNodeId) => {
@@ -1493,6 +1538,41 @@ export const useAppStore = create<AppState>()(
           replaceModeAnchorId: null,
           replaceSelectedIds: [],
           replacementChainIds: null,
+        });
+      },
+
+      startGroupSync: (characterId, occurrenceRootNodeId) => {
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          if (!character) return state;
+
+          const found = findNodeInComboTrees(character.comboTrees, occurrenceRootNodeId);
+          if (!found) return state;
+
+          const groupId = found.node.groupId;
+          if (!groupId) return state;
+
+          // occurrenceRootNodeIdから、groupIdが連続する一本道（分岐や他グループへの
+          // 切り替わりで止まる）をできる限り辿ってパターンにする
+          const patternChain: MoveNode[] = [found.node];
+          let cursor = found.node;
+          while (cursor.children.length === 1 && cursor.children[0].groupId === groupId) {
+            cursor = cursor.children[0];
+            patternChain.push(cursor);
+          }
+
+          const matches = findMatchingChains(character.comboTrees, patternChain, {
+            includeAttributes: false,
+          });
+
+          return {
+            selectedNodeId: occurrenceRootNodeId,
+            matchModeAnchorId: null,
+            matchSelectedIds: [],
+            matchedAnchorIds: matches,
+            matchChainLength: patternChain.length,
+            matchEditBeforeSnapshot: structuredClone(found.node),
+          };
         });
       },
 
