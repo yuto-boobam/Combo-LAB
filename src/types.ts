@@ -180,6 +180,15 @@ export type ComboBranchStats = {
    * 終わる場合はfinishesComboOnSelect/finishingSpecialVariantの仕組みを使う
    */
   finishingSuperArtName: string | null;
+
+  /**
+   * root（始動技）がstartingMoveOptionsを持つ「汎用コンボ」の場合に、この枝で実際に
+   * 使った始動技（候補一覧の中の1つ＝1つ以上のmoveNameの並び。ジャンプ攻撃始動のように
+   * 2技以上を経由する候補もあるため配列）。null＝未選択（この枝のダメージ・ゲージ
+   * 自動計算は行われない。src/utils/comboGaugeCalc.tsのresolvePath参照）。
+   * 通常の木（rootが実技）では常にnullのままでよい
+   */
+  startingMoveNames: string[] | null;
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────
@@ -239,6 +248,22 @@ export type MoveNode = {
    * というシンプルな選び方にする）
    */
   hitIndices?: number[] | null;
+
+  /**
+   * 木のroot（始動技）ノードのみで意味を持つ。「汎用コンボ」＝複数の始動技から同じ続きに
+   * つながるコンボをまとめて1本の木で表現するための機能。設定されている場合、このrootは
+   * 実技ではなく「中攻撃」のようなラベルのプレースホルダとして扱われ、末端ごとの
+   * `branchStats.startingMoveNames`で実際に使った始動技を選ぶまでダメージ・ゲージの
+   * 自動計算は行わない（未入力のまま。src/utils/comboGaugeCalc.tsのresolvePath参照）。
+   * ここに入るのは候補一覧（UIの選択肢）で、それ自体は計算に使わない。
+   *
+   * 各候補は「1つ以上のmoveNameから成る連続入力」（例:[['中P'], ['2中P'], ['J強K','強P']]）。
+   * ジャンプ攻撃始動のように、汎用コンボの続きに入る前に必ず経由する技が2つ以上ある場合
+   * （「J強K→強P→(汎用の続き)」）を表現するため、単一技だけでなく複数技の並びも
+   * 1つの候補として登録できる（2026-08-30ユーザー指摘）。
+   * 未設定・空配列なら従来通りrootを実技として扱う（後方互換）
+   */
+  startingMoveOptions?: string[][];
 };
 
 // ── 技ごとの基礎数値 ──────────────────────────────────────────────────────

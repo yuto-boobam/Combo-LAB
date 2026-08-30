@@ -12,11 +12,13 @@ import Header from '../components/Header';
 import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { GroupPillNode } from '../components/GroupPillNode';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
+import { ComboRankingList } from '../components/combo/ComboRankingList';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
 import { nodeWidthFor, GROUP_PILL_WIDTH } from '../utils/nodeSizing';
 import { applyManualLineBreaks } from '../utils/textDisplay';
+import { parseStarterMoveOptionsText, serializeStarterMoveOptions } from '../utils/starterMoveOptions';
 import { TUTORIAL_CHARACTER_ID } from '../data/tutorialCharacter';
 import {
   computeTreeLayout,
@@ -28,6 +30,7 @@ import {
   findGroupOccurrences,
   ConnectionsOverlay,
   type DropZoneSpec,
+  type GroupOccurrence,
   type GroupPillMeta,
   type NodePosition,
   type TreeColumn,
@@ -97,6 +100,8 @@ export function ComboTreePage() {
   const moveNode = useAppStore((state) => state.moveNode);
   const deleteComboTree = useAppStore((state) => state.deleteComboTree);
   const moveComboTree = useAppStore((state) => state.moveComboTree);
+  const renameComboTree = useAppStore((state) => state.renameComboTree);
+  const setComboTreeStarterMoveOptions = useAppStore((state) => state.setComboTreeStarterMoveOptions);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
   const copySelectedIds = useAppStore((state) => state.copySelectedIds);
   const toggleCopySelection = useAppStore((state) => state.toggleCopySelection);
@@ -294,7 +299,7 @@ export function ComboTreePage() {
 
   // ── コンボ/グループ表示モードの切り替え。「グループ」は名前付きグループの
   // 全出現箇所だけを一覧する読み取り中心のビュー（実データはcomboTreesのまま）
-  const [treeViewMode, setTreeViewMode] = useState<'combo' | 'group'>('combo');
+  const [treeViewMode, setTreeViewMode] = useState<'combo' | 'group' | 'list'>('combo');
 
   // グループ表示モードの「コピー開始」「ジャンプ」ボタンで、コンボ表示モードへ
   // 切り替えた直後に該当ノードまでスクロールするための予約
@@ -306,18 +311,18 @@ export function ComboTreePage() {
   // 単純な選択のみで、モードの選択状態には反映されない）。そのため、いずれかのモードが
   // 始まったら強制的にコンボタブへ切り替える（グループタブに取り残されて操作不能になる不具合の修正）
   useEffect(() => {
-    if (treeViewMode !== 'group') return;
+    if (treeViewMode === 'combo') return;
     if (copyModeAnchorId || groupModeActive || matchModeAnchorId || replaceModeAnchorId) {
       setTreeViewMode('combo');
     }
   }, [treeViewMode, copyModeAnchorId, groupModeActive, matchModeAnchorId, replaceModeAnchorId]);
 
-  // 上記の自動切り替えがある間は「グループ」タブを押しても即座にコンボタブへ戻されてしまい、
-  // ボタンが反応しないように見える。タブを明示的に押した時は、その意思を優先して
-  // 進行中のモードをキャンセルしてから切り替える
+  // 上記の自動切り替えがある間は「グループ」「一覧」タブを押しても即座にコンボタブへ
+  // 戻されてしまい、ボタンが反応しないように見える。タブを明示的に押した時は、その意思を
+  // 優先して進行中のモードをキャンセルしてから切り替える
   const handleTreeViewModeChange = useCallback(
-    (mode: 'combo' | 'group') => {
-      if (mode === 'group') {
+    (mode: 'combo' | 'group' | 'list') => {
+      if (mode !== 'combo') {
         if (copyModeAnchorId) cancelCopyMode();
         if (groupModeActive) cancelGroupMode();
         if (matchModeAnchorId) cancelMatchMode();
@@ -525,12 +530,26 @@ export function ComboTreePage() {
     const dropZones: TaggedDropZone[] = [];
     const parentOf = new Map<string, string>();
 
+    // 図鑑として使いたいので、同じgroupIdの出現は代表1件だけを描画し、残りは
+    // ヘッダーの「他の出現箇所」リンクとしてジャンプ先だけ持たせる（実データ・
+    // 実際の出現数には一切手を付けない、表示上の間引きのみ。2026-08-30ユーザー指摘）
+    const occurrencesByGroupId = new Map<string, GroupOccurrence[]>();
     groupOccurrences.forEach((occurrence) => {
-      const viewRoot = occurrence.root;
+      const list = occurrencesByGroupId.get(occurrence.groupId);
+      if (list) {
+        list.push(occurrence);
+      } else {
+        occurrencesByGroupId.set(occurrence.groupId, [occurrence]);
+      }
+    });
+
+    occurrencesByGroupId.forEach((occurrenceList) => {
+      const [representative, ...otherOccurrences] = occurrenceList;
+      const viewRoot = representative.root;
       // TreeBlockと同じ形に収めるための表示専用の合成データ。実際のcomboTreesには存在しない
       const syntheticTree: ComboTree = {
-        id: `group-occurrence-${occurrence.memberIds[0]}`,
-        label: `${occurrence.groupName} ・ ${occurrence.treeLabel}`,
+        id: `group-occurrence-${representative.memberIds[0]}`,
+        label: `${representative.groupName} ・ ${representative.treeLabel}`,
         root: viewRoot,
       };
 
@@ -562,9 +581,13 @@ export function ComboTreePage() {
         viewRoot,
         offsetY,
         columns,
-        groupId: occurrence.groupId,
-        groupName: occurrence.groupName,
-        treeLabel: occurrence.treeLabel,
+        groupId: representative.groupId,
+        groupName: representative.groupName,
+        treeLabel: representative.treeLabel,
+        otherOccurrences: otherOccurrences.map((occurrence) => ({
+          rootId: occurrence.root.id,
+          treeLabel: occurrence.treeLabel,
+        })),
       });
       maxWidth = Math.max(maxWidth, layout.width);
       cursorY += layout.height + TREE_BLOCK_GAP;
@@ -605,7 +628,9 @@ export function ComboTreePage() {
         title={
           treeViewMode === 'combo'
             ? `${character.name} のコンボ — ${trees.length}本`
-            : `${character.name} のグループ — ${groupOccurrences.length}箇所`
+            : treeViewMode === 'group'
+              ? `${character.name} のグループ — ${groupOccurrences.length}箇所`
+              : `${character.name} のコンボ評価一覧`
         }
         character={character}
         rightSlot={
@@ -690,7 +715,9 @@ export function ComboTreePage() {
       <div className="flex-1 flex overflow-hidden">
         {/* ── ツリービュー本体 */}
         <div ref={scrollRef} className="flex-1 overflow-auto" style={{ position: 'relative' }}>
-          {(treeViewMode === 'combo' ? trees.length === 0 : groupOccurrences.length === 0) ? (
+          {treeViewMode === 'list' ? (
+            <ComboRankingList trees={trees} onJumpTo={jumpToNodeInComboView} />
+          ) : (treeViewMode === 'combo' ? trees.length === 0 : groupOccurrences.length === 0) ? (
             <div className="flex flex-col items-center justify-center gap-4 h-full">
               <div className="text-6xl">🌳</div>
               <p style={{ color: 'var(--text-secondary)' }}>
@@ -774,6 +801,17 @@ export function ComboTreePage() {
                         isReadOnly || blockIndex === forest.blocks.length - 1
                           ? undefined
                           : () => moveComboTree(character.id, block.tree.id, 'down')
+                      }
+                      onRename={
+                        isReadOnly
+                          ? undefined
+                          : (label) => renameComboTree(character.id, block.tree.id, label)
+                      }
+                      onEditStarterMoves={
+                        isReadOnly
+                          ? undefined
+                          : (options) =>
+                              setComboTreeStarterMoveOptions(character.id, block.tree.id, options)
                       }
                     />
                   );
@@ -1061,6 +1099,8 @@ function TreeBlockHeader({
   onDelete,
   onMoveUp,
   onMoveDown,
+  onRename,
+  onEditStarterMoves,
 }: {
   tree: ComboTree;
   x: number;
@@ -1068,7 +1108,39 @@ function TreeBlockHeader({
   onDelete?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  // 未指定（ゲスト等）ならラベル変更アイコン自体を出さない
+  onRename?: (label: string) => void;
+  // 未指定、またはこの木が汎用コンボでなければ始動技一覧の編集アイコン自体を出さない
+  onEditStarterMoves?: (starterMoveOptions: string[][]) => void;
 }) {
+  const [isEditingLabel, setIsEditingLabel] = useState(false);
+  const [draftLabel, setDraftLabel] = useState(tree.label);
+
+  const startEditingLabel = () => {
+    setDraftLabel(tree.label);
+    setIsEditingLabel(true);
+  };
+  const commitEditingLabel = () => {
+    setIsEditingLabel(false);
+    if (draftLabel.trim() && draftLabel.trim() !== tree.label) {
+      onRename?.(draftLabel.trim());
+    }
+  };
+
+  const starterMoveOptions = tree.root.startingMoveOptions ?? [];
+  const isGeneric = starterMoveOptions.length > 0;
+  const [isEditingStarters, setIsEditingStarters] = useState(false);
+  const [draftStartersText, setDraftStartersText] = useState(serializeStarterMoveOptions(starterMoveOptions));
+
+  const startEditingStarters = () => {
+    setDraftStartersText(serializeStarterMoveOptions(starterMoveOptions));
+    setIsEditingStarters(true);
+  };
+  const commitEditingStarters = () => {
+    setIsEditingStarters(false);
+    onEditStarterMoves?.(parseStarterMoveOptionsText(draftStartersText));
+  };
+
   return (
     <div
       style={{
@@ -1081,9 +1153,49 @@ function TreeBlockHeader({
         whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
-        {tree.label}
-      </span>
+      {isEditingLabel ? (
+        <input
+          type="text"
+          className="input-field"
+          autoFocus
+          value={draftLabel}
+          onChange={(event) => setDraftLabel(event.target.value)}
+          onBlur={commitEditingLabel}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') commitEditingLabel();
+            if (event.key === 'Escape') setIsEditingLabel(false);
+          }}
+          style={{ fontSize: 14, fontWeight: 800, padding: '2px 6px', width: 160 }}
+        />
+      ) : (
+        <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+          {tree.label}
+        </span>
+      )}
+
+      {onRename && !isEditingLabel && (
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={startEditingLabel}
+          title="ラベルを変更"
+          style={{ width: 18, height: 18, fontSize: 10 }}
+        >
+          ✏️
+        </button>
+      )}
+
+      {isGeneric && onEditStarterMoves && (
+        <button
+          type="button"
+          className="btn-icon"
+          onClick={() => (isEditingStarters ? setIsEditingStarters(false) : startEditingStarters())}
+          title="対象の始動技一覧を編集"
+          style={{ width: 18, height: 18, fontSize: 10 }}
+        >
+          🔀
+        </button>
+      )}
 
       {(onMoveUp || onMoveDown) && (
         <div style={{ display: 'flex', gap: 2 }}>
@@ -1105,6 +1217,49 @@ function TreeBlockHeader({
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
+      )}
+
+      {isEditingStarters && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: 6,
+            zIndex: 30,
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: 10,
+            width: 220,
+            display: 'grid',
+            gap: 6,
+            whiteSpace: 'normal',
+          }}
+        >
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)' }}>
+            対象の始動技（改行/カンマ区切り。2技以上を経由する候補は「→」で繋ぐ。ある段に
+            複数パターンがある場合は「強P/4強P/2強P」のように「/」で並べると自動展開される。
+            技名の後ろに「（C）」「（PC/R）」で条件を添えると「その条件で当たった時だけ
+            繋がる」を表現できる。C=カウンター、PC=パニッシュカウンター、R=ラッシュ）
+            <textarea
+              className="input-field"
+              autoFocus
+              style={{ resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
+              rows={3}
+              value={draftStartersText}
+              onChange={(event) => setDraftStartersText(event.target.value)}
+            />
+          </label>
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-ghost" onClick={() => setIsEditingStarters(false)}>
+              キャンセル
+            </button>
+            <button type="button" className="btn-primary" onClick={commitEditingStarters}>
+              保存
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1300,8 +1455,8 @@ function ViewModeTabs({
   mode,
   onChange,
 }: {
-  mode: 'combo' | 'group';
-  onChange: (mode: 'combo' | 'group') => void;
+  mode: 'combo' | 'group' | 'list';
+  onChange: (mode: 'combo' | 'group' | 'list') => void;
 }) {
   return (
     <div
@@ -1317,6 +1472,7 @@ function ViewModeTabs({
     >
       <ViewModeTabButton label="コンボ" active={mode === 'combo'} onClick={() => onChange('combo')} />
       <ViewModeTabButton label="グループ" active={mode === 'group'} onClick={() => onChange('group')} />
+      <ViewModeTabButton label="一覧" active={mode === 'list'} onClick={() => onChange('list')} />
     </div>
   );
 }
@@ -1355,8 +1511,15 @@ function ViewModeTabButton({
 // グループ表示モード: 名前付きグループの全出現箇所の一覧
 // ────────────────────────────────────────────────────────────
 
-// グループタブのブロックは、名前変更UIのためどのグループの出現かを追加で持つ
-type GroupTreeBlock = TreeBlock & { groupId: string; groupName: string; treeLabel: string };
+// グループタブのブロックは、名前変更UIのためどのグループの出現かを追加で持つ。
+// otherOccurrencesは図鑑化のため表示を間引いた「同じgroupIdの残りの出現箇所」で、
+// ジャンプ先(rootId)とラベルのみ持つ（レイアウトは計算しない）
+type GroupTreeBlock = TreeBlock & {
+  groupId: string;
+  groupName: string;
+  treeLabel: string;
+  otherOccurrences: { rootId: string; treeLabel: string }[];
+};
 
 type GroupForestLike = {
   blocks: GroupTreeBlock[];
@@ -1415,6 +1578,8 @@ function GroupOverviewContent({
               onJump={() => onJumpTo(rootId)}
               onRename={!isGuest ? (name) => onRenameGroup(block.groupId, name) : undefined}
               onSync={!isGuest ? () => onStartGroupSync(rootId) : undefined}
+              otherOccurrences={block.otherOccurrences}
+              onJumpToOther={onJumpTo}
             />
 
             <div
@@ -1495,6 +1660,8 @@ function GroupOccurrenceHeader({
   onJump,
   onRename,
   onSync,
+  otherOccurrences,
+  onJumpToOther,
 }: {
   groupName: string;
   treeLabel: string;
@@ -1506,6 +1673,9 @@ function GroupOccurrenceHeader({
   onRename?: (name: string) => void;
   // 未指定（ゲスト等）なら一括反映アイコン自体を出さない
   onSync?: () => void;
+  // 図鑑化のため表示を間引いた、同じグループの残りの出現箇所（無ければ空配列）
+  otherOccurrences: { rootId: string; treeLabel: string }[];
+  onJumpToOther: (nodeId: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(groupName);
@@ -1603,6 +1773,34 @@ function GroupOccurrenceHeader({
       >
         →
       </button>
+
+      {otherOccurrences.length > 0 && (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-secondary)' }}>
+          <span title="実データ上は各出現が独立コピーのため、内容が食い違っている場合があります">
+            他{otherOccurrences.length}箇所:
+          </span>
+          {otherOccurrences.map((occurrence) => (
+            <button
+              key={occurrence.rootId}
+              type="button"
+              onClick={() => onJumpToOther(occurrence.rootId)}
+              title={`${occurrence.treeLabel}へジャンプ（コンボ表示モードへ切り替わります）`}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                color: 'var(--accent)',
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              {occurrence.treeLabel}
+            </button>
+          ))}
+        </span>
+      )}
     </div>
   );
 }

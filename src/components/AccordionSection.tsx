@@ -14,6 +14,14 @@ type AccordionSectionProps = {
   // trueの間、見出しをパルスさせて注意を引く（誘導ガイド向け。index.cssの
   // tutorialGuidePulseキーフレームを再利用。呼び出し側が「今ここを見てほしい」を判断する）
   highlight?: boolean;
+  // trueの間、見出しをposition:stickyで固定し、このセクションの中身をスクロールしても
+  // 「どのノード/どの操作についての見出しか」が常に見えるようにする（2026-08-30ユーザー指摘：
+  // 選択中のノードと追加フォームの見出しが縦に長い内容の下にスクロールすると見えなくなり、
+  // どちらの設定を触っているか分からなくなる）。ネストしたAccordionSection（例:
+  // MoveNamePickerの多重入れ子）では同じスクロール祖先の中で複数のstickyヘッダーが
+  // top:0を奪い合って重なってしまうため、呼び出し側が「入れ子されない・単独の見出し」
+  // だと分かっている時だけ明示的に指定する（既定はfalseで従来通り）
+  sticky?: boolean;
 };
 
 export default function AccordionSection({
@@ -24,6 +32,7 @@ export default function AccordionSection({
   onToggle,
   children,
   highlight = false,
+  sticky = false,
 }: AccordionSectionProps) {
   return (
     <section style={styles.section}>
@@ -32,6 +41,7 @@ export default function AccordionSection({
         style={{
           ...styles.sectionHeader,
           borderRadius: isOpen ? '13px 13px 0 0' : 13,
+          ...(sticky ? { position: 'sticky', top: 0, zIndex: 1 } : {}),
           ...(highlight ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
         }}
         onClick={onToggle}

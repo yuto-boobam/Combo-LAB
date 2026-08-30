@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-08-30-b759ba0d",
+    "date": "2026-08-30",
+    "buildNumber": 26,
+    "type": "other",
+    "title": "コンボの情報を一覧で表示できるようにした",
+    "description": "今後はこれと評価も交えて必要なコンボをソート・絞り込みしていく",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260830-build26-after.png?v=1788065018938"
+  },
+  {
     "id": "2026-08-26-fa03f9c8",
     "date": "2026-08-26",
     "buildNumber": 25,

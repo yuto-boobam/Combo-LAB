@@ -26,4 +26,5 @@ export const DEFAULT_BRANCH_STATS: ComboBranchStats = {
   usesCA: false,
   finishingSpecialVariant: null,
   finishingSuperArtName: null,
+  startingMoveNames: null,
 };
