@@ -4,6 +4,7 @@ import type { Character, ComboTree, MoveNode } from './types';
 import { createInitialCharacterRoster } from './data/characterRoster';
 import { buildGroupView } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
+import { TUTORIAL_CHARACTER_ID, createTutorialCharacter } from './data/tutorialCharacter';
 
 function getCharacter(id: string): Character {
   const character = useAppStore.getState().characters.find((c) => c.id === id);
@@ -460,6 +461,58 @@ describe('生ラッシュ/キャンセルラッシュに続く技への「ラッ
 
     const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
     expect(findNodeByMoveName(tree.root, '中P').attributes).toEqual([]);
+  });
+});
+
+describe('使い方ガイド（チュートリアル）: 既視フラグとリセット', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      characters: [...createInitialCharacterRoster(), createTutorialCharacter()],
+      isGuest: false,
+      hasSeenTutorialIntro: false,
+    });
+  });
+
+  it('markTutorialIntroSeen: ログイン済みならhasSeenTutorialIntroがtrueになる', () => {
+    useAppStore.getState().markTutorialIntroSeen();
+    expect(useAppStore.getState().hasSeenTutorialIntro).toBe(true);
+  });
+
+  it('markTutorialIntroSeen: ゲストの場合はhasSeenTutorialIntro(store側)を変更しない（sessionStorage側で完結させるため）', () => {
+    useAppStore.setState({ isGuest: true });
+    useAppStore.getState().markTutorialIntroSeen();
+    expect(useAppStore.getState().hasSeenTutorialIntro).toBe(false);
+  });
+
+  it('resetTutorial: チュートリアルキャラクターに加えた変更が消え、既定の4本の木に戻り、既視フラグも解除される', () => {
+    const store = useAppStore.getState();
+    const tutorial = getCharacter(TUTORIAL_CHARACTER_ID);
+    const firstTree = tutorial.comboTrees[0];
+    store.addChildNode(TUTORIAL_CHARACTER_ID, firstTree.id, firstTree.root.id, 'テスト用ノード');
+
+    expect(
+      findNodeByMoveNameOrNull(getCharacter(TUTORIAL_CHARACTER_ID).comboTrees[0].root, 'テスト用ノード'),
+    ).not.toBeNull();
+
+    useAppStore.setState({ hasSeenTutorialIntro: true });
+    store.resetTutorial();
+
+    const resetTutorial = getCharacter(TUTORIAL_CHARACTER_ID);
+    expect(resetTutorial.comboTrees.map((tree) => tree.label)).toEqual([
+      '①属性で見た目が変わる',
+      '②ダメージは自動計算',
+      '③グループ化(始動A)',
+      '③グループ化(始動B)',
+      '④木の作り方',
+    ]);
+    expect(findNodeByMoveNameOrNull(resetTutorial.comboTrees[0].root, 'テスト用ノード')).toBeNull();
+    expect(useAppStore.getState().hasSeenTutorialIntro).toBe(false);
+  });
+
+  it('resetTutorial: ゲストの場合はhasSeenTutorialIntro(store側)を変更しない', () => {
+    useAppStore.setState({ isGuest: true, hasSeenTutorialIntro: false });
+    useAppStore.getState().resetTutorial();
+    expect(useAppStore.getState().hasSeenTutorialIntro).toBe(false);
   });
 });
 

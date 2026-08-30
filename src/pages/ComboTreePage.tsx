@@ -13,6 +13,8 @@ import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { GroupPillNode } from '../components/GroupPillNode';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import { ComboRankingList } from '../components/combo/ComboRankingList';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { hasGuestSeenTutorial } from '../utils/guestTutorialSession';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
@@ -99,6 +101,9 @@ export function ComboTreePage() {
   const selectedCharacterId = useAppStore((state) => state.selectedCharacterId);
   const goToCharacterSelect = useAppStore((state) => state.goToCharacterSelect);
   const selectCharacter = useAppStore((state) => state.selectCharacter);
+  const hasSeenTutorialIntro = useAppStore((state) => state.hasSeenTutorialIntro);
+  const markTutorialIntroSeen = useAppStore((state) => state.markTutorialIntroSeen);
+  const resetTutorial = useAppStore((state) => state.resetTutorial);
   const collapsedNodeIds = useAppStore((state) => state.collapsedNodeIds);
   const toggleNodeExpanded = useAppStore((state) => state.toggleNodeExpanded);
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
@@ -208,23 +213,68 @@ export function ComboTreePage() {
   );
 
   // ── 誘導ガイド（チュートリアルキャラクター限定）: 「①ドロワーを開く」→「②ダメージ自動計算
-  // ノードをクリックする」→「③コンボの情報を開く」→「④計算式を開く」の4段階を順番に見せる。
+  // ノードをクリックする」→「③コンボの情報を開く」→「④計算式を開く」→「⑤グループ化した
+  // 箇所を展開する」の5段階を順番に見せる。
   // 各ステップのハイライト自体はComboTreePage(ドロワー開閉ボタン・②のノード)とSideDrawerPanel
   // (コンボの情報欄・計算式ボタン)それぞれの持ち場で描くが、「今どの段階か」はここで一元管理する。
   // handleNodeClickより前で宣言する必要がある（useCallbackの依存配列がここを参照するため）
+  // 'intro'はガイド開始前に「このツールが何をするものか」を一言説明する導入ステップ
+  // （2026-08-30ユーザー要望：手順だけ見せてもツール自体の価値が伝わらない、との指摘）。
+  // 'expandGroup'は④計算式を開いた後、⑤グループ化した箇所を実際にクリックして展開させる
+  // ステップ（同日、実例を見るボタンの前にもう一手順操作させたいというユーザー要望で追加）
   type TutorialGuideStep =
+    | 'intro'
     | 'openDrawer'
     | 'clickDamageNode'
     | 'openComboInfo'
     | 'openFormula'
+    | 'expandGroup'
     | 'done';
+  // 誘導ガイドを強制するのは「まだ一度も最後まで見ていない」時だけにする。ログイン済み
+  // アカウントはstore側(hasSeenTutorialIntro、localStorageへ永続化)、ゲストはタブを
+  // 閉じるまでのsessionStorage(guestTutorialSession.ts)で判定を分ける
+  // （2026-08-31ユーザー指定）。「チュートリアル」ボタンからの再挑戦は、この初期値に
+  // 頼らずhandleRestartTutorialConfirmで直接ステップを'intro'へ戻す
+  const alreadySeenTutorial = isGuest ? hasGuestSeenTutorial() : hasSeenTutorialIntro;
   const [tutorialGuideStep, setTutorialGuideStep] = useState<TutorialGuideStep>(() =>
-    character?.id === TUTORIAL_CHARACTER_ID ? 'openDrawer' : 'done',
+    character?.id === TUTORIAL_CHARACTER_ID && !alreadySeenTutorial ? 'intro' : 'done',
   );
 
   // 誘導ガイドの実例キャラクター。全ステップ完了後、下の画面遷移ボタンからここへ飛ばす。
   // 今後ステップが増えても判定は変わらず「tutorialGuideStep === 'done'」の1箇所だけを見ればよい
   const tutorialExampleCharacterId = 'ryu';
+
+  // 誘導ガイドが最後まで到達したら「見た」と記録する。以後このアカウント/セッションでは
+  // 自動的には出さず、後述の「チュートリアル」ボタンから手動で再挑戦できるだけにする
+  useEffect(() => {
+    if (character?.id === TUTORIAL_CHARACTER_ID && tutorialGuideStep === 'done') {
+      markTutorialIntroSeen();
+    }
+  }, [character?.id, tutorialGuideStep, markTutorialIntroSeen]);
+
+  // 「チュートリアル」ボタン（誘導ガイドをもう一度行う）の確認ダイアログ
+  const [isTutorialResetConfirmOpen, setIsTutorialResetConfirmOpen] = useState(false);
+  const handleConfirmTutorialRestart = () => {
+    resetTutorial();
+    selectCharacter(TUTORIAL_CHARACTER_ID);
+    // character切り替えではComboTreePage自体は再マウントされないため、誘導ガイド関連の
+    // ローカルstateはここで明示的にリセットしないと'done'のまま固まってしまう
+    setTutorialGuideStep('intro');
+    setIsDrawerOpen(false);
+    setClosingMessagePage(1);
+    setIsClosingMessageDismissed(false);
+    setIsTutorialResetConfirmOpen(false);
+  };
+
+  // ⑤完了後の締めの説明（「グループ化や一覧表示など...」）を、'intro'と同じ中央ポップアップで
+  // 一度だけ見せる。実際の操作場所（グループ展開）に近い画面中央付近で説明すべき、閉じても
+  // 実例ボタン自体は別途キャンバス側に残しておくべき、という指摘を受けて分離した
+  // （2026-08-31ユーザー指摘。以前はボタンと一体の右下floating表示だった）。
+  // 2ページ構成: 1ページ目は今の操作(情報確認)の振り返り、2ページ目は「このチュートリアル
+  // ページでは自由にコンボを追加できる」という案内。1ページ目は＞ボタンで進むだけで閉じられず、
+  // 2ページ目に着いて初めて「閉じる」が現れる（同日ユーザー指定）
+  const [closingMessagePage, setClosingMessagePage] = useState<1 | 2>(1);
+  const [isClosingMessageDismissed, setIsClosingMessageDismissed] = useState(false);
 
   // ②「ダメージは自動計算」の木にある、自動計算の説明文付きの末端ノード
   // （tutorialCharacter.tsのtreeDamage: 500ダメージ→500ダメージ→500ダメージ、の3つ目）
@@ -233,6 +283,14 @@ export function ComboTreePage() {
     const damageTree = trees.find((tree) => tree.label === '②ダメージは自動計算');
     return damageTree?.root.children[0]?.children[0]?.id ?? null;
   }, [character, trees]);
+
+  // ⑤「グループ化(始動A)」の木にある、グループ区間の先頭ノード（クリックで展開できるピル）
+  // （tutorialCharacter.tsのtreeGroupA: 始動A→共通1(groupId)→共通2(groupId)→Aの続き）
+  const tutorialGroupTree = useMemo(() => {
+    if (character?.id !== TUTORIAL_CHARACTER_ID) return null;
+    return trees.find((tree) => tree.label === '③グループ化(始動A)') ?? null;
+  }, [character, trees]);
+  const tutorialGroupTargetNodeId = tutorialGroupTree?.root.children[0]?.id ?? null;
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
@@ -301,7 +359,9 @@ export function ComboTreePage() {
   // ── サイドドロワーの開閉。長く続くコンボを画面いっぱいに見たい時に閉じられるようにする。
   // チュートリアルキャラクターだけは、初回に「クリックして開く」を体験してもらうため
   // 閉じた状態から始める（それ以外のキャラは従来通り開いた状態から始まる）
-  const [isDrawerOpen, setIsDrawerOpen] = useState(() => character?.id !== TUTORIAL_CHARACTER_ID);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(
+    () => character?.id !== TUTORIAL_CHARACTER_ID || alreadySeenTutorial,
+  );
 
   // ── コンボ/グループ表示モードの切り替え。「グループ」は名前付きグループの
   // 全出現箇所だけを一覧する読み取り中心のビュー（実データはcomboTreesのまま）
@@ -608,6 +668,17 @@ export function ComboTreePage() {
 
   const activeForest = treeViewMode === 'group' ? groupForest : forest;
 
+  // 誘導ガイド完了後、キャンバス最下部（③グループ化(始動B)のすぐ下）に「コンボの実例を
+  // 見る」ボタンをインライン表示するための余白。以前はキャンバス外に浮かせたfixedボタン
+  // だったが、サイドドロワー操作の邪魔になる・実際に操作した場所と離れているとの指摘を
+  // 受けてこの位置に変更した（2026-08-31ユーザー指摘）。キャンバスの実サイズ（スクロール
+  // 範囲）はforest.layout.heightから計算されるため、その分だけ底面を広げておかないと
+  // ボタンがスクロールしても届かない領域に置かれてしまう
+  const tutorialClosingCtaExtraHeight =
+    character?.id === TUTORIAL_CHARACTER_ID && tutorialGuideStep === 'done' && treeViewMode === 'combo'
+      ? 96
+      : 0;
+
   const { exitingNodes, enteringNodes } = useTreeExpandAnimation(
     activeForest.layout,
     activeForest.parentOf,
@@ -647,7 +718,33 @@ export function ComboTreePage() {
           </>
         }
         trailingSlot={
-          <div style={{ position: 'relative', flexShrink: 0, display: 'flex' }}>
+          <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* 使い方ガイドをもう一度行うためのボタン。ゲストを除きアカウント単位で
+                初回だけ自動的に誘導が始まり、以降はここから手動で再挑戦する
+                （2026-08-31ユーザー指定） */}
+            <button
+              type="button"
+              onClick={() => setIsTutorialResetConfirmOpen(true)}
+              title="使い方ガイドをもう一度行う"
+              style={{
+                height: 28,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                borderRadius: 9,
+                border: '1px solid var(--accent-green-border)',
+                background: 'var(--accent-green-bg)',
+                color: 'var(--accent-green-text)',
+                padding: '0 9px',
+                fontSize: 11,
+                fontWeight: 900,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              📘 チュートリアル
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -743,7 +840,7 @@ export function ComboTreePage() {
               style={{
                 position: 'relative',
                 width: (activeForest.layout.width + CANVAS_PADDING * 2) * zoom,
-                height: (activeForest.layout.height + CANVAS_PADDING * 2) * zoom,
+                height: (activeForest.layout.height + CANVAS_PADDING * 2 + tutorialClosingCtaExtraHeight) * zoom,
               }}
             >
               <div
@@ -753,7 +850,7 @@ export function ComboTreePage() {
                   top: 0,
                   left: 0,
                   width: activeForest.layout.width + CANVAS_PADDING * 2,
-                  height: activeForest.layout.height + CANVAS_PADDING * 2,
+                  height: activeForest.layout.height + CANVAS_PADDING * 2 + tutorialClosingCtaExtraHeight,
                   transform: `scale(${zoom})`,
                   transformOrigin: 'top left',
                   cursor: isPanning ? 'grabbing' : 'grab',
@@ -824,6 +921,11 @@ export function ComboTreePage() {
                           ? undefined
                           : (options) =>
                               setComboTreeStarterMoveOptions(character.id, block.tree.id, options)
+                      }
+                      guideBadge={
+                        tutorialGuideStep === 'expandGroup' && block.tree.id === tutorialGroupTree?.id
+                          ? 'クリックで開ける！'
+                          : undefined
                       }
                     />
                   );
@@ -927,11 +1029,24 @@ export function ComboTreePage() {
                             id={node.id}
                             groupName={pillMeta.groupName}
                             memberCount={pillMeta.memberIds.length}
-                            onExpand={() => toggleGroupExpanded(node.id)}
+                            onExpand={() => {
+                              toggleGroupExpanded(node.id);
+                              // ⑤誘導ガイド: 誘導対象のピルをクリックしたら次のステップへ進める
+                              if (
+                                tutorialGuideStep === 'expandGroup' &&
+                                node.id === tutorialGroupTargetNodeId
+                              ) {
+                                setTutorialGuideStep('done');
+                              }
+                            }}
                             parentId={column.parentId}
                             dragIndex={nodeIndex}
                             readOnly={isReadOnly}
                             isDisabledByOtherMode={copyModeAnchorId !== null || groupModeActive}
+                            isGuideTarget={
+                              tutorialGuideStep === 'expandGroup' &&
+                              node.id === tutorialGroupTargetNodeId
+                            }
                           />
                         ) : (
                           <MoveNodeCircle
@@ -1044,6 +1159,42 @@ export function ComboTreePage() {
                       </div>
                     );
                   })}
+
+                {/* ⑤誘導ガイド完了後のCTA。「③グループ化(始動B)」のすぐ下に置く
+                    （2026-08-31ユーザー指摘: サイドドロワー操作の邪魔にならない・実際に
+                    操作した場所の近くに出す） */}
+                {character.id === TUTORIAL_CHARACTER_ID && tutorialGuideStep === 'done' && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: CANVAS_PADDING,
+                      top: CANVAS_PADDING + forest.layout.height + 24,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => selectCharacter(tutorialExampleCharacterId)}
+                      className="tutorial-guide-bubble"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '16px 28px',
+                        borderRadius: 999,
+                        border: 'none',
+                        background: 'var(--accent)',
+                        color: '#fff',
+                        fontSize: 15,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        boxShadow: '0 10px 28px rgba(0, 0, 0, 0.4)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      コンボの実例を見る →
+                    </button>
+                  </div>
+                )}
                 </>
                 )}
               </div>
@@ -1063,38 +1214,182 @@ export function ComboTreePage() {
           highlightFormulaNodeId={
             tutorialGuideStep === 'openFormula' ? tutorialDamageTargetNodeId : null
           }
-          onFormulaOpened={() => setTutorialGuideStep('done')}
+          onFormulaOpened={() => setTutorialGuideStep('expandGroup')}
         />
 
-        {/* 誘導ガイドが全ステップ完了した時だけ表示する画面遷移ボタン。ステップ数が
-            将来増えても、判定は常に「最終的にdoneへ到達したか」の1箇所だけでよい */}
-        {character.id === TUTORIAL_CHARACTER_ID && tutorialGuideStep === 'done' && (
-          <button
-            type="button"
-            onClick={() => selectCharacter(tutorialExampleCharacterId)}
-            className="tutorial-guide-bubble"
+        <ConfirmDialog
+          isOpen={isTutorialResetConfirmOpen}
+          title="チュートリアルをもう一度行いますか？"
+          message="あなたがこのページにて作成したものはリセットされます。"
+          onConfirm={handleConfirmTutorialRestart}
+          onCancel={() => setIsTutorialResetConfirmOpen(false)}
+        />
+
+        {/* ガイド開始前の導入。手順だけでなく「このツールが何をするものか」を先に一言説明する
+            （2026-08-30ユーザー要望）。「はじめる」を押すと①ドロワーを開く誘導へ進む */}
+        {character.id === TUTORIAL_CHARACTER_ID && tutorialGuideStep === 'intro' && (
+          <div
             style={{
               position: 'fixed',
-              right: 24,
-              bottom: 24,
-              zIndex: 40,
+              inset: 0,
+              zIndex: 50,
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '12px 18px',
-              borderRadius: 999,
-              border: 'none',
-              background: 'var(--accent)',
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 800,
-              cursor: 'pointer',
-              boxShadow: '0 10px 28px rgba(0, 0, 0, 0.4)',
+              justifyContent: 'center',
+              background: 'rgba(0, 0, 0, 0.55)',
             }}
           >
-            コンボの実例を見る →
-          </button>
+            <div
+              style={{
+                width: 'min(360px, 88vw)',
+                padding: '24px 22px',
+                borderRadius: 16,
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                boxShadow: '0 20px 48px rgba(0, 0, 0, 0.5)',
+                textAlign: 'center',
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                Combo-LABへようこそ
+              </p>
+              <p
+                style={{
+                  margin: '10px 0 0',
+                  fontSize: 12.5,
+                  lineHeight: 1.7,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                分岐するコンボを木構造で整理し、ダメージやゲージを自動計算するツールです。
+                少し触りながら使い方を見てみましょう。
+              </p>
+              <button
+                type="button"
+                onClick={() => setTutorialGuideStep('openDrawer')}
+                style={{
+                  marginTop: 16,
+                  padding: '10px 20px',
+                  borderRadius: 999,
+                  border: 'none',
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                はじめる →
+              </button>
+            </div>
+          </div>
         )}
+
+        {/* ⑤誘導ガイド完了後の締めの説明。実際に操作した場所（画面中央付近のグループ展開）に
+            近い、画面中央のポップアップで一度だけ見せる。実例へのボタン自体はここには置かず、
+            キャンバス側の「③グループ化(始動B)」のすぐ下に別途表示する（2026-08-31ユーザー指摘） */}
+        {character.id === TUTORIAL_CHARACTER_ID &&
+          tutorialGuideStep === 'done' &&
+          !isClosingMessageDismissed && (
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 50,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0, 0, 0, 0.55)',
+              }}
+            >
+              <div
+                style={{
+                  width: 'min(400px, 88vw)',
+                  padding: '28px 26px',
+                  borderRadius: 16,
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 20px 48px rgba(0, 0, 0, 0.5)',
+                  textAlign: 'center',
+                }}
+              >
+                {closingMessagePage === 1 ? (
+                  <>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      コンボ情報を確認する操作はこれで一通りです
+                    </p>
+                    <p
+                      style={{
+                        margin: '10px 0 0',
+                        fontSize: 12.5,
+                        lineHeight: 1.7,
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      実際のキャラクターのコンボでも、今と同じ操作でダメージやゲージなどの情報を確認できます。
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      このページでは自由にコンボを追加できます
+                    </p>
+                    <p
+                      style={{
+                        margin: '10px 0 0',
+                        fontSize: 12.5,
+                        lineHeight: 1.7,
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      右のドロワーから技を選んで、好きなだけコンボを組んでみてください。
+                      画面下の「コンボの実例を見る」から、実際のキャラクターのコンボも覗けます。
+                    </p>
+                  </>
+                )}
+
+                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                  {closingMessagePage === 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setClosingMessagePage(2)}
+                      title="次へ"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: 'var(--accent)',
+                        color: '#fff',
+                        fontSize: 16,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ›
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsClosingMessageDismissed(true)}
+                      style={{
+                        padding: '10px 20px',
+                        borderRadius: 999,
+                        border: 'none',
+                        background: 'var(--accent)',
+                        color: '#fff',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      閉じる
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );
@@ -1113,6 +1408,7 @@ function TreeBlockHeader({
   onMoveDown,
   onRename,
   onEditStarterMoves,
+  guideBadge,
 }: {
   tree: ComboTree;
   x: number;
@@ -1124,6 +1420,10 @@ function TreeBlockHeader({
   onRename?: (label: string) => void;
   // 未指定、またはこの木が汎用コンボでなければ始動技一覧の編集アイコン自体を出さない
   onEditStarterMoves?: (starterMoveOptions: string[][]) => void;
+  // 誘導ガイド（チュートリアル用）: 指定時、ラベルの横に短い一言バッジを添える。
+  // ノードにぶら下げる吹き出し形式は木同士の縦間隔が狭いと重なる不具合があったため、
+  // 位置が動かないこのヘッダー行に付ける方式に変更した（2026-08-31ユーザー指摘）
+  guideBadge?: string;
 }) {
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [draftLabel, setDraftLabel] = useState(tree.label);
@@ -1229,6 +1529,22 @@ function TreeBlockHeader({
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
+        )}
+
+        {guideBadge && (
+          <span
+            className="tutorial-guide-bubble"
+            style={{
+              padding: '3px 9px',
+              borderRadius: 999,
+              background: 'var(--accent)',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 800,
+            }}
+          >
+            {guideBadge}
+          </span>
         )}
       </div>
 

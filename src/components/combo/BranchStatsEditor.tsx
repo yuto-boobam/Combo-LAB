@@ -285,7 +285,7 @@ export function BranchStatsEditor({
               <div style={styles.debugBreakdown}>
                 {showFormulaExplanation && (
                   <div style={styles.formulaExplanation}>
-                    ストリートファイター6と同じ補正でダメージを計算
+                    ただの足し算ではなく、ストリートファイター6と同じ補正計算をしたうえで算出しています
                   </div>
                 )}
                 <div style={styles.debugBreakdownHeader}>
@@ -304,9 +304,23 @@ export function BranchStatsEditor({
                           : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
                         : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
                     {' → '}
-                    {entry.isSystemAction
-                      ? 'ダメージ0（位置のみ消費）'
-                      : `${entry.damage} × ${entry.percent}% = ${Math.round(entry.contribution)}`}
+                    {entry.isSystemAction ? (
+                      'ダメージ0（位置のみ消費）'
+                    ) : (
+                      <>
+                        <span style={showFormulaExplanation ? styles.formulaEmphasis : undefined}>
+                          {entry.damage}
+                        </span>
+                        {' × '}
+                        <span
+                          className={showFormulaExplanation ? 'tutorial-formula-blink' : undefined}
+                          style={showFormulaExplanation ? styles.formulaEmphasisPercent : undefined}
+                        >
+                          {entry.percent}%
+                        </span>
+                        {` = ${Math.round(entry.contribution)}`}
+                      </>
+                    )}
                   </div>
                 ))}
                 <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
@@ -994,6 +1008,19 @@ const styles: Record<string, CSSProperties> = {
   },
   debugBreakdownRow: {
     lineHeight: 1.5,
+  },
+  // チュートリアルキャラクター限定、各段の「技のダメージ×補正%」を目立たせて、
+  // 単純な足し算ではなく補正計算をしていることを数値そのもので実感させる
+  // （2026-08-30ユーザー要望）。太字だけでは目立たないとの指摘を受け、補正%側は
+  // 下線も加えて「ここが補正されている数値」だとより分かるようにした（2026-08-31）
+  formulaEmphasis: {
+    fontWeight: 800,
+    color: 'var(--accent-blue-text)',
+  },
+  formulaEmphasisPercent: {
+    fontWeight: 800,
+    color: 'var(--accent-blue-text)',
+    textDecoration: 'underline',
   },
   // ダメージ評価/Dゲージ評価/SAゲージ評価/運び評価を2×2で並べるためのグリッド。
   // 総合評価はこのグリッドの外に単独で置き、サイズを変えずに目立たせる
