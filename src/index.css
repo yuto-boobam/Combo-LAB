@@ -192,6 +192,56 @@ body {
   transform: translateY(-2px);
 }
 
+/* キャラ選択タイル: コンボ未登録キャラは画像を使わない前提で見た目を洗練する
+   （2026-08-31ユーザー指定：三方向のデザイン比較を経て「タイポグラフィ精緻化」案を採用）。
+   登録済みは上辺にアクセント線を足して持ち上げ、未登録は背景をページ地色(--bg-base)に
+   同化させて沈める。「登録されていないキャラは背景色を暗くする」という新しい仕様も
+   これで表現する（従来の枠線色・文字色の差だけより一目で分かりやすい） */
+.character-tile {
+  position: relative;
+  border: 2px solid var(--border);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.character-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14%;
+  right: 14%;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.character-tile--active {
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+.character-tile--active::before {
+  opacity: 0.9;
+}
+.character-tile--empty {
+  background: var(--bg-base);
+  border-color: var(--border);
+}
+.character-tile--empty:hover {
+  border-color: var(--text-muted);
+}
+.character-tile:hover {
+  transform: translateY(-2px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .character-tile,
+  .character-tile::before {
+    transition: none;
+  }
+  .character-tile:hover {
+    transform: none;
+  }
+}
+
 /* プログレスバー */
 .progress-bar {
   height: 4px;
