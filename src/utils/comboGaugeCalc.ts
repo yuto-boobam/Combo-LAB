@@ -8,11 +8,13 @@ import type {
   BranchStartHitCondition,
   ComboBranchStats,
   MoveDefinition,
+  MoveHitStats,
   MoveNode,
   MoveStats,
   MoveStatsDatabase,
 } from '../types';
 import { calculateDamageScalingPath, type DamageHitInput } from './damageModifierCalc';
+import { parseStarterMoveToken } from './starterMoveOptions';
 
 function findPathToNode(root: MoveNode, targetId: string): MoveNode[] | null {
   if (root.id === targetId) return [root];
@@ -52,7 +54,12 @@ export function calculateRequiredStartHitCondition(
   root: MoveNode,
   targetNodeId: string,
 ): BranchStartHitCondition | null {
-  const path = findPathToNode(root, targetNodeId);
+  // 汎用コンボ（root.startingMoveOptions）の場合、末端で選んだ始動技（括弧の条件指定含む）を
+  // 反映した解決済みの経路で判定する必要がある。resolvePathはwithFinishingSuperArtも
+  // 適用するが、SAの合成ノードは属性を持たない（withFinishingSuperArt参照）ため、
+  // 通常の木の判定結果には影響しない
+  const rawPath = findPathToNode(root, targetNodeId);
+  const path = resolvePath(rawPath);
   if (!path) return null;
   return requiredStartHitConditionFromPath(path);
 }
@@ -104,8 +111,82 @@ function withFinishingSuperArt(path: MoveNode[]): MoveNode[] {
   return [...path, superArtNode];
 }
 
-function sumSaGaugeGain(stats: MoveStats): number {
-  return stats.hits.reduce((sum, hit) => sum + (hit.saGaugeGain ?? 0), 0);
+/**
+ * root（このコンボ木の始動技）がMoveNode.startingMoveOptionsを持つ「汎用コンボ」の
+ * プレースホルダの場合、末端ノードのbranchStats.startingMoveNamesで実際に使った始動技の
+ * 並びへ差し替えた配列を返す（実データには一切手を入れない）。ジャンプ攻撃始動のように
+ * 汎用の続きに入るまでに2技以上を経由する場合があるため、rootを1個の合成ノードに
+ * 置き換えるのではなく、startingMoveNamesの数だけ合成ノードを並べて差し替える。
+ * 各トークンは「強昇竜拳（PC/R）」「PC」のように括弧付きの条件（カウンター/パニカン/ラッシュ）
+ * を伴うことがあり、parseStarterMoveTokenで技名と属性に分解した上で、その属性を合成ノードに
+ * 反映する（技名を伴わない条件だけのトークンはmoveNameが空文字になり、技データ未登録の
+ * ノードと同じ扱い＝ダメージ0・位置だけ消費になる。詳細はsrc/utils/starterMoveOptions.ts参照）。
+ * 最初の合成ノードだけrootの属性も引き継ぐ（2つ目以降はトークン自身の属性のみ）。
+ * まだ選ばれていない場合はnullを返し、この枝のダメージ・ゲージ計算全体を打ち切る
+ * （＝該当欄は自動計算されず未入力のままになる。ユーザー指定：「その技を選択するまでの
+ * 間は、その分のダメージやゲージの欄は空欄にしておく」）。
+ * 通常の木（startingMoveOptions未設定）はそのまま何もしない
+ */
+function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
+  const root = path[0];
+  if (!root.startingMoveOptions || root.startingMoveOptions.length === 0) return path;
+
+  const targetNode = path[path.length - 1];
+  const startingMoveNames = targetNode.branchStats?.startingMoveNames;
+  if (!startingMoveNames || startingMoveNames.length === 0) return null;
+
+  const resolvedNodes: MoveNode[] = startingMoveNames.map((rawToken, index) => {
+    const { moveName, attributes } = parseStarterMoveToken(rawToken);
+    return {
+      ...root,
+      id: index === 0 ? root.id : `${root.id}__startingMove${index}`,
+      moveName,
+      displayName: undefined,
+      startingMoveOptions: undefined,
+      attributes: index === 0 ? [...root.attributes, ...attributes] : attributes,
+    };
+  });
+
+  return [...resolvedNodes, ...path.slice(1)];
+}
+
+/**
+ * findPathToNodeで得た経路に、withFinishingSuperArt・resolveStartingMoveの両方を適用する。
+ * ダメージ・Dゲージ・SAゲージの各計算関数で共通して使う前処理（詳細は各関数の呼び出し
+ * 箇所参照）。resolveStartingMoveがnullを返した場合（汎用コンボの始動技が未選択）は
+ * そのままnullを伝播し、計算全体を未入力扱いにする
+ */
+function resolvePath(rawPath: MoveNode[] | null): MoveNode[] | null {
+  if (!rawPath) return null;
+  const resolved = resolveStartingMove(rawPath);
+  if (!resolved) return null;
+  return withFinishingSuperArt(resolved);
+}
+
+/**
+ * node.hitIndicesを、そのhits配列で実在する段番号（1始まり）だけの昇順ソート済み一覧に
+ * 正規化する。未設定・空・全段数以上の値しか無い等で対象が0件になる場合は全段を返す
+ * （「全段当たった」がデフォルト）
+ */
+export function resolveHitIndices(stats: MoveStats, node: MoveNode): number[] {
+  const total = stats.hits.length;
+  const raw = node.hitIndices?.filter((n) => n >= 1 && n <= total) ?? [];
+  if (raw.length === 0) return Array.from({ length: total }, (_, i) => i + 1);
+  return Array.from(new Set(raw)).sort((a, b) => a - b);
+}
+
+/**
+ * 複数ヒット技で、そのノードが実際に何段目が当たったか（node.hitIndices）に応じて
+ * 対象のhitsだけを返す。未設定・不正な値ならそのまま全段を返す（2026-08-28ユーザー要望：
+ * 1〜最終段を並べて当たった段だけクリックする、というシンプルな選び方にする）
+ */
+function effectiveHits(stats: MoveStats, node: MoveNode): MoveHitStats[] {
+  const indices = resolveHitIndices(stats, node);
+  return indices.map((i) => stats.hits[i - 1]);
+}
+
+function sumSaGaugeGain(stats: MoveStats, node: MoveNode): number {
+  return effectiveHits(stats, node).reduce((sum, hit) => sum + (hit.saGaugeGain ?? 0), 0);
 }
 
 /**
@@ -129,7 +210,7 @@ function findMoveForNode(node: MoveNode, moveList: MoveDefinition[]): MoveDefini
 
 /**
  * その技が使っているLv.の範囲(最小〜最大)を求める。強度ごとの一覧(specialVariantsByStrength)・
- * フラットな一覧(specialVariantOptions、hasFlatVariantsな技用)の両方から集める。
+ * フラットな一覧(specialVariantOptions、strengthMode==='level'な技用)の両方から集める。
  * イングリッドのビームのように、最小Lv.は通常版でしか存在せず、最大Lv.はOD版でしか
  * 存在しない技で、その境界を判定するために使う。Lv.を持たない技やLv.が1種類しか無い技
  * （範囲で語る意味が無い）はnull
@@ -254,9 +335,35 @@ function baseMoveName(moveName: string): string {
 
 /**
  * root〜targetNodeId（両端含む）の経路上にある各ノードの技データから、SAゲージ増減の合計を求める。
- * 複数ヒット技は「何段目が当たったか」を選ぶUIがまだ無いため、常に全段分の合計を使う。
+ * 複数ヒット技はnode.hitIndicesが指定されていればその段のhitsだけを合計に使う
+ * （effectiveHits参照。未指定なら従来通り全段）。
  * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
  */
+function buildSaGaugeSteps(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  path: MoveNode[],
+): GaugeStep[] | null {
+  const characterStats = moveStatsDatabase[characterId];
+  if (!characterStats) return null;
+
+  const steps: GaugeStep[] = [];
+  let hasAnyData = false;
+
+  path.forEach((node, index) => {
+    const isTargetNode = index === path.length - 1;
+    const stats = characterStats[lookupMoveName(node, isTargetNode)];
+    if (!stats) {
+      steps.push({ label: node.moveName, value: 0 });
+      return;
+    }
+    hasAnyData = true;
+    steps.push({ label: node.moveName, value: sumSaGaugeGain(stats, node) });
+  });
+
+  return hasAnyData ? steps : null;
+}
+
 export function calculateBranchSaGaugeChange(
   characterId: string,
   moveStatsDatabase: MoveStatsDatabase,
@@ -264,24 +371,33 @@ export function calculateBranchSaGaugeChange(
   targetNodeId: string,
 ): number | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  if (!rawPath) return null;
-  const path = withFinishingSuperArt(rawPath);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
 
-  const characterStats = moveStatsDatabase[characterId];
-  if (!characterStats) return null;
+  const steps = buildSaGaugeSteps(characterId, moveStatsDatabase, path);
+  if (!steps) return null;
 
-  let total = 0;
-  let hasAnyData = false;
+  return steps.reduce((sum, step) => sum + step.value, 0);
+}
 
-  path.forEach((node, index) => {
-    const isTargetNode = index === path.length - 1;
-    const stats = characterStats[lookupMoveName(node, isTargetNode)];
-    if (!stats) return;
-    hasAnyData = true;
-    total += sumSaGaugeGain(stats);
-  });
+/**
+ * calculateBranchSaGaugeChangeと同じ計算を、1ノードずつの内訳付きで返す。
+ * BranchStatsEditor.tsxのSAゲージ増加欄で、Dゲージ増減欄と同じ「合計⇄内訳」表示切替に使う。
+ */
+export function calculateBranchSaGaugeBreakdown(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  root: MoveNode,
+  targetNodeId: string,
+): { steps: GaugeStep[]; total: number } | null {
+  const rawPath = findPathToNode(root, targetNodeId);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
 
-  return hasAnyData ? total : null;
+  const steps = buildSaGaugeSteps(characterId, moveStatsDatabase, path);
+  if (!steps) return null;
+
+  return { steps, total: steps.reduce((sum, step) => sum + step.value, 0) };
 }
 
 /**
@@ -302,8 +418,8 @@ export function calculateBranchOpponentDGaugeChip(
   targetNodeId: string,
 ): number | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  if (!rawPath) return null;
-  const path = withFinishingSuperArt(rawPath);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
 
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
@@ -321,7 +437,7 @@ export function calculateBranchOpponentDGaugeChip(
     const stats = characterStats[lookupMoveName(node, isTargetNode)];
     if (!stats) return;
     hasAnyData = true;
-    total += stats.hits.reduce((sum, hit) => sum + (hit.dGaugeChipPunishCounter ?? 0), 0);
+    total += effectiveHits(stats, node).reduce((sum, hit) => sum + (hit.dGaugeChipPunishCounter ?? 0), 0);
   });
 
   if (!hasAnyData) return null;
@@ -353,30 +469,46 @@ const RUSH_MOVE_NAMES = new Set([CANCEL_RUSH_MOVE_NAME, RAW_RUSH_MOVE_NAME]);
  * - 歩行の実時間ベースの回復量そのものの算出（フレーム数→回復量の換算）、ラッシュ終了2秒後の
  *   回復再開はスコープ外（このツールはコンボを技の並びとして記録するもので、実時間の経過を
  *   扱う仕組みが無いため。歩きノードの技データが登録されていれば、その値をそのまま使う）
- * - 末端ノードの`branchStats.includesEarlyDGaugeRecovery`がfalseの場合、経路上で最初に
- *   ゲージを消費する技（キャンセルラッシュ/生ラッシュ、またはusesODが付いたノード）より前に
- *   得た回復は合計から除く（Dゲージが元々MAXの状態から始めた場合、最初に何かを消費するまでの
- *   回復分は溢れて実際には得られないため。消費技自身とそれ以降は通常通り合計する）
+ * - 経路上で最初にゲージを消費する技（キャンセルラッシュ/生ラッシュ、またはusesODが付いた
+ *   ノード）より前に得た回復（Dゲージが元々MAXの状態から始めた場合、実際には得られない
+ *   可能性がある分）は、合計（calculateBranchDGaugeChange・calculateBranchDGaugeBreakdown.total）
+ *   からは除かず含めたまま計算する。除いた場合の参考値は
+ *   calculateBranchDGaugeBreakdown.totalExcludingEarlyRecoveryで別途返し、
+ *   BranchStatsEditor.tsx側では「-25500(-27500)」のように合計欄へ括弧書きで併記する
+ *   （2026-08-26ユーザー指定: 含める/除くを手動で選ばせるチェックボックスは廃止し、
+ *   内訳の1ステップずつではなく合計欄の括弧で意味を伝える方式に変更）
  *
  * 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）。
  */
-export function calculateBranchDGaugeChange(
+export type GaugeStep = {
+  label: string; // ノードの技名（表示用）
+  value: number; // このノード1つぶんのゲージ増減（Dゲージ・SAゲージ共通で使う）
+  // Dゲージ限定: 経路上で最初にゲージを消費する技より前のステップ（totalExcludingEarlyRecovery
+  // の算出にのみ使う内部フラグ。内訳表示の1ステップずつには反映しない）。SAゲージでは常にfalse
+  isEarlyRecovery?: boolean;
+  // Dゲージ限定: 「ゲージが0でなければ発動できる」消費行動（キャンセルラッシュ/生ラッシュ/
+  // usesODが付いたノード）かどうか。calculateBranchDGaugeMinimumRequiredの判定にのみ使う。
+  // SAゲージでは常にfalse
+  isConsuming?: boolean;
+};
+
+/**
+ * calculateBranchDGaugeChange/calculateBranchDGaugeBreakdownで共有する経路走査本体。
+ * 「+200→+200→-20000」のような1ノードずつの内訳（contributions）を返す
+ * （経路上で最初にゲージを消費する技より前のステップにはisEarlyRecovery:trueを付ける）。
+ */
+function buildDGaugeContributions(
   characterId: string,
   moveStatsDatabase: MoveStatsDatabase,
   moveList: MoveDefinition[],
-  root: MoveNode,
-  targetNodeId: string,
-): number | null {
-  const rawPath = findPathToNode(root, targetNodeId);
-  if (!rawPath) return null;
-  const path = withFinishingSuperArt(rawPath);
-
+  path: MoveNode[],
+): { contributions: GaugeStep[] } | null {
   const characterStats = moveStatsDatabase[characterId];
   if (!characterStats) return null;
 
   let hasAnyData = false;
   let inRush = false;
-  const contributions: number[] = [];
+  const contributions: GaugeStep[] = [];
   let firstConsumptionIndex: number | null = null;
 
   path.forEach((node, index) => {
@@ -386,27 +518,27 @@ export function calculateBranchDGaugeChange(
     if (isConsumingNode && firstConsumptionIndex === null) firstConsumptionIndex = index;
 
     if (RUSH_MOVE_NAMES.has(node.moveName)) {
-      let contribution = 0;
+      let value = 0;
       if (stats) {
         hasAnyData = true;
-        contribution = stats.hits.reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
+        value = effectiveHits(stats, node).reduce((sum, hit) => sum + (hit.dGaugeGain ?? 0), 0);
       }
-      contributions.push(contribution);
+      contributions.push({ label: node.moveName, value, isConsuming: true });
       if (node.moveName === CANCEL_RUSH_MOVE_NAME) inRush = true;
       return;
     }
 
     if (node.attributes.some((attribute) => attribute.type === 'whiff')) {
-      contributions.push(0);
+      contributions.push({ label: node.moveName, value: 0, isConsuming: isConsumingNode });
       return;
     }
     if (node.attributes.some((attribute) => attribute.type === 'guard')) {
-      contributions.push(0); // ガード回復量は未実装
+      contributions.push({ label: node.moveName, value: 0, isConsuming: isConsumingNode }); // ガード回復量は未実装
       return;
     }
 
     if (!stats) {
-      contributions.push(0);
+      contributions.push({ label: node.moveName, value: 0, isConsuming: isConsumingNode });
       return;
     }
     hasAnyData = true;
@@ -420,20 +552,137 @@ export function calculateBranchDGaugeChange(
     // （そうしないとOD使用時の値が握りつぶされ、ODチェックが効かなくなってしまう）
     const isWalkMove = node.moveName.includes('歩き');
 
-    const contribution = stats.hits.reduce((sum, hit) => {
+    const value = effectiveHits(stats, node).reduce((sum, hit) => {
       if (!inRush || isWalkMove || node.usesOD) return sum + (hit.dGaugeGain ?? 0);
       return sum + (isSuperArt ? (hit.dGaugeGainDuringRush ?? 0) : 0);
     }, 0);
-    contributions.push(contribution);
+    contributions.push({ label: node.moveName, value, isConsuming: isConsumingNode });
   });
 
   if (!hasAnyData) return null;
 
-  const targetNode = path[path.length - 1];
-  const includesEarlyRecovery = targetNode.branchStats?.includesEarlyDGaugeRecovery ?? true;
-  const startIndex = includesEarlyRecovery || firstConsumptionIndex === null ? 0 : firstConsumptionIndex;
+  if (firstConsumptionIndex !== null) {
+    for (let i = 0; i < firstConsumptionIndex; i += 1) {
+      contributions[i] = { ...contributions[i], isEarlyRecovery: true };
+    }
+  }
 
-  return contributions.slice(startIndex).reduce((sum, value) => sum + value, 0);
+  return { contributions };
+}
+
+export function calculateBranchDGaugeChange(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): number | null {
+  const rawPath = findPathToNode(root, targetNodeId);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
+
+  const built = buildDGaugeContributions(characterId, moveStatsDatabase, moveList, path);
+  if (!built) return null;
+
+  return built.contributions.reduce((sum, step) => sum + step.value, 0);
+}
+
+/**
+ * calculateBranchDGaugeChangeと同じ計算を、1ノードずつの内訳（例:「+200→+200→-20000」）
+ * 付きで返す。BranchStatsEditor.tsxのDゲージ増減欄で、合計表示⇄内訳表示をワンボタンで
+ * 切り替えるために使う（内訳の合計は必ずtotalと一致する）。
+ *
+ * totalExcludingEarlyRecovery: 経路上で最初にゲージを消費する技（キャンセルラッシュ/生ラッシュ/
+ * usesOD）より前に得た回復を除いた場合の総量（Dゲージが元々MAXの状態から始めた場合、
+ * 実際には得られない可能性がある分を除いた参考値）。totalと同じ内容ならUI側では表示しない
+ * （2026-08-26ユーザー指定: 内訳の各ステップを括弧書きするのではなく、合計欄に
+ * 「-25500(-27500)」のように主要な総量(total)＋除いた場合の総量を括弧で併記する）。
+ */
+export function calculateBranchDGaugeBreakdown(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): { steps: GaugeStep[]; total: number; totalExcludingEarlyRecovery: number } | null {
+  const rawPath = findPathToNode(root, targetNodeId);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
+
+  const built = buildDGaugeContributions(characterId, moveStatsDatabase, moveList, path);
+  if (!built) return null;
+
+  return {
+    steps: built.contributions,
+    total: built.contributions.reduce((sum, step) => sum + step.value, 0),
+    totalExcludingEarlyRecovery: built.contributions
+      .filter((step) => !step.isEarlyRecovery)
+      .reduce((sum, step) => sum + step.value, 0),
+  };
+}
+
+/**
+ * このコンボを最後まで遂行するために最低限必要な開始時Dゲージ量を求める。
+ *
+ * SF6のDゲージは「0でなければ消費行動を発動できる」仕様（例: 本来30000必要な
+ * キャンセルラッシュも、1でも残っていれば発動できる。消費後の残量はマイナスにはならず
+ * 0にfloorされる）。そのため、単純に各消費行動の必要量を合計する（＝満額を毎回持っている
+ * 前提の計算）のではなく、「消費行動の直前で残量が1でも残っているか」を実際にシミュレーション
+ * して判定する必要がある。floorが挟まると、直前の消費で残量が0になった場合その後の回復は
+ * 開始時ゲージ量に依存せず決まってしまう（＝それより前の余剰は意味を失う）ため、
+ * 経路の途中に足りない箇所があっても後続の回復で帳尻が合うことがあり、逆に消費行動が
+ * 連続していて間に回復が無いと単純な合計よりずっと多くのゲージが必要になることもある。
+ * この非線形な挙動を正しく扱うため、開始時ゲージ量Xを二分探索し、実際にfloor付きで
+ * シミュレーションして成功する最小のXを返す（Xを増やすほど各時点の残量は単調に
+ * 増える、という性質を利用した二分探索）。
+ *
+ * 経路上に消費行動が1つも無ければ0を返す（このコンボはDゲージが無くても遂行できる）。
+ * 技データが1件も登録されていない経路ではnullを返す（未入力と「0」を区別するため）。
+ */
+export function calculateBranchDGaugeMinimumRequired(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): number | null {
+  const rawPath = findPathToNode(root, targetNodeId);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
+
+  const built = buildDGaugeContributions(characterId, moveStatsDatabase, moveList, path);
+  if (!built) return null;
+
+  const steps = built.contributions;
+  if (!steps.some((step) => step.isConsuming)) return 0;
+
+  const succeedsWithStart = (start: number): boolean => {
+    let gauge = start;
+    for (const step of steps) {
+      if (step.isConsuming && gauge <= 0) return false;
+      gauge = Math.max(0, gauge + step.value);
+    }
+    return true;
+  };
+
+  // 消費行動ぶんの名目コストを全て順番に払い切れる量を安全な上限にする
+  // （+1は「0ではなく1でも残っていればよい」という余裕分）
+  const upperBound =
+    steps
+      .filter((step) => step.isConsuming)
+      .reduce((sum, step) => sum + Math.abs(Math.min(0, step.value)), 0) + 1;
+
+  let lo = 1;
+  let hi = upperBound;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (succeedsWithStart(mid)) {
+      hi = mid;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  return lo;
 }
 
 /**
@@ -510,7 +759,7 @@ function buildFlatDamageHits(
 
     if (stats) {
       hasAnyData = true;
-      stats.hits.forEach((hit, hitIndex) => {
+      effectiveHits(stats, node).forEach((hit, hitIndex) => {
         flatHits.push({
           damage: hit.damage ?? 0,
           modifierText: hit.modifier,
@@ -568,8 +817,8 @@ export function calculateBranchDamage(
   targetNodeId: string,
 ): number | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  if (!rawPath) return null;
-  const path = withFinishingSuperArt(rawPath);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
 
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;
@@ -618,8 +867,8 @@ export function calculateBranchDamageBreakdown(
   targetNodeId: string,
 ): DamageBreakdown | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  if (!rawPath) return null;
-  const path = withFinishingSuperArt(rawPath);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
 
   const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
   if (!built) return null;

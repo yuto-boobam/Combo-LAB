@@ -50,7 +50,7 @@ export function AuthPage() {
       }}
     >
       <div
-        className="w-full max-w-md p-8 rounded-2xl glass animate-scaleIn"
+        className="w-full max-w-lg p-8 rounded-2xl glass animate-scaleIn"
         style={{
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
         }}
@@ -184,7 +184,9 @@ export function AuthPage() {
           <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
-        {/* ゲストモード（閲覧専用）ボタン */}
+        {/* ゲストモード（閲覧専用）ボタン。誘導ボタンを二重に置くのは冗長との指摘を受け、
+            クリック可能な要素はこの1つだけにし、直下の説明文はteal色の非ボタンテキストへ
+            変更した（2026-08-31ユーザー指摘） */}
         <button
           type="button"
           className="w-full btn-ghost justify-center py-3 text-sm font-semibold"
@@ -195,8 +197,11 @@ export function AuthPage() {
         >
           閲覧専用で見る（ゲストモード）
         </button>
-        <div className="mt-2 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-          ※ 登録不要で、作成済みのコンボの木を閲覧専用で見られます（編集はできません）。
+        <div
+          className="mt-2 text-center text-xs"
+          style={{ color: 'var(--accent-teal-text)', fontWeight: 700, whiteSpace: 'nowrap' }}
+        >
+          内容を閲覧したい方は、登録不要の「ゲストモード」をお試しください
         </div>
 
         <div className="mt-4 text-center text-xs" style={{ color: 'var(--text-muted)' }}>

@@ -192,6 +192,56 @@ body {
   transform: translateY(-2px);
 }
 
+/* キャラ選択タイル: コンボ未登録キャラは画像を使わない前提で見た目を洗練する
+   （2026-08-31ユーザー指定：三方向のデザイン比較を経て「タイポグラフィ精緻化」案を採用）。
+   登録済みは上辺にアクセント線を足して持ち上げ、未登録は背景をページ地色(--bg-base)に
+   同化させて沈める。「登録されていないキャラは背景色を暗くする」という新しい仕様も
+   これで表現する（従来の枠線色・文字色の差だけより一目で分かりやすい） */
+.character-tile {
+  position: relative;
+  border: 2px solid var(--border);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.character-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14%;
+  right: 14%;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.character-tile--active {
+  background: linear-gradient(160deg, var(--bg-elevated) 0%, var(--bg-surface) 100%);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+.character-tile--active::before {
+  opacity: 0.9;
+}
+.character-tile--empty {
+  background: var(--bg-base);
+  border-color: var(--border);
+}
+.character-tile--empty:hover {
+  border-color: var(--text-muted);
+}
+.character-tile:hover {
+  transform: translateY(-2px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .character-tile,
+  .character-tile::before {
+    transition: none;
+  }
+  .character-tile:hover {
+    transform: none;
+  }
+}
+
 /* プログレスバー */
 .progress-bar {
   height: 4px;
@@ -327,18 +377,61 @@ body {
 }
 .animate-scaleIn { animation: scaleIn 0.2s ease-out; }
 
-/* チュートリアル: サイドドロワー開閉ボタンへの誘導ガイド */
+/* チュートリアル: 誘導ガイド（ドロワー開閉ボタン／ノード／コンボの情報欄）。
+   薄いaccent-glowだと「選択中のノードについて」欄の背景に埋もれて目立たなかったため、
+   明るい水色を高い不透明度から始めて広がりながら消える、視認性重視のパルスにしている */
 @keyframes tutorialGuidePulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
-  50%      { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.95); }
+  70%  { box-shadow: 0 0 0 10px rgba(96, 165, 250, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0); }
 }
-.tutorial-guide-pulse { animation: tutorialGuidePulse 1.6s ease-in-out infinite; }
+.tutorial-guide-pulse { animation: tutorialGuidePulse 1.4s ease-out infinite; }
 
 @keyframes tutorialGuideBounce {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(4px); }
 }
 .tutorial-guide-bubble { animation: tutorialGuideBounce 1.6s ease-in-out infinite; }
+
+/* チュートリアル: 計算式の補正%を開いた瞬間だけ点滅させ、下線・太字だけでは弱かった
+   「ここが補正されている数値」の主張を強める（2026-08-31ユーザー指摘）。infiniteにせず
+   iteration-countを有限（5回×0.5s=2.5秒）にすることで、JSのタイマー無しでも自然に
+   点滅が収まる。要素は開くたびにDOMごと再生成される（isFormulaOpen時のみ描画）ため、
+   毎回アニメーションが最初から再生される */
+@keyframes tutorialFormulaBlink {
+  0%, 100% { background: transparent; }
+  50%      { background: var(--accent-amber-bg); color: var(--accent-amber-text); }
+}
+.tutorial-formula-blink {
+  animation: tutorialFormulaBlink 0.5s ease-in-out 5;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
+/* チュートリアル: スポットライト演出（2026-08-27ユーザー指定、使用箇所は未定・準備のみ）。
+   「注目してほしい要素だけ残し、それ以外を暗くする」ための汎用クラス。使い方は、
+   注目させたい要素（ボタン・ノード・カード等、何でもよい）にこのクラス名を足すだけ。
+   overlay用のDOM要素やJSでの座標計算は不要——box-shadowの拡散(spread)を9999px（実質無限）
+   にすることで、要素自身の影が画面全体を覆い、要素の形そのままの「穴」だけが暗くならずに
+   見える、という定番テクニックを使っている（要素にposition:relativeとz-indexを持たせて
+   他の要素より前面に出す必要がある。ズーム/scale変形の中の要素に付けても、spread値が
+   十分大きいためほぼ影響なく機能する）。
+   .tutorial-spotlight-dim は暗くするだけの最小構成、.tutorial-spotlight はさらに
+   accentカラーの縁取りを足して「ここです」と分かりやすくした版（用途に応じて使い分ける） */
+.tutorial-spotlight-dim {
+  position: relative;
+  z-index: 200;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+  transition: box-shadow 0.25s ease;
+}
+.tutorial-spotlight {
+  position: relative;
+  z-index: 200;
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 0 9999px rgba(0, 0, 0, 0.72);
+  transition: box-shadow 0.25s ease;
+}
 
 /* ドラッグ中のスタイル */
 .drag-over {

@@ -15,6 +15,7 @@ import { supabase } from './utils/supabaseClient';
 function App() {
   const user = useAppStore((s) => s.user);
   const setUser = useAppStore((s) => s.setUser);
+  const goToCharacterSelect = useAppStore((s) => s.goToCharacterSelect);
   const isGuest = useAppStore((s) => s.isGuest);
   const theme = useAppStore((s) => s.theme);
   const selectedCharacterId = useAppStore((s) => s.selectedCharacterId);
@@ -48,13 +49,19 @@ function App() {
       setUser(session?.user ?? null);
     });
 
-    // 認証状態の変化（ログイン・ログアウト等）をリアルタイムに検知して同期
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 認証状態の変化（ログイン・ログアウト等）をリアルタイムに検知して同期。
+    // 'SIGNED_IN'（実際にサインインした瞬間）の時だけ画面遷移状態をリセットし、
+    // 前回選んでいたキャラクターのコンボ画面や使い方ガイドへ自動で飛んでしまう
+    // 不具合を防ぐ（2026-08-31ユーザー指摘）。'TOKEN_REFRESHED'等、操作中に
+    // バックグラウンドで発火するイベントまでリセット対象にすると、閲覧中に
+    // 突然キャラ選択画面へ戻される規模の大きい不具合になるため、対象は限定する
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') goToCharacterSelect();
       setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
-  }, [hasHydrated, isGuest, setUser]);
+  }, [hasHydrated, isGuest, setUser, goToCharacterSelect]);
 
   if (!hasHydrated) {
     return null;

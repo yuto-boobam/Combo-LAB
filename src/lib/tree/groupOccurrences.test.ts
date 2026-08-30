@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findGroupOccurrences } from './groupOccurrences';
+import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
 import type { MoveNode } from '../../types';
 
 function makeNode(id: string, overrides: Partial<MoveNode> = {}): MoveNode {
@@ -136,6 +137,25 @@ describe('findGroupOccurrences', () => {
     expect(occurrence.root.children[0].id).toBe('c');
     expect(occurrence.root.children[0].children.map((n) => n.id).sort()).toEqual(['d1', 'd2']);
     expect(occurrence.root.children[0].children[0].children).toEqual([]);
+  });
+
+  it('グループの最後のノードは、区間表示用のクローンではなく実データの葉ノードとしてIDで引ける（グループタブでもコンボの情報欄・お気に入り登録が機能するための前提）', () => {
+    // root -> b(g1) -> c(g1、実データ上は葉ノード)
+    const c = makeNode('c', { groupId: 'g1' });
+    const b = makeNode('b', { groupId: 'g1', children: [c] });
+    const root = makeNode('root', { children: [b] });
+    const trees = [{ id: 't1', label: '木1', root }];
+
+    const occurrences = findGroupOccurrences(trees, new Map([['g1', 'コンボA']]));
+    const lastMemberId = occurrences[0].memberIds.at(-1);
+
+    // 区間表示用のroot（occurrence.root）はクローンだが、IDは実ノードと同じ
+    expect(lastMemberId).toBe('c');
+
+    // このIDで実データ（trees）を検索すると、クローンではなく実ノードそのものが見つかる
+    const found = findNodeInComboTrees(trees, lastMemberId ?? null);
+    expect(found?.node).toBe(c);
+    expect(found?.node.children).toEqual([]); // 実データ上も葉ノード＝「コンボの情報」欄の表示対象
   });
 
   it('グループ名の昇順(日本語)にソートして返す', () => {

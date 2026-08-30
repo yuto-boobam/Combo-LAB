@@ -3,7 +3,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '@supabase/supabase-js';
+import { CANCEL_TYPES } from './types';
 import type {
+  CancelType,
   Character,
   ComboBranchStats,
   ComboTree,
@@ -16,6 +18,7 @@ import type {
   MoveStrength,
   NamedComboGroup,
   NodeAttribute,
+  SpecialMoveStrengthMode,
 } from './types';
 import { supabase } from './utils/supabaseClient';
 import {
@@ -30,13 +33,15 @@ import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode, buildParentMap, collectGroupChain } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
 import { collectChain, findMatchingChains } from './utils/chainMatch';
+import { RUSH_HIGHLIGHT_MOVE_NAMES } from './utils/nodeVisualStyle';
+import { markGuestTutorialSeen, clearGuestTutorialSeen } from './utils/guestTutorialSession';
 
 /**
  * 保存済みキャラデータを現行スキーマに合わせて補完する（読み込み時の移行措置）。
  * - SA1〜3の初期枠: この機能の実装前に保存されたキャラには入っていない
  * - namedComboGroups: グループ化機能の実装前に保存されたキャラには存在しない
  */
-function migrateLegacyCharacter(character: Character): Character {
+export function migrateLegacyCharacter(character: Character): Character {
   const hasSuperArtMove = character.moveList.some((move) => move.category === 'superArt');
   // CAは既存キャラのSA1〜3が揃った後に追加された枠なので、SA自体は揃っていても
   // CAだけ欠けているケースを別途補完する
@@ -55,6 +60,14 @@ function migrateLegacyCharacter(character: Character): Character {
     ...character,
     moveList,
     namedComboGroups: Array.isArray(character.namedComboGroups) ? character.namedComboGroups : [],
+    // comboTrees自体は保存時点で既に正しいCharacter型を満たしているはずだが、フィールドの
+    // 型を変更した際（startingMoveOptions: string[]→string[][]等）に、変更前に保存された
+    // localStorageの中身がそのまま古い形で残っていることがある。JSONインポート時と同じ
+    // normalizeComboTree/normalizeMoveNodeを通し、アプリを開くたびに現行スキーマへ
+    // 補正する（2026-08-30: この後方互換漏れがキャラ選択直後の白画面バグの原因だった）
+    comboTrees: character.comboTrees
+      .map((tree) => normalizeComboTree(tree))
+      .filter((tree): tree is ComboTree => tree !== null),
   };
 }
 
@@ -71,6 +84,22 @@ const VALID_MOVE_CATEGORIES: MoveCategory[] = [
 
 const VALID_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
+const VALID_SPECIAL_MOVE_STRENGTH_MODES: SpecialMoveStrengthMode[] = ['none', 'normalOd', 'level'];
+
+/**
+ * 2026-08-30に`startingMoveName: string | null`を`startingMoveNames: string[] | null`へ
+ * 変更した際の移行措置。旧フィールドのまま保存されたデータ(このセッション中に作成された
+ * ものを含む)を読み込んでも、選択済みの始動技が消えて見えないようにする
+ */
+function migrateComboBranchStats(stats: ComboBranchStats): ComboBranchStats {
+  const legacy = stats as ComboBranchStats & { startingMoveName?: string | null };
+  if (Array.isArray(legacy.startingMoveNames)) return stats;
+  return {
+    ...stats,
+    startingMoveNames: legacy.startingMoveName ? [legacy.startingMoveName] : null,
+  };
+}
+
 /** インポートしたJSONの1ノード分を、現行スキーマに合わせて正規化する（壊れたファイルでも落ちないようにする） */
 function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
   return {
@@ -79,7 +108,7 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
     displayName: typeof node.displayName === 'string' ? node.displayName : undefined,
     attributes: Array.isArray(node.attributes) ? (node.attributes as NodeAttribute[]) : [],
     specialNote: typeof node.specialNote === 'string' ? node.specialNote : '',
-    branchStats: node.branchStats ?? null,
+    branchStats: node.branchStats ? migrateComboBranchStats(node.branchStats) : null,
     createdBy: typeof node.createdBy === 'string' ? node.createdBy : '',
     createdAt: typeof node.createdAt === 'string' ? node.createdAt : new Date().toISOString(),
     children: Array.isArray(node.children)
@@ -88,6 +117,28 @@ function normalizeMoveNode(node: Partial<MoveNode>): MoveNode {
     groupId: typeof node.groupId === 'string' && node.groupId ? node.groupId : undefined,
     usesOD: node.usesOD === true ? true : undefined,
     recordsBranchStats: node.recordsBranchStats === true ? true : undefined,
+    hitIndices: (() => {
+      if (!Array.isArray(node.hitIndices)) return undefined;
+      const filtered = node.hitIndices.filter(
+        (n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0,
+      );
+      return filtered.length > 0 ? filtered : undefined;
+    })(),
+    startingMoveOptions: (() => {
+      const raw = node.startingMoveOptions as unknown;
+      if (!Array.isArray(raw)) return undefined;
+      const filtered = raw
+        .map((candidate: unknown): string[] => {
+          // 旧形式(string[]、1候補=1技のみ)からの後方互換: 単一の技名を1要素の並びとして扱う
+          if (typeof candidate === 'string') return [candidate];
+          if (!Array.isArray(candidate)) return [];
+          return candidate.filter(
+            (name): name is string => typeof name === 'string' && name.trim().length > 0,
+          );
+        })
+        .filter((chain) => chain.length > 0);
+      return filtered.length > 0 ? filtered : undefined;
+    })(),
   };
 }
 
@@ -132,7 +183,14 @@ function normalizeMoveDefinition(move: Partial<MoveDefinition>): MoveDefinition 
     specialVariantsByStrength:
       Object.keys(specialVariantsByStrength).length > 0 ? specialVariantsByStrength : undefined,
     finishesComboOnSelect: move.finishesComboOnSelect === true ? true : undefined,
-    hasFlatVariants: move.hasFlatVariants === true ? true : undefined,
+    // 旧hasFlatVariants: trueで保存された下書きも、そのまま'level'として引き継ぐ
+    strengthMode: VALID_SPECIAL_MOVE_STRENGTH_MODES.includes(
+      move.strengthMode as SpecialMoveStrengthMode,
+    )
+      ? (move.strengthMode as SpecialMoveStrengthMode)
+      : (move as { hasFlatVariants?: boolean }).hasFlatVariants === true
+        ? 'level'
+        : undefined,
   };
 }
 
@@ -160,6 +218,7 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     dGaugeGainDuringRush: toNullableNumber(s.dGaugeGainDuringRush),
     groundPlusFrame: typeof s.groundPlusFrame === 'string' ? s.groundPlusFrame : '',
     airPlusFrame: typeof s.airPlusFrame === 'string' ? s.airPlusFrame : '',
+    cancelType: CANCEL_TYPES.includes(s.cancelType as CancelType) ? (s.cancelType as CancelType) : null,
   };
 }
 
@@ -223,6 +282,14 @@ function normalizeImportedCharacter(imported: Partial<Character>, fallback: Char
 const makeId = (): string =>
   Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+/**
+ * 「汎用コンボ」のroot（MoveNode.startingMoveOptions持ち）は、複数の候補技のうちどれかが
+ * 入る空欄という位置づけであり、特定の技名を名乗るのは不自然（2026-08-30ユーザー指摘）。
+ * ラベル(tree.label)の内容に関わらず、rootのmoveNameは常にこのプレースホルダ文字列にする
+ * （「（技名未設定）」と同じ「実技ではない」ことを示す括弧書きの慣例に合わせる）
+ */
+const GENERIC_STARTER_PLACEHOLDER_NAME = '（始動技）';
+
 function makeMoveNode(
   moveName: string,
   attributes: NodeAttribute[],
@@ -240,6 +307,20 @@ function makeMoveNode(
     createdAt: new Date().toISOString(),
     children: [],
   };
+}
+
+/** 「ラッシュ」属性を持てない技カテゴリ（2026-08-30ユーザー指定: 必殺技・SA。CAもsuperArt扱いのため含む） */
+const RUSH_INELIGIBLE_CATEGORIES: MoveCategory[] = ['special', 'superArt'];
+
+/**
+ * このノードの技が必殺技・SA(CA含む)かどうか。これらは「ラッシュ」属性を持てない仕様
+ * （2026-08-30ユーザー指定）のため、addChildNode/setNodeAttributesの両方から使う。
+ * 通常技(normal)・特殊技(unique)等はキャラ共通/キャラ固有どちらでも対象外（false）
+ */
+function isRushIneligibleMove(moveName: string, moveList: MoveDefinition[]): boolean {
+  return moveList.some(
+    (move) => RUSH_INELIGIBLE_CATEGORIES.includes(move.category) && moveName.includes(move.name),
+  );
 }
 
 // ── 木構造操作ヘルパー（MoveNode版。Rootedのstore.tsと同じ考え方） ────────────
@@ -332,6 +413,17 @@ export type AppState = {
   selectCharacter: (characterId: string) => void;
   goToCharacterSelect: () => void;
 
+  // 使い方ガイド（チュートリアル）が最後まで完了したかどうか。ログイン済みアカウントは
+  // このフィールドをそのままlocalStorageへ永続化する（partialize参照）。ゲストは
+  // アカウントを跨いで残ると別ユーザーのログイン時にまで影響してしまうため、この
+  // フィールドは使わずsessionStorage側（guestTutorialSession.ts）で完結させる
+  // （2026-08-31ユーザー指定：「ゲストはタブを閉じるまで保持」）
+  hasSeenTutorialIntro: boolean;
+  markTutorialIntroSeen: () => void;
+  // 「チュートリアルをもう一度行う」ボタン用。既視状態を解除し、チュートリアル
+  // キャラクターのコンボ木を新品の状態に作り直す（実データを直接リセットする）
+  resetTutorial: () => void;
+
   /** バックアップJSONからのインポート。id一致するキャラのみ上書きし、固定31枠の構造は保つ */
   restoreCharacters: (imported: Partial<Character>[]) => void;
 
@@ -389,20 +481,43 @@ export type AppState = {
     finishesComboOnSelect: boolean,
   ) => void;
   /**
-   * 必殺技が「強度に依存しないフラットな選択肢」かどうかを編集する。trueなら
-   * specialVariantOptionsから直接選ばせ、技名にも強度を含めない
+   * 必殺技の強度モードを編集する。undefined = 従来通り弱/中/強/ODの4強度、
+   * 'none' = 強度が存在しない、'normalOd' = 無印/ODの2強度のみ、
+   * 'level' = 強度ではなくspecialVariantOptionsのレベル一覧から直接選ばせる（旧hasFlatVariants）
    */
-  setMoveDefinitionHasFlatVariants: (
+  setMoveDefinitionStrengthMode: (
     characterId: string,
     moveId: string,
-    hasFlatVariants: boolean,
+    strengthMode: SpecialMoveStrengthMode | undefined,
   ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
-  createComboTree: (characterId: string, label: string, displayName?: string) => string;
+  /**
+   * attributesは始動技自体の属性（「〜のパニカン始動」のようなカウンター/パニカン/ラッシュ始動条件を表現するため）。
+   * starterMoveOptionsを渡すと「汎用コンボ」として作る（rootは実技ではなくラベルのプレースホルダになり、
+   * 末端ごとに実際の始動技を選ぶまでダメージ・ゲージ自動計算は行われない。types.tsのMoveNode.startingMoveOptions参照）
+   */
+  createComboTree: (
+    characterId: string,
+    label: string,
+    attributes?: NodeAttribute[],
+    displayName?: string,
+    starterMoveOptions?: string[][],
+  ) => string;
   deleteComboTree: (characterId: string, treeId: string) => void;
   /** 木の並び順を1つ前/後ろに入れ替える（現在は追加順のみのため、手動で並び替えられるようにする） */
   moveComboTree: (characterId: string, treeId: string, direction: 'up' | 'down') => void;
+  /**
+   * 木のラベル（見出し表示）を変更する。rootがstartingMoveOptionsを持つ「汎用コンボ」の場合、
+   * ラベルは実技を持たないrootノード自身の表示名も兼ねているため、root.moveNameも同時に
+   * 差し替える（通常の木のrootは実技の参照名のため、ダメージ計算を壊さないよう変更しない）
+   */
+  renameComboTree: (characterId: string, treeId: string, label: string) => void;
+  /**
+   * 「汎用コンボ」のroot（MoveNode.startingMoveOptions）を後から編集する。
+   * 空配列にすると通常の木（rootが実技）へ戻したことになる
+   */
+  setComboTreeStarterMoveOptions: (characterId: string, treeId: string, starterMoveOptions: string[][]) => void;
 
   // ノード（技）操作
   selectedNodeId: string | null;
@@ -462,6 +577,17 @@ export type AppState = {
   /** 「OD版はレベル+1相当の性能になる」技（イングリッドのビーム等）で、OD版を使ったかどうか */
   setNodeUsesOD: (characterId: string, treeId: string, nodeId: string, usesOD: boolean) => void;
 
+  /**
+   * 複数ヒット技で実際に当たった段番号の一覧（1始まり）を丸ごと差し替える。
+   * 空配列またはnullを渡すと「全段当たった」扱い（未設定と同じ）に戻す
+   */
+  setNodeHitIndices: (
+    characterId: string,
+    treeId: string,
+    nodeId: string,
+    hitIndices: number[] | null,
+  ) => void;
+
   /** 葉ノードでなくても「コンボの情報」欄を表示・記録できるようにするフラグ（あえて途中で止めるケース用） */
   setNodeRecordsBranchStats: (
     characterId: string,
@@ -487,6 +613,14 @@ export type AppState = {
   clipboard: MoveNode[] | null;
   clearClipboard: () => void;
   pasteClipboard: (characterId: string, treeId: string, targetNodeId: string) => void;
+  /**
+   * グループ画面から「グループ全体をコピー」する専用の入り口。通常のコピーモード
+   * （startCopyMode→枝を手動選択→confirmCopy）を経由せず、occurrenceRootNodeId
+   * （その出現箇所の先頭ノード）から同じgroupIdを持つ子孫だけをすべて（分岐も含めて）
+   * 即座にクリップボードへ入れる。2026-08-28ユーザー要望：グループ画面のコピーは
+   * 範囲を選ばせず、常にグループ全体をコピーできるようにする
+   */
+  copyGroupToClipboard: (characterId: string, occurrenceRootNodeId: string) => void;
 
   // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────
   // グループ化モード: 1つ以上の「枝」（あるノードを起点に、そこから続く一本道＝分岐なしの
@@ -517,6 +651,12 @@ export type AppState = {
   confirmGroupSelection: (characterId: string, name: string) => void;
   /** 指定ノードを含む「同じgroupIdが連続する区間」全体のグループ化を解除する */
   ungroupNode: (characterId: string, treeId: string, nodeId: string) => void;
+  /**
+   * 指定ノードと、その同じgroupIdを持つ子孫だけをグループから切り離す（祖先は解除しない）。
+   * addChildNodeが親のgroupIdを新しい子へ自動継承するため、意図しない枝までグループに
+   * 取り込まれてしまった場合に、その枝だけを外すための操作
+   */
+  detachNodeFromGroup: (characterId: string, treeId: string, nodeId: string) => void;
   /** 名前付きグループの名前を変更する（groupIdは変えないため、全出現箇所に一括で反映される） */
   renameComboGroup: (characterId: string, groupId: string, name: string) => void;
 
@@ -545,6 +685,16 @@ export type AppState = {
   confirmMatchSearch: (characterId: string, includeAttributes: boolean) => void;
   /** 一致箇所の一覧を破棄して機能全体を終了する */
   clearMatchResults: () => void;
+  /**
+   * 名前付きグループの内容を編集して他の出現箇所へ一括反映するための入り口。グループ画面
+   * (treeViewMode==='group')のヘッダーから呼ぶ想定。occurrenceRootNodeId（そのグループの
+   * 出現箇所の先頭ノード）から、groupIdが連続する一本道をできる限り辿ってパターンとし、
+   * confirmMatchSearchと同じ要領で他の出現箇所を検索した上で、そのノード自体を
+   * startEditingMatchした状態（編集前スナップショット付き）まで一気に進める。
+   * これにより「グループ画面→この技を編集して一括反映→自由に技を付け足す→他の一致箇所に反映」
+   * という一連の流れを1クリックで開始できる（2026-08-28ユーザー要望）
+   */
+  startGroupSync: (characterId: string, occurrenceRootNodeId: string) => void;
 
   /** 一致箇所の一覧から選んで編集を始めた瞬間のディープコピー（変更前プレビュー・差分計算用） */
   matchEditBeforeSnapshot: MoveNode | null;
@@ -588,14 +738,32 @@ export const useAppStore = create<AppState>()(
       isGuest: false,
 
       enterGuestMode: () => {
-        set({ isGuest: true, user: null, nickname: 'ゲスト' });
+        // ログイン/ログアウトを繰り返しても前回選んでいたキャラクターの画面へ
+        // 直行してしまわないよう、画面遷移状態も必ずリセットする
+        // （2026-08-31ユーザー指摘：ログイン時にキャラ選択画面へ必ず戻ってほしい）
+        set({
+          isGuest: true,
+          user: null,
+          nickname: 'ゲスト',
+          selectedCharacterId: null,
+          selectedNodeId: null,
+          moveStatsCharacterId: null,
+        });
       },
 
       logout: async () => {
         if (get().isGuest) {
-          set({ isGuest: false, user: null, nickname: '' });
+          set({
+            isGuest: false,
+            user: null,
+            nickname: '',
+            selectedCharacterId: null,
+            selectedNodeId: null,
+            moveStatsCharacterId: null,
+          });
           return;
         }
+        set({ selectedCharacterId: null, selectedNodeId: null, moveStatsCharacterId: null });
         await supabase.auth.signOut();
       },
 
@@ -655,7 +823,29 @@ export const useAppStore = create<AppState>()(
       },
 
       goToCharacterSelect: () => {
-        set({ selectedCharacterId: null, selectedNodeId: null });
+        set({ selectedCharacterId: null, selectedNodeId: null, moveStatsCharacterId: null });
+      },
+
+      hasSeenTutorialIntro: false,
+
+      markTutorialIntroSeen: () => {
+        if (get().isGuest) {
+          markGuestTutorialSeen();
+          return;
+        }
+        set({ hasSeenTutorialIntro: true });
+      },
+
+      resetTutorial: () => {
+        if (get().isGuest) {
+          clearGuestTutorialSeen();
+        }
+        set((state) => ({
+          hasSeenTutorialIntro: state.isGuest ? state.hasSeenTutorialIntro : false,
+          characters: state.characters.map((character) =>
+            character.id === TUTORIAL_CHARACTER_ID ? createTutorialCharacter() : character,
+          ),
+        }));
       },
 
       restoreCharacters: (imported) => {
@@ -802,14 +992,14 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
-      setMoveDefinitionHasFlatVariants: (characterId, moveId, hasFlatVariants) => {
+      setMoveDefinitionStrengthMode: (characterId, moveId, strengthMode) => {
         set((state) => ({
           characters: state.characters.map((character) =>
             character.id === characterId
               ? {
                   ...character,
                   moveList: character.moveList.map((move) =>
-                    move.id === moveId ? { ...move, hasFlatVariants } : move,
+                    move.id === moveId ? { ...move, strengthMode } : move,
                   ),
                   updatedAt: new Date().toISOString(),
                 }
@@ -867,14 +1057,21 @@ export const useAppStore = create<AppState>()(
 
       // ──── コンボ木 ───────────────────────────────────────────────────
 
-      createComboTree: (characterId, label, displayName) => {
+      createComboTree: (characterId, label, attributes = [], displayName, starterMoveOptions) => {
         const { nickname } = get();
         const trimmedLabel = label.trim() || '無題の木';
+        const root = makeMoveNode(trimmedLabel, attributes, nickname, displayName);
+        const validStarterMoveOptions = (starterMoveOptions ?? [])
+          .map((chain) => chain.map((name) => name.trim()).filter((name) => name.length > 0))
+          .filter((chain) => chain.length > 0);
 
         const newTree: ComboTree = {
           id: makeId(),
           label: trimmedLabel,
-          root: makeMoveNode(trimmedLabel, [], nickname, displayName),
+          root:
+            validStarterMoveOptions.length > 0
+              ? { ...root, moveName: GENERIC_STARTER_PLACEHOLDER_NAME, startingMoveOptions: validStarterMoveOptions }
+              : root,
         };
 
         set((state) => ({
@@ -934,6 +1131,69 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      renameComboTree: (characterId, treeId, label) => {
+        const trimmedLabel = label.trim() || '無題の木';
+
+        set((state) => ({
+          characters: state.characters.map((character) => {
+            if (character.id !== characterId) return character;
+
+            return {
+              ...character,
+              updatedAt: new Date().toISOString(),
+              comboTrees: character.comboTrees.map((tree) => {
+                if (tree.id !== treeId) return tree;
+
+                // 汎用コンボのrootは「複数の候補技のどれかが入る空欄」という位置づけのため、
+                // ラベル(見出し)の内容に関わらず、rootの表示名は常にプレースホルダ文字列に
+                // 固定する（特定の技名を名乗るのは不自然、というユーザー指摘。既存の
+                // 汎用コンボ木がこのプレースホルダに未移行でも、ラベルを変更すればここで
+                // 自動的に補正される）。通常の木のrootは実技の参照名（ダメージ計算に使う）
+                // なので、ここでは変更しない
+                const isGenericRoot = (tree.root.startingMoveOptions?.length ?? 0) > 0;
+
+                return {
+                  ...tree,
+                  label: trimmedLabel,
+                  root: isGenericRoot
+                    ? { ...tree.root, moveName: GENERIC_STARTER_PLACEHOLDER_NAME }
+                    : tree.root,
+                };
+              }),
+            };
+          }),
+        }));
+      },
+
+      setComboTreeStarterMoveOptions: (characterId, treeId, starterMoveOptions) => {
+        const validOptions = starterMoveOptions
+          .map((chain) => chain.map((name) => name.trim()).filter((name) => name.length > 0))
+          .filter((chain) => chain.length > 0);
+
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const tree = character?.comboTrees.find((item) => item.id === treeId);
+          const wasGeneric = (tree?.root.startingMoveOptions?.length ?? 0) > 0;
+          const isGeneric = validOptions.length > 0;
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) => ({
+              ...root,
+              startingMoveOptions: isGeneric ? validOptions : undefined,
+              // 通常⇄汎用の切り替わりでrootの表示名を追従させる。汎用になった直後は
+              // プレースホルダ名「（始動技）」、通常へ戻る時は今のラベルを実技名代わりに
+              // 差し替える（通常の木の新規作成時にラベルをそのまま技名にするのと同じ考え方）
+              moveName:
+                isGeneric && !wasGeneric
+                  ? GENERIC_STARTER_PLACEHOLDER_NAME
+                  : !isGeneric && wasGeneric && tree
+                    ? tree.label
+                    : root.moveName,
+            })),
+          };
+        });
+      },
+
       // ──── ノード（技）操作 ────────────────────────────────────────────
 
       selectedNodeId: null,
@@ -956,14 +1216,38 @@ export const useAppStore = create<AppState>()(
         const { nickname } = get();
         const newNode = makeMoveNode(moveName, attributes, nickname, displayName);
 
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, parentId, (node) => ({
-              ...node,
-              children: [...node.children, newNode],
-            })),
-          ),
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const isRushIneligible = isRushIneligibleMove(moveName, character?.moveList ?? []);
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+              mapMoveNode(root, parentId, (node) => {
+                // 親が「キャンセルラッシュ」「生ラッシュ」なら、続く技にもラッシュの枠線・接続線色を
+                // 自動的に付与する。必殺技・SA(CA含む)はラッシュ属性を持てない仕様のため対象外にする
+                // （2026-08-30ユーザー要望）
+                const inheritsRush =
+                  RUSH_HIGHLIGHT_MOVE_NAMES.includes(node.moveName) &&
+                  !isRushIneligible &&
+                  !newNode.attributes.some((attribute) => attribute.type === 'rush');
+
+                const childNode: MoveNode = {
+                  ...newNode,
+                  // 親が名前付きグループに属していれば、新しい子もそのグループの続きとして
+                  // 自動的に同じgroupIdを引き継ぐ（グループ区間は「同じgroupIdの連続」で
+                  // 定義されるため、末尾に技を付け足す操作は自然にグループを延長する。
+                  // 2026-08-28ユーザー要望：グループ画面で自由に技を付け足せるようにするため）
+                  groupId: node.groupId,
+                  attributes: inheritsRush
+                    ? [...newNode.attributes, { type: 'rush' }]
+                    : newNode.attributes,
+                };
+
+                return { ...node, children: [...node.children, childNode] };
+              }),
+            ),
+          };
+        });
 
         return newNode.id;
       },
@@ -1045,11 +1329,24 @@ export const useAppStore = create<AppState>()(
       },
 
       setNodeAttributes: (characterId, treeId, nodeId, attributes) => {
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, nodeId, (node) => ({ ...node, attributes })),
-          ),
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const tree = character?.comboTrees.find((item) => item.id === treeId);
+          const node = tree ? findNode(tree.root, nodeId) : null;
+          // 必殺技・SA(CA含む)はラッシュ属性を持てない仕様のため、手動での属性編集でも一律で弾く
+          // （addChildNodeの自動継承と合わせて、この制約が常に成り立つようにする。
+          // 2026-08-30ユーザー要望）
+          const nextAttributes =
+            node && isRushIneligibleMove(node.moveName, character?.moveList ?? [])
+              ? attributes.filter((attribute) => attribute.type !== 'rush')
+              : attributes;
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+              mapMoveNode(root, nodeId, (n) => ({ ...n, attributes: nextAttributes })),
+            ),
+          };
+        });
       },
 
       setNodeBranchStats: (characterId, treeId, nodeId, branchStats) => {
@@ -1064,6 +1361,17 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
             mapMoveNode(root, nodeId, (node) => ({ ...node, usesOD: usesOD ? true : undefined })),
+          ),
+        }));
+      },
+
+      setNodeHitIndices: (characterId, treeId, nodeId, hitIndices) => {
+        set((state) => ({
+          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+            mapMoveNode(root, nodeId, (node) => ({
+              ...node,
+              hitIndices: hitIndices && hitIndices.length > 0 ? hitIndices : undefined,
+            })),
           ),
         }));
       },
@@ -1172,6 +1480,29 @@ export const useAppStore = create<AppState>()(
         set({ clipboard: null });
       },
 
+      copyGroupToClipboard: (characterId, occurrenceRootNodeId) => {
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          if (!character) return state;
+
+          const found = findNodeInComboTrees(character.comboTrees, occurrenceRootNodeId);
+          if (!found) return state;
+
+          const groupId = found.node.groupId;
+          if (!groupId) return state;
+
+          // occurrenceRootNodeId以下、同じgroupIdを持つ子孫だけを（分岐も含めて）残す。
+          // idはそのまま（元ノード参照）にしておき、実際の新規ID発行は他のコピーと同じく
+          // pasteClipboard側のcloneWithFreshIdsに任せる
+          const collectGroupSubtree = (node: MoveNode): MoveNode => ({
+            ...node,
+            children: node.children.filter((child) => child.groupId === groupId).map(collectGroupSubtree),
+          });
+
+          return { clipboard: [collectGroupSubtree(found.node)] };
+        });
+      },
+
       pasteClipboard: (characterId, treeId, targetNodeId) => {
         const { clipboard, nickname } = get();
         if (!clipboard || clipboard.length === 0) return;
@@ -1186,14 +1517,32 @@ export const useAppStore = create<AppState>()(
 
         const pastedNodes = clipboard.map(cloneWithFreshIds);
 
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, targetNodeId, (node) => ({
-              ...node,
-              children: [...node.children, ...pastedNodes],
-            })),
-          ),
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+              mapMoveNode(root, targetNodeId, (node) => {
+                // 貼り付け先が「キャンセルラッシュ」「生ラッシュ」なら、貼り付けた各断片の
+                // 先頭ノードにもラッシュの枠線・接続線色を自動的に付与する（addChildNodeと
+                // 同じ考え方。断片内部の孫以下のノードは元のコピー内容のまま変更しない。
+                // 2026-08-30ユーザー要望）
+                const inheritsRush = RUSH_HIGHLIGHT_MOVE_NAMES.includes(node.moveName);
+
+                const childNodes = inheritsRush
+                  ? pastedNodes.map((pastedNode) =>
+                      isRushIneligibleMove(pastedNode.moveName, character?.moveList ?? []) ||
+                      pastedNode.attributes.some((attribute) => attribute.type === 'rush')
+                        ? pastedNode
+                        : { ...pastedNode, attributes: [...pastedNode.attributes, { type: 'rush' as const }] },
+                    )
+                  : pastedNodes;
+
+                return { ...node, children: [...node.children, ...childNodes] };
+              }),
+            ),
+          };
+        });
       },
 
       // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────
@@ -1347,6 +1696,38 @@ export const useAppStore = create<AppState>()(
         });
       },
 
+      detachNodeFromGroup: (characterId, treeId, nodeId) => {
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const tree = character?.comboTrees.find((item) => item.id === treeId);
+          const node = tree ? findNode(tree.root, nodeId) : null;
+          const groupId = node?.groupId;
+          if (!tree || !node || !groupId) return state;
+
+          // このノード自身と、同じgroupIdが連続する子孫だけを対象にする（祖先は辿らない）。
+          // これにより「祖先はグループのまま、この枝だけを境界外に出す」が実現できる
+          const memberIds = new Set<string>([nodeId]);
+
+          const collectDescendants = (current: MoveNode) => {
+            current.children.forEach((child) => {
+              if (child.groupId !== groupId) return;
+              memberIds.add(child.id);
+              collectDescendants(child);
+            });
+          };
+          collectDescendants(node);
+
+          const nextRoot = Array.from(memberIds).reduce(
+            (root, id) => mapMoveNode(root, id, (n) => ({ ...n, groupId: undefined })),
+            tree.root,
+          );
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, () => nextRoot),
+          };
+        });
+      },
+
       renameComboGroup: (characterId, groupId, name) => {
         set((state) => {
           const trimmedName = name.trim();
@@ -1479,6 +1860,41 @@ export const useAppStore = create<AppState>()(
           replaceModeAnchorId: null,
           replaceSelectedIds: [],
           replacementChainIds: null,
+        });
+      },
+
+      startGroupSync: (characterId, occurrenceRootNodeId) => {
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          if (!character) return state;
+
+          const found = findNodeInComboTrees(character.comboTrees, occurrenceRootNodeId);
+          if (!found) return state;
+
+          const groupId = found.node.groupId;
+          if (!groupId) return state;
+
+          // occurrenceRootNodeIdから、groupIdが連続する一本道（分岐や他グループへの
+          // 切り替わりで止まる）をできる限り辿ってパターンにする
+          const patternChain: MoveNode[] = [found.node];
+          let cursor = found.node;
+          while (cursor.children.length === 1 && cursor.children[0].groupId === groupId) {
+            cursor = cursor.children[0];
+            patternChain.push(cursor);
+          }
+
+          const matches = findMatchingChains(character.comboTrees, patternChain, {
+            includeAttributes: false,
+          });
+
+          return {
+            selectedNodeId: occurrenceRootNodeId,
+            matchModeAnchorId: null,
+            matchSelectedIds: [],
+            matchedAnchorIds: matches,
+            matchChainLength: patternChain.length,
+            matchEditBeforeSnapshot: structuredClone(found.node),
+          };
         });
       },
 
@@ -1692,10 +2108,13 @@ export const useAppStore = create<AppState>()(
         // チュートリアル用キャラクターは編集内容を保存しない（アプリを開くたびに
         // 必ず新品の状態に戻したいため）。永続化対象からは常に除外する
         characters: state.characters.filter((character) => character.id !== TUTORIAL_CHARACTER_ID),
-        selectedCharacterId: state.selectedCharacterId,
         collapsedNodeIds: state.collapsedNodeIds,
         expandedGroupIds: state.expandedGroupIds,
         moveStatsDatabase: state.moveStatsDatabase,
+        // ゲストの場合は常にfalseのまま（markTutorialIntroSeenがゲスト時はここを
+        // 更新せずsessionStorage側だけを更新するため）なので、そのまま含めても
+        // 別アカウントのログイン時に誤って「見た扱い」が漏れ出す心配はない
+        hasSeenTutorialIntro: state.hasSeenTutorialIntro,
       }),
 
       merge: (persistedState, currentState) => {
@@ -1735,6 +2154,10 @@ export const useAppStore = create<AppState>()(
           isPatchNotesModalOpen: false,
           selectedPatchNoteDate: null,
           selectedNodeId: null,
+          // 開き直すたびに前回開いていたコンボ画面へ直行せず、必ずキャラ一覧画面から
+          // 始まるようにする（自動ログイン時も同様。以前のpartializeに残っていた
+          // 古い永続化データを持つユーザーのぶんも、ここで明示的にnullへ戻す）
+          selectedCharacterId: null,
         };
       },
     },

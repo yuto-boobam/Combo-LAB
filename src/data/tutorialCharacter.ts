@@ -78,7 +78,7 @@ export function createTutorialCharacter(): Character {
   // 2本の木にまたがって同じ連携があるケースを想定し、グループタブでも横断確認できる
   const groupId = 'tut-group-1';
   const treeGroupA = makeNode('始動A', {}, [
-    makeNode('共通1', { groupId, specialNote: 'ここから2ノード分がグループ' }, [
+    makeNode('共通1', { groupId, specialNote: '次のノードまでグループ' }, [
       makeNode('共通2', { groupId }, [makeNode('Aの続き')]),
     ]),
   ]);
@@ -86,16 +86,13 @@ export function createTutorialCharacter(): Character {
     makeNode('共通1', { groupId }, [makeNode('共通2', { groupId }, [makeNode('Bの続き')])]),
   ]);
 
-  // ④一致検索: ある枝を選ぶと、木をまたいで同じ並びの枝を自動で見つけて一括修正できる。
-  // あえてグループ化はせず（独立した2つの配置に見える）、検索で初めて共通点が分かる
-  // 見せ方にする
-  const treeMatchA = makeNode('配置A', {}, [
-    makeNode('共通の技イ', { specialNote: 'ここから「一致箇所を探す」を試せます' }, [
-      makeNode('共通の技ロ', {}, [makeNode('Aだけの続き')]),
-    ]),
-  ]);
-  const treeMatchB = makeNode('配置B', {}, [
-    makeNode('共通の技イ', {}, [makeNode('共通の技ロ', {}, [makeNode('Bだけの続き')])]),
+  // ④木の作り方: サイドドロワーの各パネル（🌱新たな木を生成／✏️選択中のノードについて／
+  // ➕〜に繋げる技を選ぶ）と同じアイコン・文言をノード名に使い、「新しい木を作る→
+  // ノードの情報を見る／次の技を選んで繋げる」という操作の繋がりをそのまま木の形で見せる
+  // （2026-08-31ユーザー要望）
+  const treeHowToBuild = makeNode('🌱 新たな木を生成', { specialNote: '始動技を選んで新しい木を作ります' }, [
+    makeNode('✏️ 選択中のノードについて', { specialNote: '属性やダメージなど、このノードの情報を編集します' }),
+    makeNode('➕ 繋げる技を選ぶ', { specialNote: '選んだノードの次に技を追加します' }),
   ]);
 
   return {
@@ -108,10 +105,12 @@ export function createTutorialCharacter(): Character {
       { id: nextId('tree'), label: '②ダメージは自動計算', root: treeDamage },
       { id: nextId('tree'), label: '③グループ化(始動A)', root: treeGroupA },
       { id: nextId('tree'), label: '③グループ化(始動B)', root: treeGroupB },
-      { id: nextId('tree'), label: '④一致検索(配置A)', root: treeMatchA },
-      { id: nextId('tree'), label: '④一致検索(配置B)', root: treeMatchB },
+      { id: nextId('tree'), label: '④木の作り方', root: treeHowToBuild },
     ],
-    namedComboGroups: [{ id: groupId, name: '共通の締め方' }],
+    // グループ名は折りたたみピル(GroupPillNode)にそのまま表示される。「共通の締め方」のような
+    // 抽象的な名前は初見の人に伝わりにくいため、中身（共通1→共通2）が一目で分かる名前にする
+    // （｜は改行トリガー。2026-08-27ユーザー指定）
+    namedComboGroups: [{ id: groupId, name: 'グループ｜共通1->共通2' }],
     createdBy: '',
     createdAt: now,
     updatedAt: now,

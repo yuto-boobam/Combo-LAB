@@ -22,6 +22,9 @@ export type MoveCategory = 'normal' | 'air' | 'unique' | 'special' | 'superArt' 
 /** 必殺技の強度4種 */
 export type MoveStrength = '弱' | '中' | '強' | 'OD';
 
+/** 必殺技の強度モード（MoveDefinition.strengthMode参照）。未設定なら弱/中/強/ODの4強度 */
+export type SpecialMoveStrengthMode = 'none' | 'normalOd' | 'level';
+
 /** キャラごとの技候補（サイドドロワーの「技」選択欄に並ぶ）。unique/special/superArtのみで使用 */
 export type MoveDefinition = {
   id: string;
@@ -57,14 +60,19 @@ export type MoveDefinition = {
    */
   finishesComboOnSelect?: boolean;
   /**
-   * 必殺技(special)のみで使う。trueなら、この技は強度（弱/中/強/OD）による選択肢の違いが
-   * 実質無く、`specialVariantOptions`のフラットな一覧から直接選ばせる（SA(superArt)と同じ
-   * 選び方）。技名も`${技名}(${特殊性能})`のように強度を含めずに確定する（例:
-   * 「サンフレア(ビーム|Lv. 1)」。イングリッドのビーム系(チャージ→Lv.0〜3)のように、
-   * 強度ボタンとLv.が実質無関係で「強度選択」という手順自体が不要な技向け。
-   * falseまたは未設定なら従来通り`specialVariantsByStrength`を使う強度ベースの選択のまま
+   * 必殺技(special)のみで使う。未設定なら従来通り弱/中/強/ODの4強度から選ばせる
+   * （`specialVariantsByStrength`を使う強度ベースの選択のまま）。
+   * - 'none': 強度そのものが存在しない技（例: 電刃錬気のような単発の構え技）。
+   *   技名は強度を挟まず`${技名}`のまま即確定する
+   * - 'normalOd': 強度が「無印」と「OD」の2つしかない技。`${技名}`と`OD${技名}`の
+   *   2択だけを出す（弱/中/強の3段階は無い）
+   * - 'level': 強度ではなく`specialVariantOptions`のフラットな一覧から直接選ばせる
+   *   （SA(superArt)と同じ選び方）。技名も`${技名}(${特殊性能})`のように強度を含めずに
+   *   確定する（例:「サンフレア(ビーム|Lv. 1)」。イングリッドのビーム系
+   *   (チャージ→Lv.0〜3)のように、強度ボタンとLv.が実質無関係で「強度選択」という
+   *   手順自体が不要な技向け。旧`hasFlatVariants: true`に相当）
    */
-  hasFlatVariants?: boolean;
+  strengthMode?: SpecialMoveStrengthMode;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
@@ -122,6 +130,12 @@ export type ComboBranchStats = {
   damageRating: Rating5 | null;
   dGaugeRating: Rating5 | null;
   saGaugeRating: Rating5 | null;
+  /** 相手を画面端まで運べるか・運びやすさの評価（コーナーキャリー） */
+  carryRating: Rating5 | null;
+  /** この枝(コンボ)の後に続く起き攻めの内容の評価（2026-08-30ユーザー要望で追加） */
+  okizemeRating: Rating5 | null;
+  /** この枝(コンボ)の難易度の評価（2026-08-30ユーザー要望で追加） */
+  difficultyRating: Rating5 | null;
   overallRating: Rating5 | null;
 
   plusFrame: number | null; // 具体的なフレーム数（例: +3）
@@ -131,6 +145,14 @@ export type ComboBranchStats = {
   plusFrameHitType: 'ground' | 'air' | null;
   isThrowRange: boolean;
   canOkizeme: boolean;
+
+  /**
+   * この枝（コンボ、またはグループ化された連携の締め）をお気に入り登録したか。
+   * branchStats自体が「葉ノード、またはガード/空振り属性を持つノード」＝コンボや
+   * グループの中で一番後ろに来るノードにしか表示されないため、この項目も自然と
+   * そこにしか出てこない（ユーザー要望）
+   */
+  isFavorite: boolean;
 
   /**
    * この枝が前提とする始動条件のチェック項目。同じコンボでもカウンター始動だと
@@ -153,15 +175,6 @@ export type ComboBranchStats = {
   finishingSpecialVariant: string | null;
 
   /**
-   * Dゲージ自動計算で、経路上の最初のゲージ消費技（キャンセルラッシュ/生ラッシュ、または
-   * usesODが付いたノード）より前に得た回復を合計に含めるかどうか。Dゲージが元々MAXの
-   * 状態から始めた場合、最初に何かを消費するまでの回復分は溢れて実際には得られないため、
-   * falseにするとその回復分を除いて計算する（消費技自身とそれ以降は通常通り合計する）。
-   * 未設定（true相当）なら従来通り経路全体をそのまま合計する
-   */
-  includesEarlyDGaugeRecovery: boolean;
-
-  /**
    * この末端ノードの直後にSA(superArt)へ繋いで締める場合、その技名（例:「SA3」）。
    * null = SAに繋がない（このノード自身で終わる）。末端ノード自身はSAではないが、
    * 実際にはSAの直前の技でコンボを終えることも多いため、木にSAのノードを追加しなくても
@@ -171,6 +184,15 @@ export type ComboBranchStats = {
    * 終わる場合はfinishesComboOnSelect/finishingSpecialVariantの仕組みを使う
    */
   finishingSuperArtName: string | null;
+
+  /**
+   * root（始動技）がstartingMoveOptionsを持つ「汎用コンボ」の場合に、この枝で実際に
+   * 使った始動技（候補一覧の中の1つ＝1つ以上のmoveNameの並び。ジャンプ攻撃始動のように
+   * 2技以上を経由する候補もあるため配列）。null＝未選択（この枝のダメージ・ゲージ
+   * 自動計算は行われない。src/utils/comboGaugeCalc.tsのresolvePath参照）。
+   * 通常の木（rootが実技）では常にnullのままでよい
+   */
+  startingMoveNames: string[] | null;
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────
@@ -219,9 +241,53 @@ export type MoveNode = {
    * 未設定(false相当)なら従来通り葉ノード/ガード/空振りの時だけ表示する
    */
   recordsBranchStats?: boolean;
+
+  /**
+   * このノードの技が複数ヒット技（技データのMoveStats.isMultiHit）の場合に、実際に
+   * 何段目が当たったか（1始まりの段番号の一覧）。例: 2段技のうち2段目しか
+   * 当たらなかった場合は[2]、4段技のうち2〜3段目だけ当たった場合は[2, 3]を指定する。
+   * 未設定または空配列なら全段当たったものとして扱う（従来通り）。ダメージ・Dゲージ・
+   * SAゲージの自動計算（src/utils/comboGaugeCalc.ts）はこの段だけを合計に使う
+   * （2026-08-28ユーザー指定：1〜最終段を並べて当たった段だけクリックする、
+   * というシンプルな選び方にする）
+   */
+  hitIndices?: number[] | null;
+
+  /**
+   * 木のroot（始動技）ノードのみで意味を持つ。「汎用コンボ」＝複数の始動技から同じ続きに
+   * つながるコンボをまとめて1本の木で表現するための機能。設定されている場合、このrootは
+   * 実技ではなく「中攻撃」のようなラベルのプレースホルダとして扱われ、末端ごとの
+   * `branchStats.startingMoveNames`で実際に使った始動技を選ぶまでダメージ・ゲージの
+   * 自動計算は行わない（未入力のまま。src/utils/comboGaugeCalc.tsのresolvePath参照）。
+   * ここに入るのは候補一覧（UIの選択肢）で、それ自体は計算に使わない。
+   *
+   * 各候補は「1つ以上のmoveNameから成る連続入力」（例:[['中P'], ['2中P'], ['J強K','強P']]）。
+   * ジャンプ攻撃始動のように、汎用コンボの続きに入る前に必ず経由する技が2つ以上ある場合
+   * （「J強K→強P→(汎用の続き)」）を表現するため、単一技だけでなく複数技の並びも
+   * 1つの候補として登録できる（2026-08-30ユーザー指摘）。
+   * 未設定・空配列なら従来通りrootを実技として扱う（後方互換）
+   */
+  startingMoveOptions?: string[][];
 };
 
 // ── 技ごとの基礎数値 ──────────────────────────────────────────────────────
+
+/**
+ * 技（の1段）がどこまでキャンセルできるかの分類。MoveStatsPage.tsxで段ごとに
+ * ボタンで選ぶ（2026-08-25ユーザー指定の6種）。
+ * - 全般: 必殺技・ラッシュ・SAなど何でもキャンセルできる
+ * - SAすべて: SAならどれでもキャンセルできる
+ * - SA2以上: SA2・SA3（・CA）へキャンセルできる
+ * - SA3のみ: SA3（・CA）へのみキャンセルできる
+ * - 一部の必殺: 一部の必殺技へのみキャンセルできる（SAは不可）
+ * - 不可: キャンセルできない
+ */
+export type CancelType = '全般' | 'SAすべて' | 'SA2以上' | 'SA3のみ' | '一部の必殺' | '不可';
+
+export const CANCEL_TYPES: CancelType[] = ['全般', 'SAすべて', 'SA2以上', 'SA3のみ', '一部の必殺', '不可'];
+
+/** 1つでもこの段がこのキャンセル種類なら、技全体がSA3(・CA)へキャンセル可能とみなす */
+export const SA3_CANCELABLE_TYPES: CancelType[] = ['全般', 'SAすべて', 'SA2以上', 'SA3のみ'];
 
 /** 技1ヒットぶんの基礎数値 */
 export type MoveHitStats = {
@@ -244,6 +310,20 @@ export type MoveHitStats = {
   groundPlusFrame: string;
   // 有利フレーム（空中ヒット時）の自由記述。地上ヒットとは別に登録できるよう分けている
   airPlusFrame: string;
+
+  /**
+   * この段（複数ヒット技なら段ごと、単発技ならhits[0]）の時点でどんなキャンセルができるか。
+   * 2段技で両方の段からキャンセルできる、といったケースがあるため、hits配列の各段が
+   * 独立に持てるようにしている（MoveStatsPage.tsxで段ごとに編集する）。
+   * null = 未設定（不可と同じ扱い）。
+   *
+   * 「全般」「SAすべて」「SA2以上」「SA3のみ」のいずれかが選ばれている段が1つでもあれば、
+   * この技はSA3(・CA)へキャンセル可能とみなし、MoveStats.cancelableSuperArtNamesへ
+   * 自動的に反映する（末端ノードの「SAで締める」機能はSA3のみを対象とする運用のため、
+   * 個別にSA名を選ばせるUIは廃止し、この段階的なキャンセル種類から自動導出する。
+   * 2026-08-26ユーザー指定）
+   */
+  cancelType: CancelType | null;
 };
 
 /**

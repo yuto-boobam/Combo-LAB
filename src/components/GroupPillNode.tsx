@@ -8,6 +8,7 @@
 // 位置移動（自分をドラッグして並び替える）自体はグループ区間ごと正しく動くため許可する。
 
 import { GROUP_PILL_WIDTH, NODE_DEFAULT_HEIGHT } from '../utils/nodeSizing';
+import { applyManualLineBreaks } from '../utils/textDisplay';
 
 type Props = {
   id: string;
@@ -19,6 +20,9 @@ type Props = {
   readOnly?: boolean;
   // コピー/グループ化モード中（自分は候補になり得ない）は展開操作を無効化し、薄く表示する
   isDisabledByOtherMode?: boolean;
+  // 誘導ガイド（チュートリアル用）: trueの間、光るリングで囲んでクリックを促す
+  // （MoveNodeCircleのisGuideTargetと同じ考え方。2026-08-30ユーザー要望）
+  isGuideTarget?: boolean;
 };
 
 export function GroupPillNode({
@@ -30,6 +34,7 @@ export function GroupPillNode({
   dragIndex,
   readOnly = false,
   isDisabledByOtherMode = false,
+  isGuideTarget = false,
 }: Props) {
   return (
     <div
@@ -55,6 +60,7 @@ export function GroupPillNode({
         opacity: isDisabledByOtherMode ? 0.35 : 1,
         cursor: isDisabledByOtherMode ? 'default' : 'pointer',
         transition: 'border-color 0.15s, opacity 0.15s',
+        ...(isGuideTarget ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
       }}
     >
       <span
@@ -83,10 +89,16 @@ export function GroupPillNode({
 
       <span
         style={{
-          fontSize: 9,
+          // 通常ノードの技名(10px)より読みにくいという指摘があったため、それより
+          // 大きい11pxへ引き上げた（ピル自体の幅(GROUP_PILL_WIDTH=116px)は元々
+          // 通常ノードより広く確保済みのため、この拡大で見切れやすくなることはない。
+          // 2026-08-28ユーザー指摘：グループ名が小さく、画数の多い漢字がつぶれて見える）
+          fontSize: 11,
           fontWeight: 800,
           color: 'var(--accent)',
-          lineHeight: 1.25,
+          lineHeight: 1.3,
+          // グループ名中の「｜」で明示的に改行できるようにする（MoveNodeCircle.tsxと同じ規約）
+          whiteSpace: 'pre-line',
           wordBreak: 'break-word',
           overflow: 'hidden',
           display: '-webkit-box',
@@ -95,7 +107,7 @@ export function GroupPillNode({
         }}
         title={groupName}
       >
-        {groupName}
+        {applyManualLineBreaks(groupName)}
       </span>
     </div>
   );

@@ -132,4 +132,40 @@ describe('findMatchingChains', () => {
     const matches = findMatchingChains([makeTree('t', root)], [patternA], { includeAttributes: true });
     expect(matches).toEqual(['aSameAttr']);
   });
+
+  it('内容が食い違っていても、同じ名前付きグループの一本道は一致とみなす', () => {
+    // パターン側（コピー元）: グループgの2ノード
+    const patternB = makeNode('pb', { moveName: 'b', groupId: 'g' });
+    const patternA = makeNode('pa', { moveName: 'a', groupId: 'g', children: [patternB] });
+
+    // 別の出現箇所（コピー先）: 同じグループgだが、技名が編集されて食い違っている
+    const bCopyEdited = makeNode('bCopy', { moveName: '編集後の技', groupId: 'g' });
+    const aCopy = makeNode('aCopy', { moveName: 'a', groupId: 'g', children: [bCopyEdited] });
+    const root = makeNode('root', { children: [aCopy] });
+
+    const matches = findMatchingChains([makeTree('t', root)], [patternA, patternB]);
+    expect(matches).toEqual(['aCopy']);
+  });
+
+  it('グループIDが違えば、内容が同じでも一致しない（groupIdが無い側の通常の内容一致とは独立）', () => {
+    const patternB = makeNode('pb', { moveName: 'b', groupId: 'g1' });
+    const patternA = makeNode('pa', { moveName: 'a', groupId: 'g1', children: [patternB] });
+
+    const bOtherGroup = makeNode('bOther', { moveName: '編集後', groupId: 'g2' });
+    const aOtherGroup = makeNode('aOther', { moveName: 'a', groupId: 'g2', children: [bOtherGroup] });
+    const root = makeNode('root', { children: [aOtherGroup] });
+
+    const matches = findMatchingChains([makeTree('t', root)], [patternA, patternB]);
+    expect(matches).toEqual([]);
+  });
+
+  it('パターン側にグループが無ければ、従来通り内容一致だけで判定する', () => {
+    const patternA = makeNode('pa', { moveName: 'a' });
+
+    const aGrouped = makeNode('aGrouped', { moveName: '違う技', groupId: 'g' });
+    const root = makeNode('root', { children: [aGrouped] });
+
+    const matches = findMatchingChains([makeTree('t', root)], [patternA]);
+    expect(matches).toEqual([]);
+  });
 });

@@ -38,6 +38,10 @@ type Props = {
   readOnly?: boolean;
   specialNote?: string;
   onSpecialNoteChange?: (note: string) => void;
+  // 「コンボ情報確認」チェックボックスをディレイと同じ行に並べたい呼び出し元だけ渡す
+  // （2026-08-28ユーザー要望）。未指定なら従来通りディレイ単独の行のまま
+  recordsBranchStats?: boolean;
+  onRecordsBranchStatsChange?: (checked: boolean) => void;
 };
 
 export function AttributeEditor({
@@ -46,6 +50,8 @@ export function AttributeEditor({
   readOnly = false,
   specialNote,
   onSpecialNoteChange,
+  recordsBranchStats,
+  onRecordsBranchStatsChange,
 }: Props) {
   const has = (type: NodeAttributeType) => value.some((attribute) => attribute.type === type);
 
@@ -112,10 +118,24 @@ export function AttributeEditor({
         </div>
       </fieldset>
 
-      <label style={styles.checkboxRow}>
-        <input type="checkbox" checked={has('delay')} disabled={readOnly} onChange={toggleDelay} />
-        ディレイ
-      </label>
+      <div style={{ display: 'flex', gap: 16 }}>
+        <label style={styles.checkboxRow}>
+          <input type="checkbox" checked={has('delay')} disabled={readOnly} onChange={toggleDelay} />
+          ディレイ
+        </label>
+
+        {onRecordsBranchStatsChange && (
+          <label style={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={recordsBranchStats ?? false}
+              disabled={readOnly}
+              onChange={(event) => onRecordsBranchStatsChange(event.target.checked)}
+            />
+            コンボ情報確認
+          </label>
+        )}
+      </div>
 
       {showSpecialNote && (
         <label style={styles.fieldLabel}>

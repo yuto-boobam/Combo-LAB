@@ -71,6 +71,9 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(() =>
     computeInitialOpenSections(value, moveList),
   );
+  // 「歩き」ピルを押した時だけ詳細（方向・フレーム範囲）を開く。現在値が既に歩き系なら
+  // 最初から開いておく（2026-08-28ユーザー指定：他の技と同じくピルを押してから詳細を登録する形にする）
+  const [isWalkOpen, setIsWalkOpen] = useState(() => value.includes('歩き'));
 
   const toggleSection = (key: SectionKey) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -143,8 +146,14 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
           {SYSTEM_MOVE_NAMES.map((name) => (
             <MovePill key={name} label={name} active={value === name} onClick={() => onChange(name)} />
           ))}
+          <MovePill
+            label="歩き"
+            active={value.includes('歩き')}
+            pending={isWalkOpen && !value.includes('歩き')}
+            onClick={() => setIsWalkOpen((open) => !open)}
+          />
         </div>
-        <WalkPicker value={value} onChange={onChange} />
+        {isWalkOpen && <WalkPicker value={value} onChange={onChange} />}
       </AccordionSection>
     </div>
   );
@@ -191,7 +200,10 @@ function CharacterMoveGroupBody({
                 type="button"
                 title="この技を削除"
                 style={styles.removeButton}
-                onClick={() => deleteMoveDefinition(characterId, move.id)}
+                onClick={() => {
+                  const ok = window.confirm(`「${move.name}」を削除しますか？`);
+                  if (ok) deleteMoveDefinition(characterId, move.id);
+                }}
               >
                 ×
               </button>
@@ -229,26 +241,49 @@ function CharacterMoveGroupBody({
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
 /**
- * valueが `${強度}${技名}` または `${強度}${技名}(特殊性能)` のどちらの形かを判定する。
+ * strengthModeに応じて、「強度選択」欄に並べる選択肢（表示ラベルと技名に埋め込む接頭辞）を返す。
+ * 'level'は強度という概念自体が無いのでnull（代わりにparseFlatSpecialMoveValue/選択肢UIを使う）
+ */
+function getStrengthOptions(move: MoveDefinition): { label: string; prefix: string }[] | null {
+  switch (move.strengthMode) {
+    case 'level':
+      return null;
+    case 'none':
+      return [{ label: '選択', prefix: '' }];
+    case 'normalOd':
+      return [
+        { label: '無印', prefix: '' },
+        { label: 'OD', prefix: 'OD' },
+      ];
+    default:
+      return SPECIAL_MOVE_STRENGTHS.map((strength) => ({ label: strength, prefix: strength }));
+  }
+}
+
+/**
+ * valueが `${強度接頭辞}${技名}` または `${強度接頭辞}${技名}(特殊性能)` のどちらの形かを、
+ * その技のstrengthModeに応じた選択肢（getStrengthOptions参照）から判定する。
  * ストック・同時押しなど、強度だけでは技の状態を表現しきれない技（hasSpecialVariant参照）は
  * 後者の形で選んだ特殊性能を保持する
  */
 function parseSpecialMoveValue(
   value: string,
-  moveName: string,
-): { strength: MoveStrength; subLevel: string | null } | null {
-  for (const strength of SPECIAL_MOVE_STRENGTHS) {
-    const prefix = `${strength}${moveName}`;
-    if (value === prefix) return { strength, subLevel: null };
+  move: MoveDefinition,
+): { strength: string; subLevel: string | null } | null {
+  const options = getStrengthOptions(move);
+  if (!options) return null;
+  for (const { prefix: strengthPrefix } of options) {
+    const prefix = `${strengthPrefix}${move.name}`;
+    if (value === prefix) return { strength: strengthPrefix, subLevel: null };
     if (value.startsWith(`${prefix}(`) && value.endsWith(')')) {
-      return { strength, subLevel: value.slice(prefix.length + 1, -1) };
+      return { strength: strengthPrefix, subLevel: value.slice(prefix.length + 1, -1) };
     }
   }
   return null;
 }
 
 /**
- * hasFlatVariantsな技（強度に依存しない技）用に、valueが `${技名}` または
+ * strengthMode==='level'な技（強度ではなくレベルで区別する技）用に、valueが `${技名}` または
  * `${技名}(特殊性能)` のどちらの形かを判定する（SA(superArt)の判定と同じ考え方）
  */
 function parseFlatSpecialMoveValue(value: string, moveName: string): { subLevel: string | null } | null {
@@ -282,19 +317,17 @@ function SpecialMoveGroupBody({
   const setMoveDefinitionSpecialVariantOptions = useAppStore(
     (state) => state.setMoveDefinitionSpecialVariantOptions,
   );
-  const setMoveDefinitionHasFlatVariants = useAppStore(
-    (state) => state.setMoveDefinitionHasFlatVariants,
-  );
+  const setMoveDefinitionStrengthMode = useAppStore((state) => state.setMoveDefinitionStrengthMode);
   const [draftName, setDraftName] = useState('');
   const [draftShortName, setDraftShortName] = useState('');
 
   // valueがどの技の何強度（＋選んだ特殊性能）に該当するかをまとめて判定する。
-  // hasFlatVariantsな技は強度を持たないため、代わりにparseFlatSpecialMoveValueで判定する
+  // strengthMode==='level'な技は強度を持たないため、代わりにparseFlatSpecialMoveValueで判定する
   let parsedValue:
-    | { move: MoveDefinition; strength: MoveStrength | null; subLevel: string | null }
+    | { move: MoveDefinition; strength: string | null; subLevel: string | null }
     | null = null;
   for (const move of moves) {
-    if (move.hasFlatVariants) {
+    if (move.strengthMode === 'level') {
       const parsed = parseFlatSpecialMoveValue(value, move.name);
       if (parsed) {
         parsedValue = { move, strength: null, subLevel: parsed.subLevel };
@@ -302,7 +335,7 @@ function SpecialMoveGroupBody({
       }
       continue;
     }
-    const parsed = parseSpecialMoveValue(value, move.name);
+    const parsed = parseSpecialMoveValue(value, move);
     if (parsed) {
       parsedValue = { move, ...parsed };
       break;
@@ -324,15 +357,26 @@ function SpecialMoveGroupBody({
     const wasPicked = pickingMoveId === move.id;
     setPickingMoveId(wasPicked ? null : move.id);
 
+    // strengthMode==='none'（強度が存在しない技）は選ぶ強度が無いため、他カテゴリと同じく
+    // 一覧のピルを押した時点で即確定する（下のパネルは呼び名編集等のためだけに開く）
+    if (!wasPicked && move.strengthMode === 'none') {
+      onChange(move.name, move.shortName);
+      return;
+    }
+
     // 他のカテゴリ（通常技・特殊技・SA）は1クリックで選択が確定するのに対し、必殺技だけ
     // 「技を選ぶ→強度を選ぶ」の2手が必要で「反応しない」ように感じられていた。
-    // すでに強度が決まっている状態で別の技に切り替える場合は、その強度のまま即座に確定し、
-    // 強度を変えたい時だけ下の強度選択で選び直せるようにする
-    if (!wasPicked && currentStrength) {
-      onChange(
-        `${currentStrength}${move.name}`,
-        move.shortName ? `${currentStrength}${move.shortName}` : undefined,
-      );
+    // すでに強度（強度モードによっては空文字＝無印、の場合もある）が決まっている状態で
+    // 別の技に切り替える場合は、切り替え先の技でもその強度が選べる時に限り即座に確定する
+    // （strengthModeが技ごとに異なるため、切り替え先が対応していない強度は無視する）
+    if (!wasPicked && currentStrength !== null) {
+      const options = getStrengthOptions(move);
+      if (options?.some((option) => option.prefix === currentStrength)) {
+        onChange(
+          `${currentStrength}${move.name}`,
+          move.shortName ? `${currentStrength}${move.shortName}` : undefined,
+        );
+      }
     }
   };
 
@@ -365,6 +409,8 @@ function SpecialMoveGroupBody({
                   title="この技を削除"
                   style={styles.removeButton}
                   onClick={() => {
+                    const ok = window.confirm(`「${move.name}」を削除しますか？`);
+                    if (!ok) return;
                     deleteMoveDefinition(characterId, move.id);
                     if (pickingMoveId === move.id) setPickingMoveId(null);
                   }}
@@ -381,19 +427,19 @@ function SpecialMoveGroupBody({
 
       {pickingMove && (
         <>
-          {!pickingMove.hasFlatVariants && (
+          {pickingMove.strengthMode !== 'level' && pickingMove.strengthMode !== 'none' && (
             <fieldset style={styles.fieldset}>
               <legend style={styles.legend}>強度選択</legend>
               <div style={styles.buttonRow}>
-                {SPECIAL_MOVE_STRENGTHS.map((strength) => (
+                {(getStrengthOptions(pickingMove) ?? []).map(({ label, prefix }) => (
                   <MovePill
-                    key={strength}
-                    label={strength}
-                    active={pickingMoveMatch?.strength === strength}
+                    key={prefix}
+                    label={label}
+                    active={pickingMoveMatch?.strength === prefix}
                     onClick={() =>
                       onChange(
-                        `${strength}${pickingMove.name}`,
-                        pickingMove.shortName ? `${strength}${pickingMove.shortName}` : undefined,
+                        `${prefix}${pickingMove.name}`,
+                        pickingMove.shortName ? `${prefix}${pickingMove.shortName}` : undefined,
                       )
                     }
                   />
@@ -402,7 +448,7 @@ function SpecialMoveGroupBody({
             </fieldset>
           )}
 
-          {!pickingMove.hasFlatVariants && (
+          {pickingMove.strengthMode !== 'level' && (
             <fieldset style={styles.fieldset}>
               <legend style={styles.legend}>呼び名（木のノード上の表示用・省略可・「｜」で改行）</legend>
               <input
@@ -419,20 +465,48 @@ function SpecialMoveGroupBody({
           )}
 
           <fieldset style={styles.fieldset}>
-            <legend style={styles.legend}>強度に依存しない技</legend>
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={pickingMove.hasFlatVariants ?? false}
-                onChange={(event) =>
-                  setMoveDefinitionHasFlatVariants(characterId, pickingMove.id, event.target.checked)
-                }
-              />
-              強度を分けず、下の選択肢から直接選べるようにする（イングリッドのビーム等）
-            </label>
+            <legend style={styles.legend}>強度モード</legend>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <label style={styles.checkboxLabel}>
+                <input
+                  type="radio"
+                  name={`strength-mode-${pickingMove.id}`}
+                  checked={!pickingMove.strengthMode}
+                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, undefined)}
+                />
+                弱・中・強・OD（通常の4強度）
+              </label>
+              <label style={styles.checkboxLabel}>
+                <input
+                  type="radio"
+                  name={`strength-mode-${pickingMove.id}`}
+                  checked={pickingMove.strengthMode === 'none'}
+                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'none')}
+                />
+                強度が存在しない技
+              </label>
+              <label style={styles.checkboxLabel}>
+                <input
+                  type="radio"
+                  name={`strength-mode-${pickingMove.id}`}
+                  checked={pickingMove.strengthMode === 'normalOd'}
+                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'normalOd')}
+                />
+                強度が「無印」とODしかない技
+              </label>
+              <label style={styles.checkboxLabel}>
+                <input
+                  type="radio"
+                  name={`strength-mode-${pickingMove.id}`}
+                  checked={pickingMove.strengthMode === 'level'}
+                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'level')}
+                />
+                強度ではなく、レベルで区別する技
+              </label>
+            </div>
           </fieldset>
 
-          {pickingMove.hasFlatVariants ? (
+          {pickingMove.strengthMode === 'level' && (
             <fieldset style={styles.fieldset}>
               <legend style={styles.legend}>選択肢</legend>
               <SpecialVariantRegistration
@@ -444,7 +518,9 @@ function SpecialMoveGroupBody({
                 }
               />
             </fieldset>
-          ) : (
+          )}
+
+          {!pickingMove.strengthMode && (
             <fieldset style={styles.fieldset}>
               <legend style={styles.legend}>特殊性能（省略可）</legend>
               <label style={styles.checkboxLabel}>
@@ -460,7 +536,7 @@ function SpecialMoveGroupBody({
 
               {pickingMove.hasSpecialVariant &&
                 (() => {
-                  const strength = pickingMoveMatch?.strength ?? null;
+                  const strength = (pickingMoveMatch?.strength ?? null) as MoveStrength | null;
                   if (!strength) {
                     return (
                       <p style={styles.emptyHint}>

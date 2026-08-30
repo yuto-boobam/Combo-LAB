@@ -13,15 +13,7 @@ import {
   CANCEL_RUSH_MOVE_NAME,
 } from '../utils/nodeVisualStyle';
 import { NODE_DEFAULT_HEIGHT, isTutorialNode, nodeWidthFor } from '../utils/nodeSizing';
-
-/**
- * ノード表示名の中の「｜」を改行に変換する。自動折り返しが意図しない位置（例:
- * "Lv."と"1"の間）で発生する問題を避けるため、改行を入れたい位置をユーザーが
- * 「｜」で明示的に指定できるようにするための変換
- */
-function applyManualLineBreaks(text: string): string {
-  return text.replace(/｜|\|/g, '\n');
-}
+import { applyManualLineBreaks } from '../utils/textDisplay';
 
 type DraggedNodeData = { id: string; parentId: string | null; index: number };
 
@@ -50,6 +42,9 @@ type Props = {
   groupBadge?: { groupName: string; onCollapse: () => void };
   // クリップボードをドラッグ&ドロップで貼り付けられた時に呼ばれる
   onPasteDrop?: () => void;
+  // trueの間、枠をパルスさせて注意を引く（誘導ガイド向け。呼び出し側が
+  // 「今このノードをクリックしてほしい」を判断する）
+  isGuideTarget?: boolean;
 };
 
 export function MoveNodeCircle({
@@ -73,6 +68,7 @@ export function MoveNodeCircle({
   isGroupSelected = false,
   groupBadge,
   onPasteDrop,
+  isGuideTarget = false,
 }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const isLeaf = node.children.length === 0;
@@ -149,6 +145,7 @@ export function MoveNodeCircle({
         opacity: isInactiveDuringMode ? 0.35 : 1,
         cursor: isInactiveDuringMode ? 'default' : 'pointer',
         transition: 'border-color 0.15s, box-shadow 0.15s, opacity 0.15s',
+        ...(isGuideTarget ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
       }}
     >
       {(isCopySelected || isGroupSelected) && (
@@ -219,6 +216,21 @@ export function MoveNodeCircle({
         />
       )}
 
+      {node.branchStats?.isFavorite && (
+        <span
+          title="お気に入り登録済み"
+          style={{
+            position: 'absolute',
+            bottom: -6,
+            right: -6,
+            fontSize: 12,
+            lineHeight: 1,
+          }}
+        >
+          ⭐
+        </span>
+      )}
+
       <span
         style={{
           fontSize: 10,
@@ -233,7 +245,11 @@ export function MoveNodeCircle({
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
         }}
-        title={node.moveName}
+        title={
+          isRoot && node.startingMoveOptions && node.startingMoveOptions.length > 0
+            ? `汎用コンボ（対象の始動技: ${node.startingMoveOptions.map((chain) => chain.join('→')).join('、')}）`
+            : node.moveName
+        }
       >
         {applyManualLineBreaks(displayLabel)}
       </span>

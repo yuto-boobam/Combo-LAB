@@ -11,12 +11,14 @@
 // 収まるようにする（useSquareGridFit）。
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import type { Character } from '../types';
 import { computeSquareGridFit } from '../utils/squareGridFit';
 import { TUTORIAL_CHARACTER_ID } from '../data/tutorialCharacter';
+import { hasGuestSeenTutorial } from '../utils/guestTutorialSession';
 
 const GRID_GAP = 10;
 // containerRefを付けた要素自身のpadding。clientWidth/clientHeightにはこのpaddingが
@@ -54,8 +56,16 @@ export function CharacterSelectPage() {
   const characters = allCharacters.filter((character) => character.id !== TUTORIAL_CHARACTER_ID);
   const selectCharacter = useAppStore((state) => state.selectCharacter);
   const openMoveStatsEditor = useAppStore((state) => state.openMoveStatsEditor);
+  const isGuest = useAppStore((state) => state.isGuest);
   const { containerRef, columns, cellSize } = useSquareGridFit(characters.length, GRID_GAP);
   const rows = Math.ceil(characters.length / columns);
+
+  // ゲストがログインして最初にこの画面へ来た時、使い方ガイドへの誘導を必須にする
+  // （2026-08-31ユーザー指定）。判定はComboTreePage側の誘導ガイド既視フラグと同じ
+  // sessionStorage(guestTutorialSession.ts)を再利用するため、チュートリアルを最後まで
+  // 見た時点でここでも自動的に出なくなる。remount毎（=このページへ戻ってくる毎）に
+  // 再評価されるので、毎回beforeの状態を正しく反映する
+  const showTutorialSpotlight = isGuest && Boolean(tutorialCharacter) && !hasGuestSeenTutorial();
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--bg-base)' }}>
@@ -82,18 +92,46 @@ export function CharacterSelectPage() {
           </div>
         )}
 
-        {tutorialCharacter && (
+        {tutorialCharacter && !showTutorialSpotlight && (
           <button
             type="button"
             onClick={() => selectCharacter(tutorialCharacter.id)}
             title="使い方をチュートリアルで見る（自由に編集できます。内容は次に開いた時に元へ戻ります）"
-            style={styles.tutorialCard}
+            style={{ ...styles.tutorialCard, ...styles.tutorialCardPositioned }}
           >
             <span style={styles.tutorialCardIcon}>📘</span>
             <span style={styles.tutorialCardLabel}>使い方ガイド</span>
           </button>
         )}
       </main>
+
+      {/* 「注目してほしい箇所以外を暗くする」スポットライト演出。このページの外枠・mainは
+          共にoverflow:hiddenで、ボタンをそのまま暗くするとbox-shadowの拡散(9999px)が
+          その祖先でクリップされてしまう（サイドドロワーで実際に踏んだのと同じ問題、
+          詳細はプロジェクトの記憶参照）。document.bodyへポータルすることでその制約ごと
+          回避し、ボタン自体もposition:fixedで複製する（2026-08-31ユーザー指定） */}
+      {tutorialCharacter &&
+        showTutorialSpotlight &&
+        createPortal(
+          <div style={styles.spotlightOverlay}>
+            <div style={styles.tutorialCardWrapperFixed}>
+              <div className="tutorial-guide-bubble" style={styles.tutorialSpotlightBubble}>
+                <div style={styles.tutorialSpotlightBubbleTriangle} />
+                まずはここから
+              </div>
+              <button
+                type="button"
+                onClick={() => selectCharacter(tutorialCharacter.id)}
+                title="使い方をチュートリアルで見る（自由に編集できます。内容は次に開いた時に元へ戻ります）"
+                style={styles.tutorialCard}
+              >
+                <span style={styles.tutorialCardIcon}>📘</span>
+                <span style={styles.tutorialCardLabel}>使い方ガイド</span>
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -120,11 +158,10 @@ function CharacterTile({
         type="button"
         onClick={onClick}
         title={character.name}
+        className={`character-tile ${hasTree ? 'character-tile--active' : 'character-tile--empty'}`}
         style={{
           ...styles.tile,
           borderRadius: clamp(cellSize * 0.14, 6, 14),
-          borderColor: hasTree ? 'var(--accent)' : 'var(--border)',
-          boxShadow: hasTree ? '0 0 0 1px var(--accent-glow)' : 'none',
         }}
       >
         {character.imageUrl ? (
@@ -186,10 +223,14 @@ const styles: Record<string, CSSProperties> = {
     padding: CONTAINER_PADDING,
     overflow: 'hidden',
   },
-  tutorialCard: {
+  // 通常表示（このページ自身に埋め込む）専用の位置指定。ポータル表示（スポットライト時）
+  // は代わりにtutorialCardWrapperFixedが位置を持つため、tutorialCard自体は見た目だけにする
+  tutorialCardPositioned: {
     position: 'absolute',
     right: 14,
     bottom: 14,
+  },
+  tutorialCard: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
@@ -209,6 +250,45 @@ const styles: Record<string, CSSProperties> = {
   tutorialCardLabel: {
     whiteSpace: 'nowrap',
   },
+  // ゲスト初回誘導のスポットライト演出（document.bodyへポータル。詳細は使用箇所のコメント参照）
+  spotlightOverlay: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 200,
+    background: 'rgba(0, 0, 0, 0.72)',
+  },
+  tutorialCardWrapperFixed: {
+    position: 'fixed',
+    right: 14,
+    bottom: 14,
+    zIndex: 201,
+  },
+  tutorialSpotlightBubble: {
+    position: 'absolute',
+    bottom: '100%',
+    right: 0,
+    marginBottom: 12,
+    width: 140,
+    padding: '8px 10px',
+    borderRadius: 10,
+    background: 'var(--accent)',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: 1.5,
+    textAlign: 'center',
+    boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35)',
+  },
+  tutorialSpotlightBubbleTriangle: {
+    position: 'absolute',
+    bottom: -6,
+    right: 16,
+    width: 0,
+    height: 0,
+    borderLeft: '6px solid transparent',
+    borderRight: '6px solid transparent',
+    borderTop: '6px solid var(--accent)',
+  },
   grid: {
     display: 'grid',
     gap: GRID_GAP,
@@ -218,18 +298,17 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 0,
     minHeight: 0,
   },
+  // 背景・枠線色・ホバー時の演出は.character-tile系のCSSクラス（index.css）が持つ。
+  // ここはcellSizeに応じて変わるレイアウト値のみを扱う（クラスと役割を分けるため）
   tile: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     height: '100%',
-    border: '2px solid var(--border)',
-    background: 'var(--bg-surface)',
     overflow: 'hidden',
     cursor: 'pointer',
     padding: 6,
-    transition: 'border-color 0.15s, box-shadow 0.15s, transform 0.15s',
   },
   moveStatsButton: {
     position: 'absolute',

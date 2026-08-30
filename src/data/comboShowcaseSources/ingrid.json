@@ -167,8 +167,8 @@
                 "specialNote": "",
                 "branchStats": {
                   "damage": 1380,
-                  "dGaugeChange": null,
-                  "saGaugeGain": null,
+                  "dGaugeChange": 3500,
+                  "saGaugeGain": 2000,
                   "damageRating": null,
                   "dGaugeRating": null,
                   "saGaugeRating": null,
@@ -182,7 +182,8 @@
                   "usesCA": false,
                   "finishingSpecialVariant": null,
                   "includesEarlyDGaugeRecovery": true,
-                  "plusFrameHitType": "ground"
+                  "plusFrameHitType": "ground",
+                  "startingMoveNames": null
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-15T03:49:37.977Z",
@@ -211,7 +212,8 @@
                   "usesCA": false,
                   "finishingSpecialVariant": null,
                   "includesEarlyDGaugeRecovery": true,
-                  "finishingSuperArtName": null
+                  "finishingSuperArtName": null,
+                  "startingMoveNames": null
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-15T03:51:50.493Z",
@@ -263,7 +265,8 @@
                   "startHitCondition": null,
                   "isJustParryStart": false,
                   "isRushStart": false,
-                  "usesCA": false
+                  "usesCA": false,
+                  "startingMoveNames": null
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-17T05:26:35.885Z",
@@ -332,9 +335,9 @@
                                 "attributes": [],
                                 "specialNote": "",
                                 "branchStats": {
-                                  "damage": null,
-                                  "dGaugeChange": null,
-                                  "saGaugeGain": null,
+                                  "damage": 2553,
+                                  "dGaugeChange": -27500,
+                                  "saGaugeGain": 3700,
                                   "damageRating": null,
                                   "dGaugeRating": null,
                                   "saGaugeRating": null,
@@ -345,7 +348,8 @@
                                   "startHitCondition": "カウンター",
                                   "isJustParryStart": false,
                                   "isRushStart": false,
-                                  "usesCA": false
+                                  "usesCA": false,
+                                  "startingMoveNames": null
                                 },
                                 "createdBy": "ローカル",
                                 "createdAt": "2026-08-21T07:04:08.727Z",
@@ -367,10 +371,11 @@
                                   "plusFrame": null,
                                   "isThrowRange": false,
                                   "canOkizeme": false,
-                                  "startHitCondition": "カウンター",
+                                  "startHitCondition": "パニカン",
                                   "isJustParryStart": false,
                                   "isRushStart": false,
-                                  "usesCA": false
+                                  "usesCA": false,
+                                  "startingMoveNames": null
                                 },
                                 "createdBy": "ローカル",
                                 "createdAt": "2026-08-21T07:04:08.727Z",
@@ -437,7 +442,8 @@
                   "isRushStart": false,
                   "usesCA": false,
                   "finishingSpecialVariant": null,
-                  "includesEarlyDGaugeRecovery": true
+                  "includesEarlyDGaugeRecovery": true,
+                  "startingMoveNames": null
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-18T09:13:10.576Z",
@@ -510,7 +516,8 @@
                               "usesCA": false,
                               "finishingSpecialVariant": null,
                               "includesEarlyDGaugeRecovery": true,
-                              "finishingSuperArtName": null
+                              "finishingSuperArtName": null,
+                              "startingMoveNames": null
                             },
                             "createdBy": "ローカル",
                             "createdAt": "2026-08-17T08:21:00.710Z",
@@ -565,7 +572,8 @@
                           "startHitCondition": "カウンター",
                           "isJustParryStart": false,
                           "isRushStart": false,
-                          "usesCA": false
+                          "usesCA": false,
+                          "startingMoveNames": null
                         },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-18T10:49:59.273Z",
@@ -592,7 +600,8 @@
                           "startHitCondition": "カウンター",
                           "isJustParryStart": false,
                           "isRushStart": false,
-                          "usesCA": false
+                          "usesCA": false,
+                          "startingMoveNames": null
                         },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-18T10:50:22.465Z",
@@ -636,7 +645,8 @@
                               "isJustParryStart": false,
                               "isRushStart": false,
                               "usesCA": false,
-                              "finishingSpecialVariant": "SA1|Lv. 1"
+                              "finishingSpecialVariant": "SA1|Lv. 1",
+                              "startingMoveNames": null
                             },
                             "createdBy": "ローカル",
                             "createdAt": "2026-08-18T10:51:11.044Z",
@@ -707,7 +717,8 @@
                                       "usesCA": false,
                                       "finishingSpecialVariant": null,
                                       "includesEarlyDGaugeRecovery": true,
-                                      "finishingSuperArtName": null
+                                      "finishingSuperArtName": null,
+                                      "startingMoveNames": null
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-23T11:04:18.843Z",
@@ -735,7 +746,8 @@
                                       "isJustParryStart": false,
                                       "isRushStart": false,
                                       "usesCA": false,
-                                      "finishingSpecialVariant": null
+                                      "finishingSpecialVariant": null,
+                                      "startingMoveNames": null
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T10:52:27.781Z",
@@ -806,7 +818,8 @@
                                       "usesCA": false,
                                       "finishingSpecialVariant": null,
                                       "includesEarlyDGaugeRecovery": true,
-                                      "finishingSuperArtName": null
+                                      "finishingSuperArtName": null,
+                                      "startingMoveNames": null
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-23T11:04:45.994Z",
@@ -836,7 +849,8 @@
                                       "usesCA": false,
                                       "finishingSpecialVariant": null,
                                       "includesEarlyDGaugeRecovery": true,
-                                      "finishingSuperArtName": null
+                                      "finishingSuperArtName": null,
+                                      "startingMoveNames": null
                                     },
                                     "createdBy": "ローカル",
                                     "createdAt": "2026-08-18T11:02:15.463Z",
@@ -850,8 +864,8 @@
                             "groupId": "mt5w8y69tao6a3rwmei"
                           }
                         ],
-                        "usesOD": true,
-                        "groupId": "mt5w8y69tao6a3rwmei"
+                        "groupId": "mt5w8y69tao6a3rwmei",
+                        "usesOD": true
                       },
                       {
                         "id": "msziv287omeq39vqzk",
@@ -879,7 +893,8 @@
                           "usesCA": false,
                           "finishingSpecialVariant": null,
                           "includesEarlyDGaugeRecovery": true,
-                          "finishingSuperArtName": null
+                          "finishingSuperArtName": null,
+                          "startingMoveNames": null
                         },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-19T03:18:33.991Z",
@@ -996,7 +1011,8 @@
                   "isJustParryStart": false,
                   "isRushStart": false,
                   "usesCA": false,
-                  "finishingSpecialVariant": null
+                  "finishingSpecialVariant": null,
+                  "startingMoveNames": null
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-17T11:19:36.151Z",
@@ -1024,7 +1040,8 @@
                   "usesCA": false,
                   "finishingSpecialVariant": null,
                   "includesEarlyDGaugeRecovery": true,
-                  "finishingSuperArtName": null
+                  "finishingSuperArtName": null,
+                  "startingMoveNames": null
                 },
                 "createdBy": "ローカル",
                 "createdAt": "2026-08-23T11:43:13.983Z",
@@ -1055,7 +1072,8 @@
                       "usesCA": false,
                       "finishingSpecialVariant": null,
                       "includesEarlyDGaugeRecovery": true,
-                      "finishingSuperArtName": null
+                      "finishingSuperArtName": null,
+                      "startingMoveNames": null
                     },
                     "createdBy": "ローカル",
                     "createdAt": "2026-08-23T11:43:28.209Z",
@@ -1083,7 +1101,8 @@
                           "usesCA": false,
                           "finishingSpecialVariant": null,
                           "includesEarlyDGaugeRecovery": true,
-                          "finishingSuperArtName": null
+                          "finishingSuperArtName": null,
+                          "startingMoveNames": null
                         },
                         "createdBy": "ローカル",
                         "createdAt": "2026-08-23T11:43:37.156Z",
@@ -1102,10 +1121,10 @@
   "namedComboGroups": [
     {
       "id": "mt5w8y69tao6a3rwmei",
-      "name": "地上強ライズコンボ"
+      "name": "地上強ライズ"
     }
   ],
   "createdBy": "",
   "createdAt": "2026-08-10T04:58:33.711Z",
-  "updatedAt": "2026-08-24T14:13:40.226Z"
+  "updatedAt": "2026-08-27T02:48:24.154Z"
 }

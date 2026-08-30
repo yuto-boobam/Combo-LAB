@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import { findNodeInComboTrees } from '../../utils/comboTreeSearch';
+import { buildParentMap, findNode } from '../../lib/tree';
 import type {
   ComboBranchStats,
   ComboTree,
@@ -20,17 +21,23 @@ import { TUTORIAL_CHARACTER_ID } from '../../data/tutorialCharacter';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { OdLevelToggle } from './OdLevelToggle';
+import { HitSelectionToggle } from './HitSelectionToggle';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
+import { parseStarterMoveOptionsText } from '../../utils/starterMoveOptions';
 import {
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
+  calculateBranchDGaugeBreakdown,
   calculateBranchDGaugeChange,
+  calculateBranchDGaugeMinimumRequired,
   calculateBranchOpponentDGaugeChip,
+  calculateBranchSaGaugeBreakdown,
   calculateBranchSaGaugeChange,
   calculateOdLevelConstraint,
   calculateRequiredStartHitCondition,
   findOdRelevantNodesOnPath,
   lookupMoveName,
+  resolveHitIndices,
 } from '../../utils/comboGaugeCalc';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
@@ -45,11 +52,28 @@ type Props = {
   // falseの間、ドロワーを右へフェードアウトさせながら幅を畳む（閉じている間もアンマウントはしない。
   // 選択状態やスクロール位置を保つため）。省略時は常時表示（従来通り）。
   isOpen?: boolean;
+  // 誘導ガイド（チュートリアル用）: このノードIDが選択されている間だけ「コンボの情報」欄を
+  // 光らせる。ComboTreePage側がどの段階かを判断し、対象ノードIDだけをここへ渡す
+  // （このコンポーネント自身はチュートリアルの手順そのものは知らない）
+  highlightComboInfoNodeId?: string | null;
+  onComboInfoOpened?: () => void;
+  // 誘導ガイドの次の段階: このノードIDが選択されている間だけ「ダメージ・計算式」欄を
+  // 光らせ、「計算式」を開くよう誘導する。考え方はhighlightComboInfoNodeIdと同じ
+  highlightFormulaNodeId?: string | null;
+  onFormulaOpened?: () => void;
 };
 
 const DRAWER_WIDTH = 400;
 
-export function SideDrawerPanel({ characterId, comboTrees, isOpen = true }: Props) {
+export function SideDrawerPanel({
+  characterId,
+  comboTrees,
+  isOpen = true,
+  highlightComboInfoNodeId = null,
+  onComboInfoOpened,
+  highlightFormulaNodeId = null,
+  onFormulaOpened,
+}: Props) {
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const isGuest = useAppStore((state) => state.isGuest);
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
@@ -103,6 +127,10 @@ export function SideDrawerPanel({ characterId, comboTrees, isOpen = true }: Prop
             treeId={selectedInfo.tree.id}
             root={selectedInfo.tree.root}
             selectedNode={selectedInfo.node}
+            highlightComboInfo={highlightComboInfoNodeId === selectedInfo.node.id}
+            onComboInfoOpened={onComboInfoOpened}
+            highlightFormula={highlightFormulaNodeId === selectedInfo.node.id}
+            onFormulaOpened={onFormulaOpened}
           />
         ) : (
           <p style={styles.hint}>
@@ -574,16 +602,19 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
     stats.damageRating !== null,
     stats.dGaugeRating !== null,
     stats.saGaugeRating !== null,
+    stats.carryRating !== null,
+    stats.okizemeRating !== null,
+    stats.difficultyRating !== null,
     stats.overallRating !== null,
     stats.plusFrame !== null,
     stats.isThrowRange,
     stats.canOkizeme,
+    stats.isFavorite,
     stats.startHitCondition !== null,
     stats.isJustParryStart,
     stats.isRushStart,
     stats.usesCA,
     stats.finishingSpecialVariant !== null,
-    stats.includesEarlyDGaugeRecovery === false, // デフォルトはtrueなので、外した時だけ数える
     stats.finishingSuperArtName !== null,
   ].filter(Boolean).length;
 }
@@ -620,10 +651,10 @@ function findFinishingSuperArtOptions(
     .map((move) => move.name);
 }
 
-// このノードの技（OD版・特殊性能を含めた解決キーで技データを引く。複数ヒット技は
-// 最終段を使う＝技全体が当たった後の状態を見るため。何段目が当たったかを選ぶUIはまだ無く、
-// ダメージ/ゲージの自動計算も常に技全体を対象にしているのと同じ考え方）に登録済みの
-// 有利フレームを、プラスフレーム欄の地上/空中トグルに渡す
+// このノードの技（OD版・特殊性能を含めた解決キーで技データを引く）に登録済みの
+// 有利フレームを、プラスフレーム欄の地上/空中トグルに渡す。複数ヒット技は、
+// node.hitIndicesが指定されていれば実際に当たった段のうち最後（それ以外は技全体の
+// 最終段）を使う＝「本当にヒットが終わった段」の状態を見るため
 function resolveNodePlusFrames(
   characterId: string,
   moveStatsDatabase: MoveStatsDatabase,
@@ -631,7 +662,8 @@ function resolveNodePlusFrames(
 ): { groundPlusFrame: string; airPlusFrame: string } {
   const key = lookupMoveName(node, true);
   const stats = moveStatsDatabase[characterId]?.[key];
-  const lastHit = stats?.hits[stats.hits.length - 1];
+  const indices = stats ? resolveHitIndices(stats, node) : [];
+  const lastHit = stats ? stats.hits[indices[indices.length - 1] - 1] : undefined;
   return {
     groundPlusFrame: lastHit?.groundPlusFrame ?? '',
     airPlusFrame: lastHit?.airPlusFrame ?? '',
@@ -667,18 +699,6 @@ function ReadOnlyNodeView({
     selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff') ||
     (selectedNode.recordsBranchStats ?? false);
 
-  const autoSaGaugeChange = root
-    ? calculateBranchSaGaugeChange(characterId, moveStatsDatabase, root, selectedNode.id)
-    : null;
-  const autoDGaugeChange = root
-    ? calculateBranchDGaugeChange(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
-    : null;
-  const autoOpponentDGaugeChip = root
-    ? calculateBranchOpponentDGaugeChip(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
-    : null;
-  const autoDamage = root
-    ? calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, selectedNode.id)
-    : null;
   const requiredStartHitCondition = root
     ? calculateRequiredStartHitCondition(root, selectedNode.id)
     : null;
@@ -692,6 +712,9 @@ function ReadOnlyNodeView({
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
   const odNodesOnPath = root ? findOdRelevantNodesOnPath(root, selectedNode.id, moveList) : [];
   const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
+  const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
+  const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
+  const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
 
   return (
     <>
@@ -708,10 +731,6 @@ function ReadOnlyNodeView({
             onChange={() => {}}
             readOnly
             requiredStartHitCondition={requiredStartHitCondition}
-            autoSaGaugeChange={autoSaGaugeChange}
-            autoDGaugeChange={autoDGaugeChange}
-            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
-            autoDamage={autoDamage}
             groundPlusFrame={groundPlusFrame}
             airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
@@ -723,6 +742,7 @@ function ReadOnlyNodeView({
               usesOD: node.usesOD ?? false,
             }))}
             onChangeOdUsage={() => {}}
+            starterMoveOptions={root?.startingMoveOptions ?? []}
           />
         </AccordionSection>
       )}
@@ -733,6 +753,7 @@ function ReadOnlyNodeView({
         count={selectedNode.attributes.length}
         isOpen={isOpen}
         onToggle={() => setIsOpen((open) => !open)}
+        sticky
       >
         <div style={{ display: 'grid', gap: 10 }}>
           <AttributeEditor
@@ -746,6 +767,15 @@ function ReadOnlyNodeView({
           {odConstraint && (
             <OdLevelToggle constraint={odConstraint} usesOD={effectiveUsesOD} onChange={() => {}} readOnly />
           )}
+
+          {selectedNodeHitTotal > 1 && (
+            <HitSelectionToggle
+              hitTotal={selectedNodeHitTotal}
+              selectedHits={selectedNodeHitIndices}
+              onChange={() => {}}
+              readOnly
+            />
+          )}
         </div>
       </AccordionSection>
     </>
@@ -758,14 +788,33 @@ function NewTreeSection({ characterId }: { characterId: string }) {
 
   const [newRootMoveName, setNewRootMoveName] = useState('');
   const [newRootDisplayName, setNewRootDisplayName] = useState<string | undefined>(undefined);
+  const [newRootAttributes, setNewRootAttributes] = useState<NodeAttribute[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleCreate = () => {
-    if (!newRootMoveName.trim()) return;
+  // 「汎用コンボ」: 複数の始動技(弱P/弱K等)から同じ続きに繋がるコンボを1本の木にまとめたい場合。
+  // ONにすると始動技の技名選択(MoveNamePicker)の代わりに自由記入のラベル(例:「中攻撃」)と、
+  // 対象の始動技一覧(改行区切り)を入力する。実際にどの技で始動したかは末端ノードごとに選ぶ
+  // （types.tsのMoveNode.startingMoveOptions参照。ダメージ・ゲージ自動計算はそれを選ぶまで空欄になる）
+  const [isGeneric, setIsGeneric] = useState(false);
+  const [genericLabel, setGenericLabel] = useState('');
+  const [genericStarterMovesText, setGenericStarterMovesText] = useState('');
 
-    createComboTree(characterId, newRootMoveName, newRootDisplayName);
-    setNewRootMoveName('');
-    setNewRootDisplayName(undefined);
+  const canCreate = isGeneric ? genericLabel.trim().length > 0 : newRootMoveName.trim().length > 0;
+
+  const handleCreate = () => {
+    if (!canCreate) return;
+
+    if (isGeneric) {
+      const starterMoveOptions = parseStarterMoveOptionsText(genericStarterMovesText);
+      createComboTree(characterId, genericLabel, newRootAttributes, undefined, starterMoveOptions);
+      setGenericLabel('');
+      setGenericStarterMovesText('');
+    } else {
+      createComboTree(characterId, newRootMoveName, newRootAttributes, newRootDisplayName);
+      setNewRootMoveName('');
+      setNewRootDisplayName(undefined);
+    }
+    setNewRootAttributes([]);
     setIsOpen(false);
     selectNode(null);
   };
@@ -779,22 +828,68 @@ function NewTreeSection({ characterId }: { characterId: string }) {
       onToggle={() => setIsOpen((open) => !open)}
     >
       <div style={{ display: 'grid', gap: 10 }}>
-        <MoveNamePicker
-          characterId={characterId}
-          value={newRootMoveName}
-          onChange={(name, displayName) => {
-            setNewRootMoveName(name);
-            setNewRootDisplayName(displayName);
-          }}
-        />
+        <label style={styles.checkboxLabel}>
+          <input
+            type="checkbox"
+            checked={isGeneric}
+            onChange={(event) => setIsGeneric(event.target.checked)}
+          />
+          汎用コンボにする（複数の始動技から同じ続きに繋がる場合）
+        </label>
+
+        {isGeneric ? (
+          <>
+            <label style={styles.fieldLabel}>
+              ラベル（例:「中攻撃」。実際の技名ではなく見出しとして使う）
+              <input
+                type="text"
+                className="input-field"
+                value={genericLabel}
+                onChange={(event) => setGenericLabel(event.target.value)}
+              />
+            </label>
+            <label style={styles.fieldLabel}>
+              この続きに繋げられる始動技（改行/カンマ区切りで複数入力。ジャンプ攻撃始動のように
+              2技以上を経由してから続きに入る場合は「→」で繋ぐ。ある段に複数パターンが
+              ある場合は「強P/4強P/2強P」のように「/」で並べると自動展開される。技名の後ろに
+              「（C）」「（PC/R）」のように条件を添えると「その条件で当たった時だけ繋がる」を
+              表現できる（C=カウンター、PC=パニッシュカウンター、R=ラッシュ。技名を書かず
+              「PC」だけでも登録可）
+              <textarea
+                className="input-field"
+                style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                rows={3}
+                placeholder={'弱P\n弱K\n弱攻撃全般\nJ強K→強P/4強P/2強P\n強昇竜拳（PC/R）'}
+                value={genericStarterMovesText}
+                onChange={(event) => setGenericStarterMovesText(event.target.value)}
+              />
+            </label>
+            <p style={styles.hint}>
+              実際にどの技で始動したかは、末端ノードの「コンボの情報」欄から枝ごとに選びます。
+              選ぶまではその枝のダメージ・ゲージ自動計算は空欄のままになります。
+            </p>
+          </>
+        ) : (
+          <MoveNamePicker
+            characterId={characterId}
+            value={newRootMoveName}
+            onChange={(name, displayName) => {
+              setNewRootMoveName(name);
+              setNewRootDisplayName(displayName);
+            }}
+          />
+        )}
+
+        <AttributeEditor value={newRootAttributes} onChange={setNewRootAttributes} />
+
         <button
           type="button"
           className="btn-primary justify-center"
           style={{ width: '100%' }}
-          disabled={!newRootMoveName.trim()}
+          disabled={!canCreate}
           onClick={handleCreate}
         >
-          この技を始動技として新しい木を作る
+          {isGeneric ? 'この内容で汎用コンボの木を作る' : 'この技を始動技として新しい木を作る'}
         </button>
       </div>
     </AccordionSection>
@@ -806,11 +901,19 @@ function NodeEditor({
   treeId,
   root,
   selectedNode,
+  highlightComboInfo = false,
+  onComboInfoOpened,
+  highlightFormula = false,
+  onFormulaOpened,
 }: {
   characterId: string;
   treeId: string;
   root: MoveNode;
   selectedNode: MoveNode;
+  highlightComboInfo?: boolean;
+  onComboInfoOpened?: () => void;
+  highlightFormula?: boolean;
+  onFormulaOpened?: () => void;
 }) {
   const selectNode = useAppStore((state) => state.selectNode);
   const addChildNode = useAppStore((state) => state.addChildNode);
@@ -820,6 +923,8 @@ function NodeEditor({
   const setNodeAttributes = useAppStore((state) => state.setNodeAttributes);
   const setNodeBranchStats = useAppStore((state) => state.setNodeBranchStats);
   const setNodeUsesOD = useAppStore((state) => state.setNodeUsesOD);
+  const setNodeHitIndices = useAppStore((state) => state.setNodeHitIndices);
+  const moveNode = useAppStore((state) => state.moveNode);
   const setNodeRecordsBranchStats = useAppStore((state) => state.setNodeRecordsBranchStats);
   const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const moveList = useAppStore(
@@ -831,6 +936,7 @@ function NodeEditor({
   const matchedAnchorIds = useAppStore((state) => state.matchedAnchorIds);
   const startReplaceSelection = useAppStore((state) => state.startReplaceSelection);
   const ungroupNode = useAppStore((state) => state.ungroupNode);
+  const detachNodeFromGroup = useAppStore((state) => state.detachNodeFromGroup);
   const groupName = useAppStore((state) => {
     if (!selectedNode.groupId) return null;
     const character = state.characters.find((item) => item.id === characterId);
@@ -879,7 +985,31 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  // SAゲージ増加欄の「合計⇄内訳」表示切替（BranchStatsEditor側）用
+  const saGaugeBreakdown = calculateBranchSaGaugeBreakdown(
+    characterId,
+    moveStatsDatabase,
+    root,
+    selectedNode.id,
+  );
   const autoDGaugeChange = calculateBranchDGaugeChange(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
+  // Dゲージ増減欄の「合計⇄内訳」表示切替（BranchStatsEditor側）用。1ノードずつの
+  // 増減（例:「+200→+200→-20000」）
+  const dGaugeBreakdown = calculateBranchDGaugeBreakdown(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    root,
+    selectedNode.id,
+  );
+  // このコンボを最後まで遂行するために最低限必要な開始時Dゲージ量（Dゲージ増減欄の下に表示）
+  const dGaugeMinimumRequired = calculateBranchDGaugeMinimumRequired(
     characterId,
     moveStatsDatabase,
     moveList,
@@ -920,6 +1050,19 @@ function NodeEditor({
   // 途中にビーム等があれば含まれる）。「コンボの情報」欄からまとめて確認・変更できるようにする
   const odNodesOnPath = findOdRelevantNodesOnPath(root, selectedNode.id, moveList);
   const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
+  // 複数ヒット技（技データ側でisMultiHit）なら、実際に何段目が当たったかを選べるようにする
+  const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
+  const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
+  const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
+
+  // 兄弟ノード（同じ親を持つ枝）内での自分の位置。分岐している時だけ「上/下の枝と入れ替え」
+  // 操作を出す（2026-08-28ユーザー要望：枝同士の順序を入れ替えられるようにする）
+  const parentNode = (() => {
+    const parentId = buildParentMap(root).get(selectedNode.id);
+    return parentId ? findNode(root, parentId) : null;
+  })();
+  const siblingIndex = parentNode ? parentNode.children.findIndex((child) => child.id === selectedNode.id) : -1;
+  const siblingCount = parentNode?.children.length ?? 0;
 
   // Lv.によって通常/OD版の選択が一方に固定される場合、手動入力がまだそれを満たしていなければ
   // 自動で引き上げる（始動条件のカウンター制約と同じ考え方。ユーザー確認済み）。経路上の
@@ -933,6 +1076,46 @@ function NodeEditor({
       }
     });
   }, [odNodesOnPath, characterId, treeId, setNodeUsesOD]);
+
+  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加は、未入力（null）のまま自動計算値が
+  // 出ている間だけ、その値でそのまま欄を埋めておく（「この値を使う」ボタンは廃止。
+  // 埋めた後は普通の入力欄として自由に上書きできる＝間違っていたらそこで直接修正する
+  // 運用にする、というユーザー指定）。一度でも値が入れば(0を含む)対象から外れるため、
+  // 手動で0に修正した場合や、経路変更で自動計算がnullに戻った場合に上書きし続けることはない。
+  // 始動条件・SA締めのように「この枝の前提そのもの」が変わった時は、BranchStatsEditor.tsx側の
+  // 各ボタンが該当4フィールドを明示的にnullへ戻してから変更するため、ここへ戻ってきて
+  // 新しい自動計算値で再度埋まる（フィールド単体の値だけでは「自動のままか手で直したか」を
+  // 判別できないため、こちらでrefを使って追跡するより、変更の起点側でnullに戻す方が確実）
+  useEffect(() => {
+    if (!showStatsEditor) return;
+    const current = selectedNode.branchStats;
+    const patch: Partial<ComboBranchStats> = {};
+    if ((current?.damage ?? null) === null && autoDamage !== null) patch.damage = autoDamage;
+    if ((current?.opponentDGaugeChip ?? null) === null && autoOpponentDGaugeChip !== null) {
+      patch.opponentDGaugeChip = autoOpponentDGaugeChip;
+    }
+    if ((current?.dGaugeChange ?? null) === null && autoDGaugeChange !== null) {
+      patch.dGaugeChange = autoDGaugeChange;
+    }
+    if ((current?.saGaugeGain ?? null) === null && autoSaGaugeChange !== null) {
+      patch.saGaugeGain = autoSaGaugeChange;
+    }
+    if (Object.keys(patch).length === 0) return;
+    setNodeBranchStats(characterId, treeId, selectedNode.id, {
+      ...(current ?? DEFAULT_BRANCH_STATS),
+      ...patch,
+    });
+  }, [
+    showStatsEditor,
+    selectedNode,
+    autoDamage,
+    autoOpponentDGaugeChip,
+    autoDGaugeChange,
+    autoSaGaugeChange,
+    characterId,
+    treeId,
+    setNodeBranchStats,
+  ]);
 
   const handleAddChild = () => {
     if (!newMoveName.trim()) return;
@@ -966,17 +1149,31 @@ function NodeEditor({
           icon="📊"
           count={countFilledBranchStats(selectedNode.branchStats)}
           isOpen={isStatsOpen}
-          onToggle={() => setIsStatsOpen((open) => !open)}
+          onToggle={() => {
+            setIsStatsOpen((open) => {
+              const next = !open;
+              if (next && highlightComboInfo) onComboInfoOpened?.();
+              return next;
+            });
+          }}
+          highlight={highlightComboInfo}
         >
           <BranchStatsEditor
             value={selectedNode.branchStats}
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
             requiredStartHitCondition={requiredStartHitCondition}
-            autoSaGaugeChange={autoSaGaugeChange}
-            autoDGaugeChange={autoDGaugeChange}
-            autoOpponentDGaugeChip={autoOpponentDGaugeChip}
-            autoDamage={autoDamage}
             damageBreakdown={damageBreakdown}
+            dGaugeBreakdown={dGaugeBreakdown}
+            dGaugeMinimumRequired={dGaugeMinimumRequired}
+            saGaugeBreakdown={saGaugeBreakdown}
+            // チュートリアルキャラクターだけ、未入力の項目を畳んで初見の情報量を減らす
+            // （実キャラの編集画面では従来通り全項目を表示する。2026-08-27ユーザー指定）
+            hideEmptyFields={characterId === TUTORIAL_CHARACTER_ID}
+            highlightDamageFormula={highlightFormula}
+            onFormulaOpened={onFormulaOpened}
+            // 計算式を開いた時、チュートリアルキャラクターだけ計算の意味を一言添える
+            // （2026-08-27ユーザー指定）
+            showFormulaExplanation={characterId === TUTORIAL_CHARACTER_ID}
             groundPlusFrame={groundPlusFrame}
             airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
@@ -988,6 +1185,7 @@ function NodeEditor({
               usesOD: node.usesOD ?? false,
             }))}
             onChangeOdUsage={(nodeId, next) => setNodeUsesOD(characterId, treeId, nodeId, next)}
+            starterMoveOptions={root.startingMoveOptions ?? []}
           />
         </AccordionSection>
       )}
@@ -998,6 +1196,7 @@ function NodeEditor({
         count={selectedNode.attributes.length}
         isOpen={isEditorOpen}
         onToggle={() => setIsEditorOpen((open) => !open)}
+        sticky
       >
         <div style={{ display: 'grid', gap: 10 }}>
           <div style={styles.fieldLabel}>技名（選んでから「変更する」で確定します）</div>
@@ -1033,6 +1232,9 @@ function NodeEditor({
             この技名に変更する
           </button>
 
+          <div style={styles.sectionDivider} />
+          <div style={styles.fieldLabel}>属性</div>
+
           <AttributeEditor
             value={selectedNode.attributes}
             onChange={(next) => setNodeAttributes(characterId, treeId, selectedNode.id, next)}
@@ -1040,20 +1242,13 @@ function NodeEditor({
             onSpecialNoteChange={(note) =>
               updateNodeSpecialNote(characterId, treeId, selectedNode.id, note)
             }
+            recordsBranchStats={!isNaturalStatsEndpoint ? (selectedNode.recordsBranchStats ?? false) : undefined}
+            onRecordsBranchStatsChange={
+              !isNaturalStatsEndpoint
+                ? (checked) => setNodeRecordsBranchStats(characterId, treeId, selectedNode.id, checked)
+                : undefined
+            }
           />
-
-          {!isNaturalStatsEndpoint && (
-            <label style={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={selectedNode.recordsBranchStats ?? false}
-                onChange={(event) =>
-                  setNodeRecordsBranchStats(characterId, treeId, selectedNode.id, event.target.checked)
-                }
-              />
-              コンボ情報確認
-            </label>
-          )}
 
           {odConstraint && (
             <OdLevelToggle
@@ -1062,6 +1257,41 @@ function NodeEditor({
               onChange={(next) => setNodeUsesOD(characterId, treeId, selectedNode.id, next)}
               readOnly={false}
             />
+          )}
+
+          {selectedNodeHitTotal > 1 && (
+            <HitSelectionToggle
+              hitTotal={selectedNodeHitTotal}
+              selectedHits={selectedNodeHitIndices}
+              onChange={(next) => setNodeHitIndices(characterId, treeId, selectedNode.id, next)}
+              readOnly={false}
+            />
+          )}
+
+          <div style={styles.sectionDivider} />
+          <div style={styles.fieldLabel}>その他</div>
+
+          {siblingCount > 1 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn-ghost justify-center"
+                style={{ flex: 1 }}
+                disabled={siblingIndex <= 0}
+                onClick={() => moveNode(characterId, treeId, selectedNode.id, parentNode!.id, siblingIndex - 1)}
+              >
+                ▲ 上の枝と入れ替え
+              </button>
+              <button
+                type="button"
+                className="btn-ghost justify-center"
+                style={{ flex: 1 }}
+                disabled={siblingIndex < 0 || siblingIndex >= siblingCount - 1}
+                onClick={() => moveNode(characterId, treeId, selectedNode.id, parentNode!.id, siblingIndex + 2)}
+              >
+                ▼ 下の枝と入れ替え
+              </button>
+            </div>
           )}
 
           <button
@@ -1104,7 +1334,16 @@ function NodeEditor({
                 style={{ width: '100%' }}
                 onClick={() => ungroupNode(characterId, treeId, selectedNode.id)}
               >
-                🔗 グループ化を解除
+                🔗 グループ化を解除（このまとまり全体）
+              </button>
+              <button
+                type="button"
+                className="btn-ghost justify-center"
+                style={{ width: '100%' }}
+                title="このノードと、その先(同じグループが続く子孫)だけをグループから切り離す。手前の技はグループのまま残る"
+                onClick={() => detachNodeFromGroup(characterId, treeId, selectedNode.id)}
+              >
+                ✂️ この技をグループから切り離す
               </button>
             </div>
           ) : (
@@ -1143,6 +1382,7 @@ function NodeEditor({
         count={newAttributes.length}
         isOpen={isAddFormOpen}
         onToggle={() => setIsAddFormOpen((open) => !open)}
+        sticky
       >
         <div style={{ display: 'grid', gap: 10 }}>
           <MoveNamePicker
@@ -1206,6 +1446,10 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.7,
     color: 'var(--text-muted)',
+  },
+  sectionDivider: {
+    borderTop: '1px solid var(--border)',
+    margin: '4px 0',
   },
   fieldLabel: {
     display: 'grid',
