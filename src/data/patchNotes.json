@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-08-30-1148daaf",
+    "date": "2026-08-30",
+    "buildNumber": 28,
+    "type": "other",
+    "title": "キャラ選択画面のレイアウトを変更",
+    "description": "キャラの写真を利用することは権利上難しそうなので、その前提でなるべく見やすいUIにした。",
+    "beforeImageUrl": "/images/patch-notes/2026/08/20260830-build28-before.png?v=1788116064633",
+    "afterImageUrl": "/images/patch-notes/2026/08/20260830-build28-after.png?v=1788116060006"
+  },
+  {
     "id": "2026-08-30-0000bd58",
     "date": "2026-08-30",
     "buildNumber": 27,
