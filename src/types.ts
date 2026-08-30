@@ -132,6 +132,10 @@ export type ComboBranchStats = {
   saGaugeRating: Rating5 | null;
   /** 相手を画面端まで運べるか・運びやすさの評価（コーナーキャリー） */
   carryRating: Rating5 | null;
+  /** この枝(コンボ)の後に続く起き攻めの内容の評価（2026-08-30ユーザー要望で追加） */
+  okizemeRating: Rating5 | null;
+  /** この枝(コンボ)の難易度の評価（2026-08-30ユーザー要望で追加） */
+  difficultyRating: Rating5 | null;
   overallRating: Rating5 | null;
 
   plusFrame: number | null; // 具体的なフレーム数（例: +3）

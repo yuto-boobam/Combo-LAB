@@ -168,7 +168,9 @@ export type ComboRankingSortKey =
   | 'damageRating'
   | 'dGaugeRating'
   | 'saGaugeRating'
-  | 'carryRating';
+  | 'carryRating'
+  | 'okizemeRating'
+  | 'difficultyRating';
 
 export const COMBO_RANKING_SORT_LABELS: Record<ComboRankingSortKey, string> = {
   damage: 'ダメージ',
@@ -177,6 +179,8 @@ export const COMBO_RANKING_SORT_LABELS: Record<ComboRankingSortKey, string> = {
   dGaugeRating: 'Dゲージ評価',
   saGaugeRating: 'SAゲージ評価',
   carryRating: '運び評価',
+  okizemeRating: '起き攻め内容評価',
+  difficultyRating: '難易度評価',
 };
 
 function valueFor(summary: ComboEndingSummary, key: ComboRankingSortKey): number | null {

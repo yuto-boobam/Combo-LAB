@@ -880,6 +880,8 @@ describe('一致箇所への一括反映機能', () => {
       dGaugeRating: null,
       saGaugeRating: null,
       carryRating: null,
+      okizemeRating: null,
+      difficultyRating: null,
       overallRating: null,
       plusFrame: null,
       plusFrameHitType: null,
