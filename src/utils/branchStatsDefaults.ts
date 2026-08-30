@@ -14,6 +14,8 @@ export const DEFAULT_BRANCH_STATS: ComboBranchStats = {
   dGaugeRating: null,
   saGaugeRating: null,
   carryRating: null,
+  okizemeRating: null,
+  difficultyRating: null,
   overallRating: null,
   plusFrame: null,
   plusFrameHitType: null,

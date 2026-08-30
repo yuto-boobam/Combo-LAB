@@ -603,6 +603,8 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
     stats.dGaugeRating !== null,
     stats.saGaugeRating !== null,
     stats.carryRating !== null,
+    stats.okizemeRating !== null,
+    stats.difficultyRating !== null,
     stats.overallRating !== null,
     stats.plusFrame !== null,
     stats.isThrowRange,

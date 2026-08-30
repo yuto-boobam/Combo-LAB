@@ -201,9 +201,14 @@ export function BranchStatsEditor({
     stats.plusFrameHitType !== null;
   const showRatingGrid =
     !hideEmptyFields ||
-    [stats.damageRating, stats.dGaugeRating, stats.saGaugeRating, stats.carryRating].some(
-      (rating) => rating !== null,
-    );
+    [
+      stats.damageRating,
+      stats.dGaugeRating,
+      stats.saGaugeRating,
+      stats.carryRating,
+      stats.okizemeRating,
+      stats.difficultyRating,
+    ].some((rating) => rating !== null);
   const showOverallRating = !hideEmptyFields || stats.overallRating !== null;
   const showThrowRange = !hideEmptyFields || stats.isThrowRange;
   const showOkizeme = !hideEmptyFields || stats.canOkizeme;
@@ -421,6 +426,20 @@ export function BranchStatsEditor({
             label="運び評価"
             value={stats.carryRating}
             onChange={(next) => update({ carryRating: next })}
+            disabled={readOnly}
+            compact
+          />
+          <RatingField
+            label="起き攻め内容"
+            value={stats.okizemeRating}
+            onChange={(next) => update({ okizemeRating: next })}
+            disabled={readOnly}
+            compact
+          />
+          <RatingField
+            label="難易度"
+            value={stats.difficultyRating}
+            onChange={(next) => update({ difficultyRating: next })}
             disabled={readOnly}
             compact
           />

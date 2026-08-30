@@ -16,6 +16,8 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     dGaugeRating: null,
     saGaugeRating: null,
     carryRating: null,
+    okizemeRating: null,
+    difficultyRating: null,
     overallRating: null,
     plusFrame: null,
     plusFrameHitType: null,

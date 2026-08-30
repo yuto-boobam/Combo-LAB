@@ -126,6 +126,8 @@ export function ComboRankingList({
               <th style={styles.th}>Dゲージ評価</th>
               <th style={styles.th}>SAゲージ評価</th>
               <th style={styles.th}>運び評価</th>
+              <th style={styles.th}>起き攻め内容評価</th>
+              <th style={styles.th}>難易度評価</th>
               <th style={styles.th} />
             </tr>
           </thead>
@@ -153,6 +155,8 @@ export function ComboRankingList({
                 <td style={styles.td}>{summary.branchStats?.dGaugeRating ?? '−'}</td>
                 <td style={styles.td}>{summary.branchStats?.saGaugeRating ?? '−'}</td>
                 <td style={styles.td}>{summary.branchStats?.carryRating ?? '−'}</td>
+                <td style={styles.td}>{summary.branchStats?.okizemeRating ?? '−'}</td>
+                <td style={styles.td}>{summary.branchStats?.difficultyRating ?? '−'}</td>
                 <td style={styles.td}>
                   <button type="button" className="btn-icon" title="このコンボへジャンプ" onClick={() => onJumpTo(summary.nodeId)}>
                     →
