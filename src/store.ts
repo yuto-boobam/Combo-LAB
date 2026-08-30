@@ -1465,14 +1465,32 @@ export const useAppStore = create<AppState>()(
 
         const pastedNodes = clipboard.map(cloneWithFreshIds);
 
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, targetNodeId, (node) => ({
-              ...node,
-              children: [...node.children, ...pastedNodes],
-            })),
-          ),
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+              mapMoveNode(root, targetNodeId, (node) => {
+                // 貼り付け先が「キャンセルラッシュ」「生ラッシュ」なら、貼り付けた各断片の
+                // 先頭ノードにもラッシュの枠線・接続線色を自動的に付与する（addChildNodeと
+                // 同じ考え方。断片内部の孫以下のノードは元のコピー内容のまま変更しない。
+                // 2026-08-30ユーザー要望）
+                const inheritsRush = RUSH_HIGHLIGHT_MOVE_NAMES.includes(node.moveName);
+
+                const childNodes = inheritsRush
+                  ? pastedNodes.map((pastedNode) =>
+                      isRushIneligibleMove(pastedNode.moveName, character?.moveList ?? []) ||
+                      pastedNode.attributes.some((attribute) => attribute.type === 'rush')
+                        ? pastedNode
+                        : { ...pastedNode, attributes: [...pastedNode.attributes, { type: 'rush' as const }] },
+                    )
+                  : pastedNodes;
+
+                return { ...node, children: [...node.children, ...childNodes] };
+              }),
+            ),
+          };
+        });
       },
 
       // ──「共通区間を名前付きグループとして折りたたむ」機能 ────────────────────

@@ -390,6 +390,77 @@ describe('生ラッシュ/キャンセルラッシュに続く技への「ラッ
     const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
     expect(findNodeByMoveName(tree.root, '中P').attributes).toEqual([{ type: 'rush' }]);
   });
+
+  function makeClipboardNode(moveName: string, children: MoveNode[] = []): MoveNode {
+    return {
+      id: `clip-${moveName}`,
+      moveName,
+      attributes: [],
+      specialNote: '',
+      branchStats: null,
+      createdBy: 'テスト',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      children,
+    } as unknown as MoveNode;
+  }
+
+  it('pasteClipboard: 貼り付け先が「キャンセルラッシュ」なら、貼り付けた断片の先頭ノードに自動でrush属性が付く', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '2中K始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+    const rushId = store.addChildNode(characterId, treeId, rootId, 'キャンセルラッシュ');
+
+    useAppStore.setState({ clipboard: [makeClipboardNode('中P', [makeClipboardNode('強P')])] });
+    store.pasteClipboard(characterId, treeId, rushId);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(tree.root, '中P').attributes).toEqual([{ type: 'rush' }]);
+    // 断片内部（孫以下）のノードはコピー内容のまま変更しない
+    expect(findNodeByMoveName(tree.root, '強P').attributes).toEqual([]);
+  });
+
+  it('pasteClipboard: 貼り付け先が「生ラッシュ」でも同様にrush属性が付く', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '2中K始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+    const rushId = store.addChildNode(characterId, treeId, rootId, '生ラッシュ');
+
+    useAppStore.setState({ clipboard: [makeClipboardNode('中P')] });
+    store.pasteClipboard(characterId, treeId, rushId);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(tree.root, '中P').attributes).toEqual([{ type: 'rush' }]);
+  });
+
+  it('pasteClipboard: 貼り付けた断片の先頭が必殺技の場合はrush属性を付与しない', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    store.addMoveDefinition(characterId, 'special', '昇竜拳');
+    const treeId = store.createComboTree(characterId, '2中K始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+    const rushId = store.addChildNode(characterId, treeId, rootId, 'キャンセルラッシュ');
+
+    useAppStore.setState({ clipboard: [makeClipboardNode('昇竜拳')] });
+    store.pasteClipboard(characterId, treeId, rushId);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(tree.root, '昇竜拳').attributes).toEqual([]);
+  });
+
+  it('pasteClipboard: 貼り付け先がラッシュでなければ自動付与しない（回帰確認）', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const store = useAppStore.getState();
+    const treeId = store.createComboTree(characterId, '2中K始動');
+    const rootId = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!.root.id;
+
+    useAppStore.setState({ clipboard: [makeClipboardNode('中P')] });
+    store.pasteClipboard(characterId, treeId, rootId);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(findNodeByMoveName(tree.root, '中P').attributes).toEqual([]);
+  });
 });
 
 describe('setNodeUsesOD', () => {
