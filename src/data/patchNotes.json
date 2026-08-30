@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-08-30-0000bd58",
+    "date": "2026-08-30",
+    "buildNumber": 27,
+    "type": "feature",
+    "title": "汎用コンボの実装",
+    "description": "複数の始動技とコンボルートを同時に登録しておくことで、コンボを一気に登録する。",
+    "beforeImageUrl": null,
+    "afterImageUrl": "/images/patch-notes/2026/08/20260830-build27-after.png?v=1788079136758"
+  },
+  {
     "id": "2026-08-30-b759ba0d",
     "date": "2026-08-30",
     "buildNumber": 26,

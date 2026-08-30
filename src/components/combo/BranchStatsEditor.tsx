@@ -2,12 +2,13 @@
 // 枝（コンボ）の統計情報の編集UI。葉ノード、またはガード/空振り属性を持つノードで使う
 // （表示するかどうかの判断は呼び出し側で行う。src/components/combo/SideDrawerPanel.tsx を参照）。
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 import type { DamageBreakdown, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import { parsePlusFrameRange } from '../../utils/plusFrameRange';
+import { expandStarterMoveOptions } from '../../utils/starterMoveOptions';
 import { OdLevelToggle } from './OdLevelToggle';
 
 export type OdUsageOnPath = {
@@ -127,6 +128,13 @@ export function BranchStatsEditor({
   // trueは1ノードずつの内訳（読み取り専用のテキスト表示に切り替わる）
   const [isDGaugeBreakdownMode, setIsDGaugeBreakdownMode] = useState(false);
   const [isSaGaugeBreakdownMode, setIsSaGaugeBreakdownMode] = useState(false);
+
+  // starterMoveOptionsは見出し表示用にコンパクトな「強P/4強P」表記のまま保持されているため、
+  // 実際に1つ選ばせるこのピッカーでだけ具体的な組み合わせへ展開する（expandStarterMoveOptions参照）
+  const expandedStarterMoveOptions = useMemo(
+    () => expandStarterMoveOptions(starterMoveOptions),
+    [starterMoveOptions],
+  );
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
@@ -454,7 +462,7 @@ export function BranchStatsEditor({
         </label>
       )}
 
-      {starterMoveOptions.length > 0 && (
+      {expandedStarterMoveOptions.length > 0 && (
         <div style={styles.fieldLabel}>
           この枝の始動技
           {(!stats.startingMoveNames || stats.startingMoveNames.length === 0) && (
@@ -463,7 +471,7 @@ export function BranchStatsEditor({
             </span>
           )}
           <div style={styles.threeColRow}>
-            {starterMoveOptions.map((chain) => {
+            {expandedStarterMoveOptions.map((chain) => {
               const chainLabel = chain.join(' → ');
               const active =
                 stats.startingMoveNames !== null &&

@@ -2,19 +2,43 @@
 // 「コンボ評価一覧」機能: すべての木を横断して、branchStatsを持ちうる終端（コンボの締め）を
 // 一覧化する。ソート・フィルタはこの一覧の表示上だけで完結し、実データ（木の並び順）には
 // 一切手を付けない（ユーザー要望: 一覧をソートしても、元の並び順にいつでも戻せる必要がある）。
+//
+// 汎用コンボ（root.startingMoveOptions）の終端は、末端に保存された1つの選択
+// （branchStats.startingMoveNames）だけを見るのではなく、候補一覧の数だけ行を展開し、
+// それぞれの候補を実際に選んだと仮定してダメージ・ゲージを都度計算する
+// （2026-08-30ユーザー指摘:「本当ならこのコンボが始動技の数だけ表示されるべき」。
+// 「どの始動技なら何ダメージなのか」を無視して1行にまとめてしまうと、始動技ごとの
+// 比較ができなくなるため）。実データは一切書き換えず、この一覧の表示専用の計算。
 
-import type { ComboBranchStats, ComboTree, MoveNode } from '../types';
+import type { ComboBranchStats, ComboTree, MoveDefinition, MoveNode, MoveStatsDatabase } from '../types';
+import { DEFAULT_BRANCH_STATS } from './branchStatsDefaults';
+import {
+  calculateBranchDamage,
+  calculateBranchDGaugeChange,
+  calculateBranchOpponentDGaugeChip,
+  calculateBranchSaGaugeChange,
+} from './comboGaugeCalc';
+import { expandStarterMoveOptions } from './starterMoveOptions';
 
 export type ComboEndingSummary = {
+  /** 一覧の1行を一意に識別するキー（汎用コンボは候補ごとに複数行に展開するためnodeIdだけでは重複する） */
+  key: string;
+  /** 実ノードのID。「→ジャンプ」は常にこのノードへ飛ぶ（展開後の行がどれでも同じ場所） */
   nodeId: string;
   treeId: string;
-  /** 始動技（木のラベル。ツリー見出しに表示されているものと同じ） */
+  /** 始動技（通常の木は木のラベル。汎用コンボはこの行が表す具体的な始動技の並び） */
   starterLabel: string;
   /** 始動技の直後から対象ノードまでの技名を「→」で繋いだ経路（対象ノードが始動技自身の場合は空文字） */
   pathLabel: string;
   /** 対象ノード自身の表示名 */
   endingLabel: string;
   branchStats: ComboBranchStats | null;
+  /**
+   * 汎用コンボで、この行の始動技が実際に選ばれている（branchStats.startingMoveNamesと一致する）か。
+   * 通常の木では常にtrue。falseの行はダメージ・ゲージだけを仮計算した参考行で、
+   * 評価・お気に入り等の手入力項目はまだ無い（実際に選ぶまでは記録できないため）
+   */
+  isSelectedStarter: boolean;
 };
 
 /**
@@ -33,37 +57,100 @@ function labelOf(node: MoveNode): string {
   return node.displayName ?? node.moveName;
 }
 
-/**
- * rootがMoveNode.startingMoveOptions（「汎用コンボ」）を持つ場合、この終端で実際に
- * 選ばれた始動技の並び（branchStats.startingMoveNames、ジャンプ攻撃始動のように
- * 複数技のこともある）を「→」で繋いで優先的に返す。未選択ならその旨がわかるように
- * tree.labelへ「(始動技未選択)」を添える。通常の木ではtree.labelをそのまま返す
- */
-function starterLabelFor(tree: ComboTree, node: MoveNode): string {
-  if (!tree.root.startingMoveOptions || tree.root.startingMoveOptions.length === 0) {
-    return tree.label;
-  }
-  const startingMoveNames = node.branchStats?.startingMoveNames;
-  if (!startingMoveNames || startingMoveNames.length === 0) return `${tree.label}(始動技未選択)`;
-  return startingMoveNames.join(' → ');
+/** rootの中でnodeIdに一致するノードだけbranchStatsを差し替えた木を返す（実データには手を付けない） */
+function withOverriddenBranchStats(root: MoveNode, nodeId: string, branchStats: ComboBranchStats): MoveNode {
+  if (root.id === nodeId) return { ...root, branchStats };
+  if (root.children.length === 0) return root;
+  return { ...root, children: root.children.map((child) => withOverriddenBranchStats(child, nodeId, branchStats)) };
 }
 
-export function collectComboEndingSummaries(trees: ComboTree[]): ComboEndingSummary[] {
+function sameStarter(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((name, index) => name === b[index]);
+}
+
+export function collectComboEndingSummaries(
+  trees: ComboTree[],
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+): ComboEndingSummary[] {
   const summaries: ComboEndingSummary[] = [];
 
   trees.forEach((tree) => {
+    const starterCandidates = expandStarterMoveOptions(tree.root.startingMoveOptions ?? []);
+    const isGeneric = starterCandidates.length > 0;
+
     const visit = (node: MoveNode, path: MoveNode[]) => {
       const nextPath = [...path, node];
 
       if (isComboEndpoint(node)) {
-        summaries.push({
-          nodeId: node.id,
-          treeId: tree.id,
-          starterLabel: starterLabelFor(tree, node),
-          pathLabel: nextPath.slice(1).map(labelOf).join(' → '),
-          endingLabel: labelOf(node),
-          branchStats: node.branchStats,
-        });
+        const pathLabel = nextPath.slice(1).map(labelOf).join(' → ');
+        const endingLabel = labelOf(node);
+        const selectedStarter = node.branchStats?.startingMoveNames ?? null;
+
+        if (!isGeneric) {
+          summaries.push({
+            key: node.id,
+            nodeId: node.id,
+            treeId: tree.id,
+            starterLabel: tree.label,
+            pathLabel,
+            endingLabel,
+            branchStats: node.branchStats,
+            isSelectedStarter: true,
+          });
+        } else {
+          // 計算の入力には常に実データ(branchStats)を使う（finishingSuperArtName等の
+          // 「このendingがどう終わるか」を表す設定は、どの始動技で辿り着いたかに関わらず
+          // 共通して当てはまるため）。startingMoveNamesだけを候補ごとに差し替える
+          const baseBranchStats = node.branchStats ?? DEFAULT_BRANCH_STATS;
+
+          starterCandidates.forEach((candidate, index) => {
+            const isSelected = selectedStarter !== null && sameStarter(selectedStarter, candidate);
+
+            const whatIfRoot = withOverriddenBranchStats(tree.root, node.id, {
+              ...baseBranchStats,
+              startingMoveNames: candidate,
+            });
+
+            const damage = calculateBranchDamage(characterId, moveStatsDatabase, moveList, whatIfRoot, node.id);
+            const dGaugeChange = calculateBranchDGaugeChange(
+              characterId,
+              moveStatsDatabase,
+              moveList,
+              whatIfRoot,
+              node.id,
+            );
+            const opponentDGaugeChip = calculateBranchOpponentDGaugeChip(
+              characterId,
+              moveStatsDatabase,
+              moveList,
+              whatIfRoot,
+              node.id,
+            );
+            const saGaugeGain = calculateBranchSaGaugeChange(characterId, moveStatsDatabase, whatIfRoot, node.id);
+
+            summaries.push({
+              key: `${node.id}::${index}`,
+              nodeId: node.id,
+              treeId: tree.id,
+              starterLabel: candidate.join(' → '),
+              pathLabel,
+              endingLabel,
+              isSelectedStarter: isSelected,
+              branchStats: {
+                // 評価・お気に入り等の手入力項目は、実際に選ばれている始動技の行にのみ残す
+                // （試していない仮の始動技にまで実データの評価を横流ししないようにする）
+                ...(isSelected ? baseBranchStats : DEFAULT_BRANCH_STATS),
+                startingMoveNames: candidate,
+                damage,
+                dGaugeChange,
+                opponentDGaugeChip,
+                saGaugeGain,
+              },
+            });
+          });
+        }
       }
 
       node.children.forEach((child) => visit(child, nextPath));

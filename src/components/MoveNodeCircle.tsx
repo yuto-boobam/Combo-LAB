@@ -247,7 +247,7 @@ export function MoveNodeCircle({
         }}
         title={
           isRoot && node.startingMoveOptions && node.startingMoveOptions.length > 0
-            ? `汎用コンボ（対象の始動技: ${node.startingMoveOptions.map((chain) => chain.join('→')).join(' / ')}）`
+            ? `汎用コンボ（対象の始動技: ${node.startingMoveOptions.map((chain) => chain.join('→')).join('、')}）`
             : node.moveName
         }
       >

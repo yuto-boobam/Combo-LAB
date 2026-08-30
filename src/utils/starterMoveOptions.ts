@@ -6,10 +6,17 @@
 // 記法: 改行・カンマ・「、」で候補同士を区切る。1つの候補の中で複数の技を経由する場合
 // （例: ジャンプ攻撃始動で「J強K→強P」を経てから汎用の続きに入る）は「→」または「->」で繋ぐ。
 // さらに、経由する技のどこかで複数パターンがありうる場合（例:「J攻撃→強P/4強P/2強P」）は
-// 「/」で並べると、その1行がパターンの数だけ独立した候補に自動展開される
-// （2026-08-30ユーザー要望。「J攻撃→強P」「J攻撃→4強P」「J攻撃→2強P」の3候補と同義）。
-// 展開後は完全に独立した別候補として保存されるため、後から編集画面を開くと「/」ではなく
-// 展開済みの複数行として表示される（元の省略記法は保持しない）。
+// 「/」で並べる（2026-08-30ユーザー要望）。
+//
+// 「/」は保存時には展開しない（parseStarterMoveOptionsTextはそのまま1つのトークンとして
+// 保持する）。展開すると「J中K/J強P→強P/2強P/4強P」のような短い入力が6候補ぶんに膨れ上がり、
+// 木の見出し表示が長大になって見切れてしまう不具合があったため（2026-08-30ユーザー指摘：
+// 「強Pと4強Pは中継技として使う分には結果に差が無いので、まとめて表示したい」）。
+// 表示（TreeBlockHeaderの見出し・MoveNodeCircleのtitle等）はstartingMoveOptionsを
+// そのままjoinするだけなので、この「/」入り表記が自然にそのままコンパクトに表示される。
+// 実際に選ばせる時（BranchStatsEditor.tsxの「この枝の始動技」ピッカー）だけ、
+// expandStarterMoveOptionsで初めて具体的な候補へ展開する（1候補=1つの決まった技の並び、
+// という前提が必要な選択・ダメージ計算の場面でのみ使う。詳細は各関数のコメント参照）。
 //
 // 技名の後ろに括弧で条件を添えると、「その技がその条件で当たった時だけ繋がる」を表現できる
 // （2026-08-30ユーザー要望。「〜の技のパニカンならつながる」を表現したい）。
@@ -56,10 +63,37 @@ function cartesianProduct(steps: string[][]): string[][] {
   );
 }
 
+/**
+ * テキスト⇄startingMoveOptions（MoveNode.startingMoveOptions）の変換。「/」は展開せず、
+ * 各段の生の文字列（例:「強P/4強P」）をそのまま1トークンとして保持する
+ * （見出し表示をコンパクトに保つため。展開が必要な場面はexpandStarterMoveOptions参照）
+ */
 export function parseStarterMoveOptionsText(text: string): string[][] {
-  return text.split(/[\n,、]/).flatMap((candidate) => {
-    const steps = candidate
-      .split(/→|->/)
+  return text
+    .split(/[\n,、]/)
+    .map((candidate) =>
+      candidate
+        .split(/→|->/)
+        .map((step) => step.trim())
+        .filter((step) => step.length > 0),
+    )
+    .filter((chain) => chain.length > 0);
+}
+
+export function serializeStarterMoveOptions(options: string[][]): string {
+  return options.map((chain) => chain.join('→')).join('\n');
+}
+
+/**
+ * startingMoveOptionsの各段が「強P/4強P」のように複数パターンを含んでいる場合、
+ * 具体的な組み合わせ（直積）へ展開する。技を1つずつ選ばせる必要がある場面
+ * （BranchStatsEditor.tsxの「この枝の始動技」ピッカー）だけで使う。
+ * 括弧の中の「/」（条件指定「PC/R」用）は展開対象に含めない
+ * （splitTopLevelPreservingParens参照）
+ */
+export function expandStarterMoveOptions(options: string[][]): string[][] {
+  return options.flatMap((chain) => {
+    const steps = chain
       .map((step) =>
         splitTopLevelPreservingParens(step, '/')
           .map((name) => name.trim())
@@ -69,10 +103,6 @@ export function parseStarterMoveOptionsText(text: string): string[][] {
 
     return steps.length > 0 ? cartesianProduct(steps) : [];
   });
-}
-
-export function serializeStarterMoveOptions(options: string[][]): string {
-  return options.map((chain) => chain.join('→')).join('\n');
 }
 
 const CONDITION_ATTRIBUTE_MAP: Record<string, NodeAttribute['type']> = {

@@ -33,6 +33,7 @@ import { SHOWCASE_CHARACTERS } from './data/comboShowcase';
 import { findNode, buildParentMap, collectGroupChain } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
 import { collectChain, findMatchingChains } from './utils/chainMatch';
+import { RUSH_HIGHLIGHT_MOVE_NAMES } from './utils/nodeVisualStyle';
 
 /**
  * 保存済みキャラデータを現行スキーマに合わせて補完する（読み込み時の移行措置）。
@@ -280,6 +281,14 @@ function normalizeImportedCharacter(imported: Partial<Character>, fallback: Char
 const makeId = (): string =>
   Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+/**
+ * 「汎用コンボ」のroot（MoveNode.startingMoveOptions持ち）は、複数の候補技のうちどれかが
+ * 入る空欄という位置づけであり、特定の技名を名乗るのは不自然（2026-08-30ユーザー指摘）。
+ * ラベル(tree.label)の内容に関わらず、rootのmoveNameは常にこのプレースホルダ文字列にする
+ * （「（技名未設定）」と同じ「実技ではない」ことを示す括弧書きの慣例に合わせる）
+ */
+const GENERIC_STARTER_PLACEHOLDER_NAME = '（始動技）';
+
 function makeMoveNode(
   moveName: string,
   attributes: NodeAttribute[],
@@ -297,6 +306,20 @@ function makeMoveNode(
     createdAt: new Date().toISOString(),
     children: [],
   };
+}
+
+/** 「ラッシュ」属性を持てない技カテゴリ（2026-08-30ユーザー指定: 必殺技・SA。CAもsuperArt扱いのため含む） */
+const RUSH_INELIGIBLE_CATEGORIES: MoveCategory[] = ['special', 'superArt'];
+
+/**
+ * このノードの技が必殺技・SA(CA含む)かどうか。これらは「ラッシュ」属性を持てない仕様
+ * （2026-08-30ユーザー指定）のため、addChildNode/setNodeAttributesの両方から使う。
+ * 通常技(normal)・特殊技(unique)等はキャラ共通/キャラ固有どちらでも対象外（false）
+ */
+function isRushIneligibleMove(moveName: string, moveList: MoveDefinition[]): boolean {
+  return moveList.some(
+    (move) => RUSH_INELIGIBLE_CATEGORIES.includes(move.category) && moveName.includes(move.name),
+  );
 }
 
 // ── 木構造操作ヘルパー（MoveNode版。Rootedのstore.tsと同じ考え方） ────────────
@@ -995,7 +1018,7 @@ export const useAppStore = create<AppState>()(
           label: trimmedLabel,
           root:
             validStarterMoveOptions.length > 0
-              ? { ...root, startingMoveOptions: validStarterMoveOptions }
+              ? { ...root, moveName: GENERIC_STARTER_PLACEHOLDER_NAME, startingMoveOptions: validStarterMoveOptions }
               : root,
         };
 
@@ -1069,15 +1092,20 @@ export const useAppStore = create<AppState>()(
               comboTrees: character.comboTrees.map((tree) => {
                 if (tree.id !== treeId) return tree;
 
-                // 汎用コンボのrootは実技を持たないラベルのプレースホルダなので、
-                // 見出し(label)と一緒にroot自身の表示名も合わせておく。通常の木のrootは
-                // 実技の参照名（ダメージ計算に使う）なので、ここでは変更しない
+                // 汎用コンボのrootは「複数の候補技のどれかが入る空欄」という位置づけのため、
+                // ラベル(見出し)の内容に関わらず、rootの表示名は常にプレースホルダ文字列に
+                // 固定する（特定の技名を名乗るのは不自然、というユーザー指摘。既存の
+                // 汎用コンボ木がこのプレースホルダに未移行でも、ラベルを変更すればここで
+                // 自動的に補正される）。通常の木のrootは実技の参照名（ダメージ計算に使う）
+                // なので、ここでは変更しない
                 const isGenericRoot = (tree.root.startingMoveOptions?.length ?? 0) > 0;
 
                 return {
                   ...tree,
                   label: trimmedLabel,
-                  root: isGenericRoot ? { ...tree.root, moveName: trimmedLabel } : tree.root,
+                  root: isGenericRoot
+                    ? { ...tree.root, moveName: GENERIC_STARTER_PLACEHOLDER_NAME }
+                    : tree.root,
                 };
               }),
             };
@@ -1090,12 +1118,28 @@ export const useAppStore = create<AppState>()(
           .map((chain) => chain.map((name) => name.trim()).filter((name) => name.length > 0))
           .filter((chain) => chain.length > 0);
 
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) => ({
-            ...root,
-            startingMoveOptions: validOptions.length > 0 ? validOptions : undefined,
-          })),
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const tree = character?.comboTrees.find((item) => item.id === treeId);
+          const wasGeneric = (tree?.root.startingMoveOptions?.length ?? 0) > 0;
+          const isGeneric = validOptions.length > 0;
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) => ({
+              ...root,
+              startingMoveOptions: isGeneric ? validOptions : undefined,
+              // 通常⇄汎用の切り替わりでrootの表示名を追従させる。汎用になった直後は
+              // プレースホルダ名「（始動技）」、通常へ戻る時は今のラベルを実技名代わりに
+              // 差し替える（通常の木の新規作成時にラベルをそのまま技名にするのと同じ考え方）
+              moveName:
+                isGeneric && !wasGeneric
+                  ? GENERIC_STARTER_PLACEHOLDER_NAME
+                  : !isGeneric && wasGeneric && tree
+                    ? tree.label
+                    : root.moveName,
+            })),
+          };
+        });
       },
 
       // ──── ノード（技）操作 ────────────────────────────────────────────
@@ -1120,18 +1164,38 @@ export const useAppStore = create<AppState>()(
         const { nickname } = get();
         const newNode = makeMoveNode(moveName, attributes, nickname, displayName);
 
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, parentId, (node) => ({
-              ...node,
-              // 親が名前付きグループに属していれば、新しい子もそのグループの続きとして
-              // 自動的に同じgroupIdを引き継ぐ（グループ区間は「同じgroupIdの連続」で
-              // 定義されるため、末尾に技を付け足す操作は自然にグループを延長する。
-              // 2026-08-28ユーザー要望：グループ画面で自由に技を付け足せるようにするため）
-              children: [...node.children, node.groupId ? { ...newNode, groupId: node.groupId } : newNode],
-            })),
-          ),
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const isRushIneligible = isRushIneligibleMove(moveName, character?.moveList ?? []);
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+              mapMoveNode(root, parentId, (node) => {
+                // 親が「キャンセルラッシュ」「生ラッシュ」なら、続く技にもラッシュの枠線・接続線色を
+                // 自動的に付与する。必殺技・SA(CA含む)はラッシュ属性を持てない仕様のため対象外にする
+                // （2026-08-30ユーザー要望）
+                const inheritsRush =
+                  RUSH_HIGHLIGHT_MOVE_NAMES.includes(node.moveName) &&
+                  !isRushIneligible &&
+                  !newNode.attributes.some((attribute) => attribute.type === 'rush');
+
+                const childNode: MoveNode = {
+                  ...newNode,
+                  // 親が名前付きグループに属していれば、新しい子もそのグループの続きとして
+                  // 自動的に同じgroupIdを引き継ぐ（グループ区間は「同じgroupIdの連続」で
+                  // 定義されるため、末尾に技を付け足す操作は自然にグループを延長する。
+                  // 2026-08-28ユーザー要望：グループ画面で自由に技を付け足せるようにするため）
+                  groupId: node.groupId,
+                  attributes: inheritsRush
+                    ? [...newNode.attributes, { type: 'rush' }]
+                    : newNode.attributes,
+                };
+
+                return { ...node, children: [...node.children, childNode] };
+              }),
+            ),
+          };
+        });
 
         return newNode.id;
       },
@@ -1213,11 +1277,24 @@ export const useAppStore = create<AppState>()(
       },
 
       setNodeAttributes: (characterId, treeId, nodeId, attributes) => {
-        set((state) => ({
-          characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
-            mapMoveNode(root, nodeId, (node) => ({ ...node, attributes })),
-          ),
-        }));
+        set((state) => {
+          const character = state.characters.find((item) => item.id === characterId);
+          const tree = character?.comboTrees.find((item) => item.id === treeId);
+          const node = tree ? findNode(tree.root, nodeId) : null;
+          // 必殺技・SA(CA含む)はラッシュ属性を持てない仕様のため、手動での属性編集でも一律で弾く
+          // （addChildNodeの自動継承と合わせて、この制約が常に成り立つようにする。
+          // 2026-08-30ユーザー要望）
+          const nextAttributes =
+            node && isRushIneligibleMove(node.moveName, character?.moveList ?? [])
+              ? attributes.filter((attribute) => attribute.type !== 'rush')
+              : attributes;
+
+          return {
+            characters: updateComboTreeRoot(state.characters, characterId, treeId, (root) =>
+              mapMoveNode(root, nodeId, (n) => ({ ...n, attributes: nextAttributes })),
+            ),
+          };
+        });
       },
 
       setNodeBranchStats: (characterId, treeId, nodeId, branchStats) => {

@@ -1341,7 +1341,7 @@ function NodeEditor({
                 title="このノードと、その先(同じグループが続く子孫)だけをグループから切り離す。手前の技はグループのまま残る"
                 onClick={() => detachNodeFromGroup(characterId, treeId, selectedNode.id)}
               >
-                ✂️ この技だけグループから切り離す
+                ✂️ この技をグループから切り離す
               </button>
             </div>
           ) : (
