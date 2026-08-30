@@ -158,11 +158,10 @@ function CharacterTile({
         type="button"
         onClick={onClick}
         title={character.name}
+        className={`character-tile ${hasTree ? 'character-tile--active' : 'character-tile--empty'}`}
         style={{
           ...styles.tile,
           borderRadius: clamp(cellSize * 0.14, 6, 14),
-          borderColor: hasTree ? 'var(--accent)' : 'var(--border)',
-          boxShadow: hasTree ? '0 0 0 1px var(--accent-glow)' : 'none',
         }}
       >
         {character.imageUrl ? (
@@ -299,18 +298,17 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 0,
     minHeight: 0,
   },
+  // 背景・枠線色・ホバー時の演出は.character-tile系のCSSクラス（index.css）が持つ。
+  // ここはcellSizeに応じて変わるレイアウト値のみを扱う（クラスと役割を分けるため）
   tile: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
     height: '100%',
-    border: '2px solid var(--border)',
-    background: 'var(--bg-surface)',
     overflow: 'hidden',
     cursor: 'pointer',
     padding: 6,
-    transition: 'border-color 0.15s, box-shadow 0.15s, transform 0.15s',
   },
   moveStatsButton: {
     position: 'absolute',
