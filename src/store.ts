@@ -738,14 +738,32 @@ export const useAppStore = create<AppState>()(
       isGuest: false,
 
       enterGuestMode: () => {
-        set({ isGuest: true, user: null, nickname: 'ゲスト' });
+        // ログイン/ログアウトを繰り返しても前回選んでいたキャラクターの画面へ
+        // 直行してしまわないよう、画面遷移状態も必ずリセットする
+        // （2026-08-31ユーザー指摘：ログイン時にキャラ選択画面へ必ず戻ってほしい）
+        set({
+          isGuest: true,
+          user: null,
+          nickname: 'ゲスト',
+          selectedCharacterId: null,
+          selectedNodeId: null,
+          moveStatsCharacterId: null,
+        });
       },
 
       logout: async () => {
         if (get().isGuest) {
-          set({ isGuest: false, user: null, nickname: '' });
+          set({
+            isGuest: false,
+            user: null,
+            nickname: '',
+            selectedCharacterId: null,
+            selectedNodeId: null,
+            moveStatsCharacterId: null,
+          });
           return;
         }
+        set({ selectedCharacterId: null, selectedNodeId: null, moveStatsCharacterId: null });
         await supabase.auth.signOut();
       },
 
@@ -805,7 +823,7 @@ export const useAppStore = create<AppState>()(
       },
 
       goToCharacterSelect: () => {
-        set({ selectedCharacterId: null, selectedNodeId: null });
+        set({ selectedCharacterId: null, selectedNodeId: null, moveStatsCharacterId: null });
       },
 
       hasSeenTutorialIntro: false,

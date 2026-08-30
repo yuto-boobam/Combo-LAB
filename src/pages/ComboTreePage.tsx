@@ -274,7 +274,12 @@ export function ComboTreePage() {
   // ページでは自由にコンボを追加できる」という案内。1ページ目は＞ボタンで進むだけで閉じられず、
   // 2ページ目に着いて初めて「閉じる」が現れる（同日ユーザー指定）
   const [closingMessagePage, setClosingMessagePage] = useState<1 | 2>(1);
-  const [isClosingMessageDismissed, setIsClosingMessageDismissed] = useState(false);
+  // 既にガイドを見終えている(alreadySeenTutorial)なら、tutorialGuideStepは最初から
+  // 'done'で始まるため、この初期値をfalse固定のままにすると再訪のたびに毎回この
+  // ポップアップだけ出てしまう不具合になる（2026-08-31ユーザー指摘）。既視済みなら
+  // 最初から表示済み扱いにしておく。手動リセット時はhandleConfirmTutorialRestartが
+  // 明示的にfalseへ戻す
+  const [isClosingMessageDismissed, setIsClosingMessageDismissed] = useState(alreadySeenTutorial);
 
   // ②「ダメージは自動計算」の木にある、自動計算の説明文付きの末端ノード
   // （tutorialCharacter.tsのtreeDamage: 500ダメージ→500ダメージ→500ダメージ、の3つ目）
@@ -761,16 +766,20 @@ export function ComboTreePage() {
                 border: 'none',
                 background: 'var(--accent)',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 3,
                 cursor: 'pointer',
               }}
             >
-              <span style={{ width: 14, height: 2, borderRadius: 1, background: '#fff' }} />
-              <span style={{ width: 14, height: 2, borderRadius: 1, background: '#fff' }} />
-              <span style={{ width: 14, height: 2, borderRadius: 1, background: '#fff' }} />
+              {/* CSS(width/height/gapを持つ<span>3つ)だと極小サイズでの端末依存の
+                  サブピクセル丸め次第で3本の太さがわずかに不揃いに見えることがあった
+                  （2026-08-31ユーザー指摘）。SVGの座標指定に置き換えることで、拡大率や
+                  端末のピクセル密度に関わらず常に同じ太さで描画されるようにした */}
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" aria-hidden="true">
+                <rect x="0" y="0" width="16" height="2" rx="1" fill="#fff" />
+                <rect x="0" y="5" width="16" height="2" rx="1" fill="#fff" />
+                <rect x="0" y="10" width="16" height="2" rx="1" fill="#fff" />
+              </svg>
             </button>
 
             {/* サイドドロワー開閉ボタンの誘導ガイド。チュートリアルキャラクターの初回のみ表示 */}

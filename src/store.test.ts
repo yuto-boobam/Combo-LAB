@@ -516,6 +516,46 @@ describe('使い方ガイド（チュートリアル）: 既視フラグとリ�
   });
 });
 
+describe('ログイン/ゲスト切り替え時の画面遷移リセット（前回選んでいたキャラクターへ直行してしまう不具合の修正）', () => {
+  beforeEach(() => {
+    useAppStore.setState({
+      selectedCharacterId: 'ryu',
+      selectedNodeId: 'some-node',
+      moveStatsCharacterId: 'ryu',
+    });
+  });
+
+  it('goToCharacterSelect: selectedCharacterId/selectedNodeId/moveStatsCharacterIdをすべてnullに戻す', () => {
+    useAppStore.getState().goToCharacterSelect();
+
+    const state = useAppStore.getState();
+    expect(state.selectedCharacterId).toBeNull();
+    expect(state.selectedNodeId).toBeNull();
+    expect(state.moveStatsCharacterId).toBeNull();
+  });
+
+  it('enterGuestMode: 画面遷移状態をすべてリセットする', () => {
+    useAppStore.getState().enterGuestMode();
+
+    const state = useAppStore.getState();
+    expect(state.isGuest).toBe(true);
+    expect(state.selectedCharacterId).toBeNull();
+    expect(state.selectedNodeId).toBeNull();
+    expect(state.moveStatsCharacterId).toBeNull();
+  });
+
+  it('logout（ゲストの場合）: 画面遷移状態をすべてリセットする', async () => {
+    useAppStore.setState({ isGuest: true });
+    await useAppStore.getState().logout();
+
+    const state = useAppStore.getState();
+    expect(state.isGuest).toBe(false);
+    expect(state.selectedCharacterId).toBeNull();
+    expect(state.selectedNodeId).toBeNull();
+    expect(state.moveStatsCharacterId).toBeNull();
+  });
+});
+
 describe('setNodeUsesOD', () => {
   beforeEach(() => {
     useAppStore.setState({ characters: createInitialCharacterRoster() });
