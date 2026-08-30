@@ -104,12 +104,24 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
         // （cp1xがendXを超え、cp2xがstartXを下回る）、ループ状に膨らんで悪化した
         // （ユーザー指摘、2026-08-30）。線の曲げ方では直せない・根本原因は
         // computeTreeLayout側で兄弟ノードの高さが揃っていないため縦距離が偏って
-        // 伸びることだったので、そちらをlayout.ts側で対処し、ここは元の横距離基準に戻す。
+        // 伸びることだったので、そちらをlayout.ts側で対処し、ここは元の横距離基準に戻した。
+        //
+        // ただし横距離基準のcp1x/cp2xだけだと、縦距離が横距離よりずっと大きいリンク
+        // （部分木が深い兄弟の隣で、後続の兄弟だけ大きく下に離れる場合など）では、
+        // 始点・終点の接線が常に水平（cp1y=startY, cp2y=endY）なため、曲線が両端で
+        // 一度水平に「垂れ下がって」から縦に大きく動く、たるんだロープのような見た目になる
+        // （ユーザー指摘、2026-08-30）。x方向は動かさず（交差・ループの心配がないまま）、
+        // 縦距離が横距離に対して大きいリンクだけ、制御点のy成分を終点側へわずかに
+        // 寄せることで、両端の水平な垂れを減らし張った線に近づける。
         const distanceX = Math.max((endX - startX) / 2, 20);
+        const dy = endY - startY;
+        // 縦距離が横距離と同程度以下ならほぼ0、大きく上回るほど1に近づく（青天井ではない）
+        const steepness = Math.min(Math.abs(dy) / (Math.abs(endX - startX) + distanceX), 1);
+        const verticalPull = dy * 0.3 * steepness;
         const cp1x = startX + distanceX;
-        const cp1y = startY;
+        const cp1y = startY + verticalPull;
         const cp2x = endX - distanceX;
-        const cp2y = endY;
+        const cp2y = endY - verticalPull;
 
         const d = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
         const id = `${link.parentId}-${link.childId}`;
