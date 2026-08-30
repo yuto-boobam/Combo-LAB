@@ -98,6 +98,13 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
         );
 
         // 滑らかなベジェ曲線の制御点
+        //
+        // 2026-08-30に一度「縦距離もオフセットの下限に反映する」修正を試みたが、
+        // 縦距離が横距離の2倍を超えると制御点同士が互いの反対側を追い越してしまい
+        // （cp1xがendXを超え、cp2xがstartXを下回る）、ループ状に膨らんで悪化した
+        // （ユーザー指摘、2026-08-30）。線の曲げ方では直せない・根本原因は
+        // computeTreeLayout側で兄弟ノードの高さが揃っていないため縦距離が偏って
+        // 伸びることだったので、そちらをlayout.ts側で対処し、ここは元の横距離基準に戻す。
         const distanceX = Math.max((endX - startX) / 2, 20);
         const cp1x = startX + distanceX;
         const cp1y = startY;

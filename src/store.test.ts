@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { useAppStore } from './store';
-import type { Character, MoveNode } from './types';
+import { useAppStore, migrateLegacyCharacter } from './store';
+import type { Character, ComboTree, MoveNode } from './types';
 import { createInitialCharacterRoster } from './data/characterRoster';
 import { buildGroupView } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
@@ -25,6 +25,69 @@ function findNodeByMoveName(root: MoveNode, moveName: string): MoveNode {
   if (!found) throw new Error(`node not found: ${moveName}`);
   return found;
 }
+
+describe('migrateLegacyCharacter（保存済みデータの読み込み時スキーマ移行）', () => {
+  function makeMinimalCharacter(comboTrees: ComboTree[]): Character {
+    return {
+      id: 'c1',
+      name: 'テスト',
+      moveList: [],
+      namedComboGroups: [],
+      comboTrees,
+    } as unknown as Character;
+  }
+
+  it('startingMoveOptionsが旧形式(string[])で保存されていても、新形式(string[][])に補正する（クラッシュ修正）', () => {
+    // 2026-08-30にstring[]→string[][]へ型変更する前に保存されたデータを模した状態。
+    // 移行前は`chain.join(...)`のような新形式前提のコードが文字列に対して呼ばれて
+    // クラッシュし、キャラ選択直後に画面が真っ白になる不具合の原因だった
+    const legacyRoot = {
+      id: 'root',
+      moveName: '中攻撃',
+      attributes: [],
+      specialNote: '',
+      branchStats: null,
+      createdBy: '',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      children: [],
+      startingMoveOptions: ['弱P', '弱K'], // 旧形式
+    } as unknown as MoveNode;
+    const character = makeMinimalCharacter([{ id: 't1', label: '中攻撃', root: legacyRoot }]);
+
+    const migrated = migrateLegacyCharacter(character);
+
+    expect(migrated.comboTrees[0].root.startingMoveOptions).toEqual([['弱P'], ['弱K']]);
+  });
+
+  it('branchStats.startingMoveNameが旧フィールド(単数)で保存されていても、startingMoveNamesへ引き継ぐ', () => {
+    const legacyRoot = {
+      id: 'root',
+      moveName: '中攻撃',
+      attributes: [],
+      specialNote: '',
+      createdBy: '',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      startingMoveOptions: [['弱P'], ['弱K']],
+      children: [
+        {
+          id: 'leaf',
+          moveName: '中P',
+          attributes: [],
+          specialNote: '',
+          createdBy: '',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          children: [],
+          branchStats: { startingMoveName: '弱K' }, // 旧フィールド(単数)
+        },
+      ],
+    } as unknown as MoveNode;
+    const character = makeMinimalCharacter([{ id: 't1', label: '中攻撃', root: legacyRoot }]);
+
+    const migrated = migrateLegacyCharacter(character);
+
+    expect(migrated.comboTrees[0].root.children[0].branchStats?.startingMoveNames).toEqual(['弱K']);
+  });
+});
 
 describe('restoreCharacters', () => {
   beforeEach(() => {
@@ -265,6 +328,109 @@ describe('setNodeRecordsBranchStats', () => {
   });
 });
 
+describe('createComboTree', () => {
+  beforeEach(() => {
+    useAppStore.setState({ characters: createInitialCharacterRoster() });
+  });
+
+  it('attributesを省略すると始動技(root)の属性は空のまま(既定の挙動)', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore.getState().createComboTree(characterId, '2中K始動');
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.attributes).toEqual([]);
+  });
+
+  it('attributesを渡すと始動技(root)自身にその属性が付く(「〜のパニカン始動」コンボを表現するため)', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore
+      .getState()
+      .createComboTree(characterId, '2中K始動', [{ type: 'punishCounter' }]);
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.attributes).toEqual([{ type: 'punishCounter' }]);
+  });
+
+  it('starterMoveOptionsを渡すと「汎用コンボ」として、rootにstartingMoveOptionsが付く', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore
+      .getState()
+      .createComboTree(characterId, '中攻撃', [], undefined, [['弱P'], ['弱K']]);
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.startingMoveOptions).toEqual([['弱P'], ['弱K']]);
+  });
+
+  it('starterMoveOptionsの候補は2技以上の並び(ジャンプ攻撃始動など)も登録できる', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore
+      .getState()
+      .createComboTree(characterId, '中攻撃', [], undefined, [['弱P'], ['J強K', '強P']]);
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.startingMoveOptions).toEqual([['弱P'], ['J強K', '強P']]);
+  });
+
+  it('starterMoveOptionsを省略すると通常の木のまま(startingMoveOptionsは付かない)', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore.getState().createComboTree(characterId, '2中K始動');
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.startingMoveOptions).toBeUndefined();
+  });
+});
+
+describe('renameComboTree / setComboTreeStarterMoveOptions', () => {
+  beforeEach(() => {
+    useAppStore.setState({ characters: createInitialCharacterRoster() });
+  });
+
+  it('renameComboTree: 通常の木はlabelだけが変わり、root.moveNameは変わらない(実技の参照名を壊さないため)', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore.getState().createComboTree(characterId, '2中K始動');
+
+    useAppStore.getState().renameComboTree(characterId, treeId, '2中K始動(改)');
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.label).toBe('2中K始動(改)');
+    expect(tree.root.moveName).toBe('2中K始動'); // 実技名としてはそのまま
+  });
+
+  it('renameComboTree: 汎用コンボはlabelとroot.moveNameの両方が変わる(rootはラベルのプレースホルダのため)', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore
+      .getState()
+      .createComboTree(characterId, '中攻撃', [], undefined, [['弱P'], ['弱K']]);
+
+    useAppStore.getState().renameComboTree(characterId, treeId, '中段攻撃');
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.label).toBe('中段攻撃');
+    expect(tree.root.moveName).toBe('中段攻撃');
+  });
+
+  it('setComboTreeStarterMoveOptions: 汎用コンボの候補一覧を後から差し替えられる（複数技の並びも含めて）', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore
+      .getState()
+      .createComboTree(characterId, '中攻撃', [], undefined, [['弱P'], ['弱K']]);
+
+    useAppStore
+      .getState()
+      .setComboTreeStarterMoveOptions(characterId, treeId, [['弱P'], ['弱K'], ['J強K', '強P']]);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.startingMoveOptions).toEqual([['弱P'], ['弱K'], ['J強K', '強P']]);
+  });
+
+  it('setComboTreeStarterMoveOptions: 空配列を渡すとstartingMoveOptions自体が消える', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+    const treeId = useAppStore
+      .getState()
+      .createComboTree(characterId, '中攻撃', [], undefined, [['弱P'], ['弱K']]);
+
+    useAppStore.getState().setComboTreeStarterMoveOptions(characterId, treeId, []);
+
+    const tree = getCharacter(characterId).comboTrees.find((t) => t.id === treeId)!;
+    expect(tree.root.startingMoveOptions).toBeUndefined();
+  });
+});
+
 describe('共通区間を名前付きグループとして折りたたむ機能', () => {
   beforeEach(() => {
     useAppStore.setState({
@@ -425,6 +591,35 @@ describe('共通区間を名前付きグループとして折りたたむ機能'
     expect(character.namedComboGroups).toHaveLength(1); // カタログ自体は残る
   });
 
+  it('detachNodeFromGroupで指定ノード(+同groupIdの子孫)だけがグループから外れ、祖先や別の枝は影響を受けない', () => {
+    const characterId = useAppStore.getState().characters[0].id;
+
+    const { treeId, aId, bId, cId } = buildChainTree(characterId);
+    useAppStore.getState().startGroupMode(aId);
+    useAppStore.getState().setGroupSelectedIds([bId, cId]);
+    useAppStore.getState().confirmGroupSelection(characterId, 'コンボA');
+
+    // addChildNodeは親のgroupIdを自動継承するため、cの下に新しく足した枝は
+    // どちらも「コンボA」グループの一部として作られる
+    useAppStore.getState().addChildNode(characterId, treeId, cId, 'e');
+    const fId = useAppStore.getState().addChildNode(characterId, treeId, cId, 'f');
+
+    // fだけを切り離す（例: 本来グループに含めたくなかった枝）
+    useAppStore.getState().detachNodeFromGroup(characterId, treeId, fId);
+
+    const character = getCharacter(characterId);
+    const tree = character.comboTrees.find((t) => t.id === treeId)!;
+    const groupId = character.namedComboGroups[0].id;
+
+    expect(findNodeByMoveName(tree.root, 'f').groupId).toBeUndefined();
+    // 祖先(a,b,c)と、切り離していないもう一方の枝(e)はグループのまま
+    expect(findNodeByMoveName(tree.root, 'a').groupId).toBe(groupId);
+    expect(findNodeByMoveName(tree.root, 'b').groupId).toBe(groupId);
+    expect(findNodeByMoveName(tree.root, 'c').groupId).toBe(groupId);
+    expect(findNodeByMoveName(tree.root, 'e').groupId).toBe(groupId);
+    expect(character.namedComboGroups).toHaveLength(1); // カタログ自体は残る
+  });
+
   it('複数の枝をまとめて同じグループとして登録できる（addGroupModeRun/setGroupModeAnchor）', () => {
     const characterId = useAppStore.getState().characters[0].id;
     const store = useAppStore.getState();
@@ -570,6 +765,7 @@ describe('一致箇所への一括反映機能', () => {
       usesCA: false,
       finishingSpecialVariant: null,
       finishingSuperArtName: null,
+      startingMoveNames: null,
     });
 
     useAppStore.getState().startMatchMode(source.ids[0]);

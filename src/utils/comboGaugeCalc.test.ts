@@ -42,6 +42,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     usesCA: false,
     finishingSpecialVariant: null,
     finishingSuperArtName: null,
+    startingMoveNames: null,
     ...overrides,
   };
 }
@@ -838,6 +839,148 @@ describe('calculateBranchDamage', () => {
   });
 });
 
+describe('startingMoveOptions（複数の始動技から同じ続きに繋がる「汎用コンボ」）', () => {
+  it('rootがstartingMoveOptionsを持ち、末端のstartingMoveNamesが未選択の間はnullを返す（自動計算を空欄のままにする）', () => {
+    const leaf = makeNode('leaf', '中P', { branchStats: makeBranchStats() }); // startingMoveNames未選択
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['弱P'], ['弱K']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '弱K': makeStats([makeHit({ damage: 350 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBeNull();
+  });
+
+  it('末端でstartingMoveNamesを選ぶと、rootをその技として扱ってダメージ計算に含める', () => {
+    const leaf = makeNode('leaf', '中P', { branchStats: makeBranchStats({ startingMoveNames: ['弱K'] }) });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['弱P'], ['弱K']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '弱K': makeStats([makeHit({ damage: 350 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 弱K(350, 起点なので100%) + 中P(1000, テーブル2段目もまだ100%) = 350+1000=1350
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1350);
+  });
+
+  it('startingMoveOptionsが無い通常のrootは、startingMoveNamesが未設定でも従来通りroot自身の技で計算する', () => {
+    const leaf = makeNode('leaf', '中P', { branchStats: makeBranchStats() });
+    const starter = makeNode('starter', '弱K', { children: [leaf] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱K': makeStats([makeHit({ damage: 350 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 汎用コンボ経由(前のテスト)と全く同じ経路・同じ技構成なので、同じ1350になる
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'leaf')).toBe(1350);
+  });
+
+  it('候補が複数技の並び（ジャンプ攻撃始動: J強K→強P→汎用の続き）の場合、両方をrootの位置に順番に差し込んで計算する', () => {
+    const leaf = makeNode('leaf', '中P', {
+      branchStats: makeBranchStats({ startingMoveNames: ['J強K', '強P'] }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['弱P'], ['J強K', '強P']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        'J強K': makeStats([makeHit({ damage: 400 })]),
+        '強P': makeStats([makeHit({ damage: 600 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // J強K(400, 起点=100%) + 強P(600, テーブル2段目=100%) + 中P(1000, テーブル3段目=80%)
+    // = 400+600+800=1800
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1800);
+  });
+
+  it('候補の技名に括弧で条件（例:「強昇竜拳（C）」）が付いていれば、その条件がダメージ計算・始動条件判定に反映される', () => {
+    const leaf = makeNode('leaf', '中P', {
+      branchStats: makeBranchStats({ startingMoveNames: ['強昇竜拳（C）'] }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['強昇竜拳（C）']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+        '中P': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    // カウンター始動として自動判定される（手動でstartHitConditionを設定しなくてもよい）
+    expect(calculateRequiredStartHitCondition(genericRoot, 'leaf')).toBe('カウンター');
+    // 強昇竜拳(1000, カウンター始動=120%) + 中P(500, テーブル2段目=100%) = 1200+500=1700
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1700);
+  });
+
+  it('技名を伴わない条件だけの候補（例:「PC」）は、技を問わず「パニッシュカウンターなら繋がる」を表現し、その分のダメージは0扱いになる', () => {
+    const leaf = makeNode('leaf', '中P', {
+      branchStats: makeBranchStats({ startingMoveNames: ['PC'] }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['PC']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中P': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    expect(calculateRequiredStartHitCondition(genericRoot, 'leaf')).toBe('パニカン');
+    // 始動技自体は技データが特定できないためダメージ0（位置だけ消費）。中Pはパニカン始動の
+    // 120%が1発目に一回限りで乗る仕様のため、2発目である中Pには影響せず100%のまま = 500
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(500);
+  });
+
+  it('条件付きの技を経由する並び（例:「強K（PC）→強P」）も、1段目の条件を反映しつつ2段目以降を続けて計算する', () => {
+    const leaf = makeNode('leaf', '中P', {
+      branchStats: makeBranchStats({ startingMoveNames: ['強K（PC）', '強P'] }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['強K（PC）', '強P']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '強K': makeStats([makeHit({ damage: 800 })]),
+        '強P': makeStats([makeHit({ damage: 600 })]),
+        '中P': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    expect(calculateRequiredStartHitCondition(genericRoot, 'leaf')).toBe('パニカン');
+    // 強K(800, パニカン始動=120%) + 強P(600, テーブル2段目=100%) + 中P(500, テーブル3段目=80%)
+    // = 960+600+400=1960
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1960);
+  });
+});
+
 describe('finishingSuperArtName（末端の直後、木にノードを追加せずSAで締める）', () => {
   it('末端ノードがfinishingSuperArtNameを持つ場合、ダメージ計算にそのSAぶんが合成される', () => {
     const after = makeNode('after', '強P', {
@@ -953,6 +1096,17 @@ describe('calculateRequiredStartHitCondition', () => {
     mid.children = [leaf];
     const starter = makeNode('starter', '2中K', { children: [mid] });
     expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBe('パニカン');
+  });
+
+  it('始動技(root)自身にパニッシュカウンター属性が付いていれば「パニカン」を返す(「〜のパニカン始動」コンボ)', () => {
+    const leaf = makeNode('leaf', '中P');
+    const starter = makeNode('starter', '2中K', {
+      children: [leaf],
+      attributes: [{ type: 'punishCounter' }],
+    });
+    expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBe('パニカン');
+    // 始動技自身に対して聞いても同じ結果になる
+    expect(calculateRequiredStartHitCondition(starter, 'starter')).toBe('パニカン');
   });
 
   it('対象ノードが木の中に存在しなければnullを返す', () => {

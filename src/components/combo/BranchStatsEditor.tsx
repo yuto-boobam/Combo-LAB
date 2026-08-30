@@ -77,6 +77,10 @@ type Props = {
   // 「コンボの情報」欄は初見の情報量を減らす目的で使う（呼び出し側のSideDrawerPanel.tsxが
   // characterIdで判定して渡す。2026-08-27ユーザー指定）
   hideEmptyFields?: boolean;
+  // root（始動技）がMoveNode.startingMoveOptionsを持つ「汎用コンボ」の場合にのみ渡される
+  // 候補一覧。渡された場合、この枝で実際に使った始動技を選ばせるUIを表示する
+  // （選ぶまではダメージ・ゲージの自動計算が行われない。src/utils/comboGaugeCalc.ts参照）
+  starterMoveOptions?: string[][];
 };
 
 // 「通常」ボタンは出さない（カウンター/パニカンをどちらもオフにすれば同じ状態に戻せるため）。
@@ -114,6 +118,7 @@ export function BranchStatsEditor({
   groundPlusFrame = '',
   airPlusFrame = '',
   hideEmptyFields = false,
+  starterMoveOptions = [],
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
   // 計算式の内訳は普段は閉じておき、興味を持った人がボタンを押した時だけ見せる
@@ -447,6 +452,45 @@ export function BranchStatsEditor({
           />
           起き攻め可能
         </label>
+      )}
+
+      {starterMoveOptions.length > 0 && (
+        <div style={styles.fieldLabel}>
+          この枝の始動技
+          {(!stats.startingMoveNames || stats.startingMoveNames.length === 0) && (
+            <span style={styles.requiredHint}>
+              選ぶまではダメージ・ゲージの自動計算欄が空欄のままになります
+            </span>
+          )}
+          <div style={styles.threeColRow}>
+            {starterMoveOptions.map((chain) => {
+              const chainLabel = chain.join(' → ');
+              const active =
+                stats.startingMoveNames !== null &&
+                stats.startingMoveNames?.length === chain.length &&
+                stats.startingMoveNames?.every((name, index) => name === chain[index]);
+              return (
+                <button
+                  key={chainLabel}
+                  type="button"
+                  onClick={() =>
+                    updateAndResetAutoFields({ startingMoveNames: active ? null : chain })
+                  }
+                  disabled={readOnly}
+                  style={{
+                    ...styles.conditionButton,
+                    borderColor: active ? 'var(--accent)' : 'var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: active ? '#fff' : 'var(--text-secondary)',
+                    cursor: readOnly ? 'default' : 'pointer',
+                  }}
+                >
+                  {chainLabel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {showStartCondition && (

@@ -245,7 +245,11 @@ export function MoveNodeCircle({
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
         }}
-        title={node.moveName}
+        title={
+          isRoot && node.startingMoveOptions && node.startingMoveOptions.length > 0
+            ? `汎用コンボ（対象の始動技: ${node.startingMoveOptions.map((chain) => chain.join('→')).join(' / ')}）`
+            : node.moveName
+        }
       >
         {applyManualLineBreaks(displayLabel)}
       </span>
