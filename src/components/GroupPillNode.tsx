@@ -20,6 +20,9 @@ type Props = {
   readOnly?: boolean;
   // コピー/グループ化モード中（自分は候補になり得ない）は展開操作を無効化し、薄く表示する
   isDisabledByOtherMode?: boolean;
+  // 誘導ガイド（チュートリアル用）: trueの間、光るリングで囲んでクリックを促す
+  // （MoveNodeCircleのisGuideTargetと同じ考え方。2026-08-30ユーザー要望）
+  isGuideTarget?: boolean;
 };
 
 export function GroupPillNode({
@@ -31,6 +34,7 @@ export function GroupPillNode({
   dragIndex,
   readOnly = false,
   isDisabledByOtherMode = false,
+  isGuideTarget = false,
 }: Props) {
   return (
     <div
@@ -56,6 +60,7 @@ export function GroupPillNode({
         opacity: isDisabledByOtherMode ? 0.35 : 1,
         cursor: isDisabledByOtherMode ? 'default' : 'pointer',
         transition: 'border-color 0.15s, opacity 0.15s',
+        ...(isGuideTarget ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
       }}
     >
       <span

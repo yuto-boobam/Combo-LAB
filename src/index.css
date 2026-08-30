@@ -343,6 +343,21 @@ body {
 }
 .tutorial-guide-bubble { animation: tutorialGuideBounce 1.6s ease-in-out infinite; }
 
+/* チュートリアル: 計算式の補正%を開いた瞬間だけ点滅させ、下線・太字だけでは弱かった
+   「ここが補正されている数値」の主張を強める（2026-08-31ユーザー指摘）。infiniteにせず
+   iteration-countを有限（5回×0.5s=2.5秒）にすることで、JSのタイマー無しでも自然に
+   点滅が収まる。要素は開くたびにDOMごと再生成される（isFormulaOpen時のみ描画）ため、
+   毎回アニメーションが最初から再生される */
+@keyframes tutorialFormulaBlink {
+  0%, 100% { background: transparent; }
+  50%      { background: var(--accent-amber-bg); color: var(--accent-amber-text); }
+}
+.tutorial-formula-blink {
+  animation: tutorialFormulaBlink 0.5s ease-in-out 5;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
 /* チュートリアル: スポットライト演出（2026-08-27ユーザー指定、使用箇所は未定・準備のみ）。
    「注目してほしい要素だけ残し、それ以外を暗くする」ための汎用クラス。使い方は、
    注目させたい要素（ボタン・ノード・カード等、何でもよい）にこのクラス名を足すだけ。

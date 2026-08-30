@@ -34,6 +34,7 @@ import { findNode, buildParentMap, collectGroupChain } from './lib/tree';
 import { findNodeInComboTrees } from './utils/comboTreeSearch';
 import { collectChain, findMatchingChains } from './utils/chainMatch';
 import { RUSH_HIGHLIGHT_MOVE_NAMES } from './utils/nodeVisualStyle';
+import { markGuestTutorialSeen, clearGuestTutorialSeen } from './utils/guestTutorialSession';
 
 /**
  * 保存済みキャラデータを現行スキーマに合わせて補完する（読み込み時の移行措置）。
@@ -411,6 +412,17 @@ export type AppState = {
   selectedCharacterId: string | null;
   selectCharacter: (characterId: string) => void;
   goToCharacterSelect: () => void;
+
+  // 使い方ガイド（チュートリアル）が最後まで完了したかどうか。ログイン済みアカウントは
+  // このフィールドをそのままlocalStorageへ永続化する（partialize参照）。ゲストは
+  // アカウントを跨いで残ると別ユーザーのログイン時にまで影響してしまうため、この
+  // フィールドは使わずsessionStorage側（guestTutorialSession.ts）で完結させる
+  // （2026-08-31ユーザー指定：「ゲストはタブを閉じるまで保持」）
+  hasSeenTutorialIntro: boolean;
+  markTutorialIntroSeen: () => void;
+  // 「チュートリアルをもう一度行う」ボタン用。既視状態を解除し、チュートリアル
+  // キャラクターのコンボ木を新品の状態に作り直す（実データを直接リセットする）
+  resetTutorial: () => void;
 
   /** バックアップJSONからのインポート。id一致するキャラのみ上書きし、固定31枠の構造は保つ */
   restoreCharacters: (imported: Partial<Character>[]) => void;
@@ -794,6 +806,28 @@ export const useAppStore = create<AppState>()(
 
       goToCharacterSelect: () => {
         set({ selectedCharacterId: null, selectedNodeId: null });
+      },
+
+      hasSeenTutorialIntro: false,
+
+      markTutorialIntroSeen: () => {
+        if (get().isGuest) {
+          markGuestTutorialSeen();
+          return;
+        }
+        set({ hasSeenTutorialIntro: true });
+      },
+
+      resetTutorial: () => {
+        if (get().isGuest) {
+          clearGuestTutorialSeen();
+        }
+        set((state) => ({
+          hasSeenTutorialIntro: state.isGuest ? state.hasSeenTutorialIntro : false,
+          characters: state.characters.map((character) =>
+            character.id === TUTORIAL_CHARACTER_ID ? createTutorialCharacter() : character,
+          ),
+        }));
       },
 
       restoreCharacters: (imported) => {
@@ -2059,6 +2093,10 @@ export const useAppStore = create<AppState>()(
         collapsedNodeIds: state.collapsedNodeIds,
         expandedGroupIds: state.expandedGroupIds,
         moveStatsDatabase: state.moveStatsDatabase,
+        // ゲストの場合は常にfalseのまま（markTutorialIntroSeenがゲスト時はここを
+        // 更新せずsessionStorage側だけを更新するため）なので、そのまま含めても
+        // 別アカウントのログイン時に誤って「見た扱い」が漏れ出す心配はない
+        hasSeenTutorialIntro: state.hasSeenTutorialIntro,
       }),
 
       merge: (persistedState, currentState) => {

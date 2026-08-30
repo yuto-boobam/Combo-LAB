@@ -86,6 +86,15 @@ export function createTutorialCharacter(): Character {
     makeNode('共通1', { groupId }, [makeNode('共通2', { groupId }, [makeNode('Bの続き')])]),
   ]);
 
+  // ④木の作り方: サイドドロワーの各パネル（🌱新たな木を生成／✏️選択中のノードについて／
+  // ➕〜に繋げる技を選ぶ）と同じアイコン・文言をノード名に使い、「新しい木を作る→
+  // ノードの情報を見る／次の技を選んで繋げる」という操作の繋がりをそのまま木の形で見せる
+  // （2026-08-31ユーザー要望）
+  const treeHowToBuild = makeNode('🌱 新たな木を生成', { specialNote: '始動技を選んで新しい木を作ります' }, [
+    makeNode('✏️ 選択中のノードについて', { specialNote: '属性やダメージなど、このノードの情報を編集します' }),
+    makeNode('➕ 繋げる技を選ぶ', { specialNote: '選んだノードの次に技を追加します' }),
+  ]);
+
   return {
     id: TUTORIAL_CHARACTER_ID,
     name: 'チュートリアル',
@@ -96,6 +105,7 @@ export function createTutorialCharacter(): Character {
       { id: nextId('tree'), label: '②ダメージは自動計算', root: treeDamage },
       { id: nextId('tree'), label: '③グループ化(始動A)', root: treeGroupA },
       { id: nextId('tree'), label: '③グループ化(始動B)', root: treeGroupB },
+      { id: nextId('tree'), label: '④木の作り方', root: treeHowToBuild },
     ],
     // グループ名は折りたたみピル(GroupPillNode)にそのまま表示される。「共通の締め方」のような
     // 抽象的な名前は初見の人に伝わりにくいため、中身（共通1→共通2）が一目で分かる名前にする
