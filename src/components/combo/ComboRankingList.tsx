@@ -5,7 +5,8 @@
 
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { ComboTree } from '../../types';
+import type { ComboTree, MoveDefinition } from '../../types';
+import { useAppStore } from '../../store';
 import {
   collectComboEndingSummaries,
   sortComboEndingSummaries,
@@ -16,18 +17,26 @@ import {
 const SORT_KEYS = Object.keys(COMBO_RANKING_SORT_LABELS) as ComboRankingSortKey[];
 
 export function ComboRankingList({
+  characterId,
   trees,
+  moveList,
   onJumpTo,
 }: {
+  characterId: string;
   trees: ComboTree[];
+  moveList: MoveDefinition[];
   onJumpTo: (nodeId: string) => void;
 }) {
+  const moveStatsDatabase = useAppStore((state) => state.moveStatsDatabase);
   const [starterFilter, setStarterFilter] = useState<string | null>(null);
   // null = ソートしない（=木の並び順のまま。ユーザー要望の「元の並び順に戻す」状態）
   const [sortKey, setSortKey] = useState<ComboRankingSortKey | null>(null);
   const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
 
-  const allSummaries = useMemo(() => collectComboEndingSummaries(trees), [trees]);
+  const allSummaries = useMemo(
+    () => collectComboEndingSummaries(trees, characterId, moveStatsDatabase, moveList),
+    [trees, characterId, moveStatsDatabase, moveList],
+  );
 
   const starterOptions = useMemo(
     () => Array.from(new Set(allSummaries.map((summary) => summary.starterLabel))),
@@ -122,8 +131,18 @@ export function ComboRankingList({
           </thead>
           <tbody>
             {displayed.map((summary) => (
-              <tr key={summary.nodeId}>
-                <td style={styles.td}>{summary.starterLabel}</td>
+              <tr key={summary.key}>
+                <td style={styles.td}>
+                  {summary.starterLabel}
+                  {!summary.isSelectedStarter && (
+                    <span
+                      title="この始動技はまだ「この枝の始動技」として選ばれていません。ダメージ・ゲージはこの始動技だった場合の参考値です（評価等の手入力項目は未記録）"
+                      style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-muted)' }}
+                    >
+                      (仮)
+                    </span>
+                  )}
+                </td>
                 <td style={{ ...styles.td, color: 'var(--text-secondary)' }}>
                   {summary.pathLabel || '(始動技自身)'}
                 </td>

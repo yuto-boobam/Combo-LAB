@@ -70,6 +70,12 @@ const {
   dropZoneHeight: DROP_ZONE_HEIGHT,
 } = TREE_LAYOUT_CONFIG;
 
+// 汎用コンボの木の見出し（TreeBlockHeader）は、ラベルの下に対象の始動技一覧をもう1行
+// 表示する分だけ余分に縦の高さを使う（2026-08-30ユーザー要望）。木同士の積み上げ位置
+// （forest useMemo）とヘッダー自身のtopオフセットの両方で同じ値を使い、前の木のヘッダーと
+// 重ならないようにする
+const GENERIC_STARTER_LIST_ROW_HEIGHT = 16;
+
 function shiftPositions(
   positions: Map<string, NodePosition>,
   offsetY: number,
@@ -490,6 +496,12 @@ export function ComboTreePage() {
       };
       visit(viewRoot, 0);
 
+      // 汎用コンボの木は見出しがもう1行分高くなるため、その分だけ手前に余白を確保する
+      // （前の木のヘッダーと重ならないように。TreeBlockHeaderの同名定数と揃えること）
+      if ((tree.root.startingMoveOptions?.length ?? 0) > 0) {
+        cursorY += GENERIC_STARTER_LIST_ROW_HEIGHT;
+      }
+
       const offsetY = cursorY;
       shiftPositions(layout.positions, offsetY).forEach((pos, id) => positions.set(id, pos));
       layout.dropZones.forEach((dropZone) =>
@@ -530,9 +542,8 @@ export function ComboTreePage() {
     const dropZones: TaggedDropZone[] = [];
     const parentOf = new Map<string, string>();
 
-    // 図鑑として使いたいので、同じgroupIdの出現は代表1件だけを描画し、残りは
-    // ヘッダーの「他の出現箇所」リンクとしてジャンプ先だけ持たせる（実データ・
-    // 実際の出現数には一切手を付けない、表示上の間引きのみ。2026-08-30ユーザー指摘）
+    // 図鑑として使いたいので、同じgroupIdの出現は代表1件だけを描画する
+    // （実データ・実際の出現数には一切手を付けない、表示上の間引きのみ。2026-08-30ユーザー指摘）
     const occurrencesByGroupId = new Map<string, GroupOccurrence[]>();
     groupOccurrences.forEach((occurrence) => {
       const list = occurrencesByGroupId.get(occurrence.groupId);
@@ -544,7 +555,7 @@ export function ComboTreePage() {
     });
 
     occurrencesByGroupId.forEach((occurrenceList) => {
-      const [representative, ...otherOccurrences] = occurrenceList;
+      const [representative] = occurrenceList;
       const viewRoot = representative.root;
       // TreeBlockと同じ形に収めるための表示専用の合成データ。実際のcomboTreesには存在しない
       const syntheticTree: ComboTree = {
@@ -584,10 +595,6 @@ export function ComboTreePage() {
         groupId: representative.groupId,
         groupName: representative.groupName,
         treeLabel: representative.treeLabel,
-        otherOccurrences: otherOccurrences.map((occurrence) => ({
-          rootId: occurrence.root.id,
-          treeLabel: occurrence.treeLabel,
-        })),
       });
       maxWidth = Math.max(maxWidth, layout.width);
       cursorY += layout.height + TREE_BLOCK_GAP;
@@ -716,7 +723,12 @@ export function ComboTreePage() {
         {/* ── ツリービュー本体 */}
         <div ref={scrollRef} className="flex-1 overflow-auto" style={{ position: 'relative' }}>
           {treeViewMode === 'list' ? (
-            <ComboRankingList trees={trees} onJumpTo={jumpToNodeInComboView} />
+            <ComboRankingList
+              characterId={character.id}
+              trees={trees}
+              moveList={character.moveList}
+              onJumpTo={jumpToNodeInComboView}
+            />
           ) : (treeViewMode === 'combo' ? trees.length === 0 : groupOccurrences.length === 0) ? (
             <div className="flex flex-col items-center justify-center gap-4 h-full">
               <div className="text-6xl">🌳</div>
@@ -1146,77 +1158,91 @@ function TreeBlockHeader({
       style={{
         position: 'absolute',
         left: CANVAS_PADDING + x,
-        top: CANVAS_PADDING + offsetY - 34,
+        top: CANVAS_PADDING + offsetY - (isGeneric ? 34 + GENERIC_STARTER_LIST_ROW_HEIGHT : 34),
         display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        whiteSpace: 'nowrap',
+        flexDirection: 'column',
+        gap: 2,
       }}
     >
-      {isEditingLabel ? (
-        <input
-          type="text"
-          className="input-field"
-          autoFocus
-          value={draftLabel}
-          onChange={(event) => setDraftLabel(event.target.value)}
-          onBlur={commitEditingLabel}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') commitEditingLabel();
-            if (event.key === 'Escape') setIsEditingLabel(false);
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+        {isEditingLabel ? (
+          <input
+            type="text"
+            className="input-field"
+            autoFocus
+            value={draftLabel}
+            onChange={(event) => setDraftLabel(event.target.value)}
+            onBlur={commitEditingLabel}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') commitEditingLabel();
+              if (event.key === 'Escape') setIsEditingLabel(false);
+            }}
+            style={{ fontSize: 14, fontWeight: 800, padding: '2px 6px', width: 160 }}
+          />
+        ) : (
+          <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
+            {tree.label}
+          </span>
+        )}
+
+        {onRename && !isEditingLabel && (
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={startEditingLabel}
+            title="ラベルを変更"
+            style={{ width: 18, height: 18, fontSize: 10 }}
+          >
+            ✏️
+          </button>
+        )}
+
+        {isGeneric && onEditStarterMoves && (
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => (isEditingStarters ? setIsEditingStarters(false) : startEditingStarters())}
+            title="対象の始動技一覧を編集"
+            style={{ width: 18, height: 18, fontSize: 10 }}
+          >
+            🔀
+          </button>
+        )}
+
+        {(onMoveUp || onMoveDown) && (
+          <div style={{ display: 'flex', gap: 2 }}>
+            <ReorderButton direction="up" onClick={onMoveUp} title="この木を1つ上に移動" />
+            <ReorderButton direction="down" onClick={onMoveDown} title="この木を1つ下に移動" />
+          </div>
+        )}
+
+        {onDelete && (
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={onDelete}
+            title="この木を削除"
+            style={{ width: 18, height: 18 }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {isGeneric && (
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: 'var(--text-secondary)',
+            whiteSpace: 'nowrap',
           }}
-          style={{ fontSize: 14, fontWeight: 800, padding: '2px 6px', width: 160 }}
-        />
-      ) : (
-        <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-primary)' }}>
-          {tree.label}
-        </span>
-      )}
-
-      {onRename && !isEditingLabel && (
-        <button
-          type="button"
-          className="btn-icon"
-          onClick={startEditingLabel}
-          title="ラベルを変更"
-          style={{ width: 18, height: 18, fontSize: 10 }}
         >
-          ✏️
-        </button>
-      )}
-
-      {isGeneric && onEditStarterMoves && (
-        <button
-          type="button"
-          className="btn-icon"
-          onClick={() => (isEditingStarters ? setIsEditingStarters(false) : startEditingStarters())}
-          title="対象の始動技一覧を編集"
-          style={{ width: 18, height: 18, fontSize: 10 }}
-        >
-          🔀
-        </button>
-      )}
-
-      {(onMoveUp || onMoveDown) && (
-        <div style={{ display: 'flex', gap: 2 }}>
-          <ReorderButton direction="up" onClick={onMoveUp} title="この木を1つ上に移動" />
-          <ReorderButton direction="down" onClick={onMoveDown} title="この木を1つ下に移動" />
+          対象の始動技: {starterMoveOptions.map((chain) => chain.join('→')).join('、')}
         </div>
-      )}
-
-      {onDelete && (
-        <button
-          type="button"
-          className="btn-icon"
-          onClick={onDelete}
-          title="この木を削除"
-          style={{ width: 18, height: 18 }}
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
       )}
 
       {isEditingStarters && (
@@ -1511,14 +1537,11 @@ function ViewModeTabButton({
 // グループ表示モード: 名前付きグループの全出現箇所の一覧
 // ────────────────────────────────────────────────────────────
 
-// グループタブのブロックは、名前変更UIのためどのグループの出現かを追加で持つ。
-// otherOccurrencesは図鑑化のため表示を間引いた「同じgroupIdの残りの出現箇所」で、
-// ジャンプ先(rootId)とラベルのみ持つ（レイアウトは計算しない）
+// グループタブのブロックは、名前変更UIのためどのグループの出現かを追加で持つ
 type GroupTreeBlock = TreeBlock & {
   groupId: string;
   groupName: string;
   treeLabel: string;
-  otherOccurrences: { rootId: string; treeLabel: string }[];
 };
 
 type GroupForestLike = {
@@ -1578,8 +1601,6 @@ function GroupOverviewContent({
               onJump={() => onJumpTo(rootId)}
               onRename={!isGuest ? (name) => onRenameGroup(block.groupId, name) : undefined}
               onSync={!isGuest ? () => onStartGroupSync(rootId) : undefined}
-              otherOccurrences={block.otherOccurrences}
-              onJumpToOther={onJumpTo}
             />
 
             <div
@@ -1660,8 +1681,6 @@ function GroupOccurrenceHeader({
   onJump,
   onRename,
   onSync,
-  otherOccurrences,
-  onJumpToOther,
 }: {
   groupName: string;
   treeLabel: string;
@@ -1673,9 +1692,6 @@ function GroupOccurrenceHeader({
   onRename?: (name: string) => void;
   // 未指定（ゲスト等）なら一括反映アイコン自体を出さない
   onSync?: () => void;
-  // 図鑑化のため表示を間引いた、同じグループの残りの出現箇所（無ければ空配列）
-  otherOccurrences: { rootId: string; treeLabel: string }[];
-  onJumpToOther: (nodeId: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftName, setDraftName] = useState(groupName);
@@ -1773,34 +1789,6 @@ function GroupOccurrenceHeader({
       >
         →
       </button>
-
-      {otherOccurrences.length > 0 && (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text-secondary)' }}>
-          <span title="実データ上は各出現が独立コピーのため、内容が食い違っている場合があります">
-            他{otherOccurrences.length}箇所:
-          </span>
-          {otherOccurrences.map((occurrence) => (
-            <button
-              key={occurrence.rootId}
-              type="button"
-              onClick={() => onJumpToOther(occurrence.rootId)}
-              title={`${occurrence.treeLabel}へジャンプ（コンボ表示モードへ切り替わります）`}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                color: 'var(--accent)',
-                fontSize: 10,
-                fontWeight: 700,
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
-            >
-              {occurrence.treeLabel}
-            </button>
-          ))}
-        </span>
-      )}
     </div>
   );
 }

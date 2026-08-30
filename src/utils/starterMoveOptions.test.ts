@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  expandStarterMoveOptions,
   parseStarterMoveOptionsText,
   parseStarterMoveToken,
   serializeStarterMoveOptions,
@@ -32,8 +33,22 @@ describe('parseStarterMoveOptionsText', () => {
     expect(parseStarterMoveOptionsText('')).toEqual([]);
   });
 
-  it('「/」で並べた技は、その段の数だけ独立した候補に展開する（例: J攻撃→強P/4強P/2強P）', () => {
-    expect(parseStarterMoveOptionsText('J攻撃→強P/4強P/2強P')).toEqual([
+  it('「/」で並べた技は展開せず、そのままの表記(例:「強P/4強P/2強P」)を1トークンとして保持する（見出し表示をコンパクトにするため）', () => {
+    expect(parseStarterMoveOptionsText('J攻撃→強P/4強P/2強P')).toEqual([['J攻撃', '強P/4強P/2強P']]);
+  });
+
+  it('括弧の中の「/」も同様にそのまま保持する（条件指定「PC/R」用）', () => {
+    expect(parseStarterMoveOptionsText('強昇竜拳（PC/R）')).toEqual([['強昇竜拳（PC/R）']]);
+  });
+
+  it('条件付きの技を経由する並び（例:「強K（PC）->強P」）も、括弧を含んだまま2段の並びとしてパースする', () => {
+    expect(parseStarterMoveOptionsText('強K（PC）->強P')).toEqual([['強K（PC）', '強P']]);
+  });
+});
+
+describe('expandStarterMoveOptions（ピッカーで1つ選ばせる時にだけ使う、具体的な組み合わせへの展開）', () => {
+  it('「/」で並べた技を、その段の数だけ独立した候補に展開する', () => {
+    expect(expandStarterMoveOptions([['J攻撃', '強P/4強P/2強P']])).toEqual([
       ['J攻撃', '強P'],
       ['J攻撃', '4強P'],
       ['J攻撃', '2強P'],
@@ -41,7 +56,7 @@ describe('parseStarterMoveOptionsText', () => {
   });
 
   it('複数の段それぞれに「/」がある場合は、全ての組み合わせ(直積)に展開する', () => {
-    expect(parseStarterMoveOptionsText('J弱K/J強K→強P/4強P')).toEqual([
+    expect(expandStarterMoveOptions([['J弱K/J強K', '強P/4強P']])).toEqual([
       ['J弱K', '強P'],
       ['J弱K', '4強P'],
       ['J強K', '強P'],
@@ -49,27 +64,27 @@ describe('parseStarterMoveOptionsText', () => {
     ]);
   });
 
-  it('「/」展開と改行区切りの複数候補を同時に使える', () => {
-    expect(parseStarterMoveOptionsText('弱P\nJ攻撃→強P/4強P')).toEqual([
+  it('「/」を含まない候補や、他の候補と混在していても正しく展開する', () => {
+    expect(expandStarterMoveOptions([['弱P'], ['J攻撃', '強P/4強P']])).toEqual([
       ['弱P'],
       ['J攻撃', '強P'],
       ['J攻撃', '4強P'],
     ]);
   });
 
-  it('括弧の中の「/」は候補展開用としては扱わず、1つのトークンとして温存する（条件指定「PC/R」用）', () => {
-    expect(parseStarterMoveOptionsText('強昇竜拳（PC/R）')).toEqual([['強昇竜拳（PC/R）']]);
+  it('括弧の中の「/」は展開対象に含めない（条件指定「PC/R」用）', () => {
+    expect(expandStarterMoveOptions([['強昇竜拳（PC/R）']])).toEqual([['強昇竜拳（PC/R）']]);
   });
 
-  it('条件付きの技を経由する並び（例:「強K（PC）->強P」）も、括弧を含んだまま2段の並びとしてパースする', () => {
-    expect(parseStarterMoveOptionsText('強K（PC）->強P')).toEqual([['強K（PC）', '強P']]);
-  });
-
-  it('括弧付きの技名と、別の候補としての「/」展開を同時に使える', () => {
-    expect(parseStarterMoveOptionsText('強P（C）/4強P（PC/R）')).toEqual([
+  it('括弧付きの技名と、候補としての「/」展開を同時に使える', () => {
+    expect(expandStarterMoveOptions([['強P（C）/4強P（PC/R）']])).toEqual([
       ['強P（C）'],
       ['4強P（PC/R）'],
     ]);
+  });
+
+  it('空配列を渡すと空配列を返す', () => {
+    expect(expandStarterMoveOptions([])).toEqual([]);
   });
 });
 
@@ -118,6 +133,13 @@ describe('serializeStarterMoveOptions', () => {
     const options = [['弱P'], ['弱K'], ['J強K', '強P']];
     const text = serializeStarterMoveOptions(options);
     expect(text).toBe('弱P\n弱K\nJ強K→強P');
+    expect(parseStarterMoveOptionsText(text)).toEqual(options);
+  });
+
+  it('「/」を含む段もそのままの表記で往復する（コンパクトな表示を保つため展開しない）', () => {
+    const options = [['強P/4強P']];
+    const text = serializeStarterMoveOptions(options);
+    expect(text).toBe('強P/4強P');
     expect(parseStarterMoveOptionsText(text)).toEqual(options);
   });
 
