@@ -6,6 +6,9 @@ import { comboLabLocalApiPlugin } from './vite-plugins/comboLabLocalApiPlugin.ts
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages ではリポジトリ名がパスに含まれる
+  // (https://yuto-boobam.github.io/Combo-LAB/) ため、base を合わせる
+  base: '/Combo-LAB/',
   plugins: [
     react(),
     tailwindcss(),
