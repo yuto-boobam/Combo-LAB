@@ -663,6 +663,9 @@ export type AppState = {
   /** 折りたたまれた区間のうち、展開表示中のものの先頭ノードIDの一覧（出現箇所ごとに独立） */
   expandedGroupIds: string[];
   toggleGroupExpanded: (pillId: string) => void;
+  /** 全グループを畳んだ状態に戻す（キャラクター切り替え時に前のキャラの展開状態が
+   * 引き継がれてしまうのを防ぐ用途。expandedGroupIdsはキャラクターをまたぐ共通stateのため） */
+  collapseAllGroups: () => void;
 
   // ──「一致箇所への一括反映」機能 ────────────────────────────────
   // パターン選択モード: グループ化モードと同じ操作感で、起点から続く分岐のない一本道を
@@ -1749,6 +1752,10 @@ export const useAppStore = create<AppState>()(
       },
 
       expandedGroupIds: [],
+
+      collapseAllGroups: () => {
+        set({ expandedGroupIds: [] });
+      },
 
       toggleGroupExpanded: (pillId) => {
         set((state) => {

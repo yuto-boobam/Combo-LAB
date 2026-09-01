@@ -124,6 +124,7 @@ export function ComboTreePage() {
   const setGroupSelectedIds = useAppStore((state) => state.setGroupSelectedIds);
   const expandedGroupIds = useAppStore((state) => state.expandedGroupIds);
   const toggleGroupExpanded = useAppStore((state) => state.toggleGroupExpanded);
+  const collapseAllGroups = useAppStore((state) => state.collapseAllGroups);
   const renameComboGroup = useAppStore((state) => state.renameComboGroup);
   const matchModeAnchorId = useAppStore((state) => state.matchModeAnchorId);
   const setMatchSelectedIds = useAppStore((state) => state.setMatchSelectedIds);
@@ -1182,7 +1183,13 @@ export function ComboTreePage() {
                   >
                     <button
                       type="button"
-                      onClick={() => selectCharacter(tutorialExampleCharacterId)}
+                      onClick={() => {
+                        // サイドドロワーを開いたまま・グループを展開したまま実例へ移動すると
+                        // 見えにくいため、遷移前に両方リセットする（2026-09-01ユーザー指摘）
+                        setIsDrawerOpen(false);
+                        collapseAllGroups();
+                        selectCharacter(tutorialExampleCharacterId);
+                      }}
                       className="tutorial-guide-bubble"
                       style={{
                         display: 'flex',
