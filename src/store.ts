@@ -2122,6 +2122,13 @@ export const useAppStore = create<AppState>()(
         // 更新せずsessionStorage側だけを更新するため）なので、そのまま含めても
         // 別アカウントのログイン時に誤って「見た扱い」が漏れ出す心配はない
         hasSeenTutorialIntro: state.hasSeenTutorialIntro,
+        // ブラウザが別タブを開いた際にバックグラウンドのタブを破棄し、タブへ
+        // 戻ってきた時にページを再読み込みすることがある（Chromeのメモリ節約機能等）。
+        // これらの画面遷移状態を永続化しないと、そのたびにキャラ選択画面（ホーム）へ
+        // 戻されてしまう不具合になっていたため、永続化対象に含める
+        // （2026-09-14ユーザー指摘：別タブを見て戻るとホーム画面に戻ってしまう不具合）
+        selectedCharacterId: state.selectedCharacterId,
+        moveStatsCharacterId: state.moveStatsCharacterId,
       }),
 
       merge: (persistedState, currentState) => {
@@ -2161,10 +2168,13 @@ export const useAppStore = create<AppState>()(
           isPatchNotesModalOpen: false,
           selectedPatchNoteDate: null,
           selectedNodeId: null,
-          // 開き直すたびに前回開いていたコンボ画面へ直行せず、必ずキャラ一覧画面から
-          // 始まるようにする（自動ログイン時も同様。以前のpartializeに残っていた
-          // 古い永続化データを持つユーザーのぶんも、ここで明示的にnullへ戻す）
-          selectedCharacterId: null,
+          // selectedCharacterId・moveStatsCharacterIdはpartializeで永続化しているため、
+          // ここで上書きせず`...persisted`（上記でスプレッド済み）の値をそのまま使う。
+          // 以前は開き直すたびにキャラ選択画面へ強制的に戻していたが、別タブを見て
+          // 戻ってきただけでブラウザがページを再読み込みすることがあり、そのたびに
+          // 手前の画面へ戻されてしまう不具合になっていたため、この画面遷移状態も
+          // 保持するよう仕様変更した
+          // （2026-09-14ユーザー指摘：別タブを見て戻るとホーム画面に戻ってしまう不具合）
         };
       },
     },

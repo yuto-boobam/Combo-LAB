@@ -138,7 +138,9 @@ export function SideDrawerPanel({
           </p>
         )}
 
-        {!isReadOnly && <NewTreeSection characterId={characterId} />}
+        {!isReadOnly && (
+          <NewTreeSection characterId={characterId} startOpen={comboTrees.length === 0} />
+        )}
         {!isReadOnly && clipboard && <ClipboardPreview />}
       </div>
       </aside>
@@ -782,14 +784,22 @@ function ReadOnlyNodeView({
   );
 }
 
-function NewTreeSection({ characterId }: { characterId: string }) {
+function NewTreeSection({
+  characterId,
+  startOpen = false,
+}: {
+  characterId: string;
+  // まだコンボの木が1つもない時は、必ずここから始動技を入力することになるため
+  // 最初から開いた状態にする（2026-09-15ユーザー指摘）
+  startOpen?: boolean;
+}) {
   const createComboTree = useAppStore((state) => state.createComboTree);
   const selectNode = useAppStore((state) => state.selectNode);
 
   const [newRootMoveName, setNewRootMoveName] = useState('');
   const [newRootDisplayName, setNewRootDisplayName] = useState<string | undefined>(undefined);
   const [newRootAttributes, setNewRootAttributes] = useState<NodeAttribute[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(startOpen);
 
   // 「汎用コンボ」: 複数の始動技(弱P/弱K等)から同じ続きに繋がるコンボを1本の木にまとめたい場合。
   // ONにすると始動技の技名選択(MoveNamePicker)の代わりに自由記入のラベル(例:「中攻撃」)と、

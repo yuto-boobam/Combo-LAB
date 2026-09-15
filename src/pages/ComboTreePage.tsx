@@ -363,11 +363,12 @@ export function ComboTreePage() {
   const [zoom, setZoom] = useState(1);
 
   // ── サイドドロワーの開閉。長く続くコンボを画面いっぱいに見たい時に閉じられるようにする。
-  // チュートリアルキャラクターだけは、初回に「クリックして開く」を体験してもらうため
-  // 閉じた状態から始める（それ以外のキャラは従来通り開いた状態から始まる）
-  const [isDrawerOpen, setIsDrawerOpen] = useState(
-    () => character?.id !== TUTORIAL_CHARACTER_ID || alreadySeenTutorial,
-  );
+  // まだ1つもコンボの木を登録していない時だけ、始動技の入力を促すため自動で開いた
+  // 状態から始める。既にコンボがある場合は木を広く見られるよう閉じた状態から始める
+  // （チュートリアル用キャラクターは最初から用意されたコンボがあるため、このルールの
+  // ままで自然に閉じた状態になり、「クリックして開く」を体験してもらう導線もそのまま成立する）
+  // （2026-09-15ユーザー指摘：既にコンボがある時までドロワーが自動で開いてしまう不具合）
+  const [isDrawerOpen, setIsDrawerOpen] = useState(() => trees.length === 0);
 
   // ── コンボ/グループ表示モードの切り替え。「グループ」は名前付きグループの
   // 全出現箇所だけを一覧する読み取り中心のビュー（実データはcomboTreesのまま）
@@ -717,14 +718,10 @@ export function ComboTreePage() {
               : `${character.name} のコンボ評価一覧`
         }
         character={character}
-        rightSlot={
-          <>
+        secondRowRightSlot={
+          <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <ViewModeTabs mode={treeViewMode} onChange={handleTreeViewModeChange} />
             <ZoomBar zoom={zoom} onChange={setZoom} />
-          </>
-        }
-        trailingSlot={
-          <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* 使い方ガイドをもう一度行うためのボタン。ゲストを除きアカウント単位で
                 初回だけ自動的に誘導が始まり、以降はここから手動で再挑戦する
                 （2026-08-31ユーザー指定） */}
