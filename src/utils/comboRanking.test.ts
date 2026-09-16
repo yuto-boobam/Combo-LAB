@@ -31,6 +31,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     finishingSpecialVariant: null,
     finishingSuperArtName: null,
     startingMoveNames: null,
+    startingMoveCancelHitIndex: null,
     ...overrides,
   };
 }

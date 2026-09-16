@@ -1059,6 +1059,7 @@ describe('一致箇所への一括反映機能', () => {
       finishingSpecialVariant: null,
       finishingSuperArtName: null,
       startingMoveNames: null,
+      startingMoveCancelHitIndex: null,
     });
 
     useAppStore.getState().startMatchMode(source.ids[0]);

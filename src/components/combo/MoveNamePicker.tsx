@@ -32,6 +32,11 @@ type Props = {
   // 特殊性能を選んだ時のみ渡ってくる。呼び出し側はこれを選択中/新規追加ノードの
   // branchStats.finishingSpecialVariantへ反映する（SideDrawerPanel参照）
   onChange: (name: string, displayName?: string, finishingSpecialVariant?: string) => void;
+  // このピッカーで選んだ技が繋がる先の「直前のノード」の技名（解決済みの文字列。例:「強波動拳」）。
+  // 未指定（新しい木のroot等、直前のノードが無い場合）はundefined。「特定の技の直後にしか
+  // 出せない派生技」（requiredPrecedingMoveName）が直前の技と一致しない場合、その必殺技は
+  // 選べないようにする（誤って派生技だけを単体で置いてしまう登録ミスを防ぐ。2026-09-17ユーザー要望）
+  precedingMoveName?: string;
 };
 
 function computeInitialOpenSections(
@@ -63,7 +68,7 @@ function computeInitialOpenSections(
   return initial;
 }
 
-export function MoveNamePicker({ characterId, value, onChange }: Props) {
+export function MoveNamePicker({ characterId, value, onChange, precedingMoveName }: Props) {
   const moveList = useAppStore(
     (state) => state.characters.find((character) => character.id === characterId)?.moveList ?? [],
   );
@@ -122,6 +127,7 @@ export function MoveNamePicker({ characterId, value, onChange }: Props) {
           moves={specialMoves}
           value={value}
           onChange={onChange}
+          precedingMoveName={precedingMoveName}
         />
       </AccordionSection>
 
@@ -294,16 +300,37 @@ function parseFlatSpecialMoveValue(value: string, moveName: string): { subLevel:
   return null;
 }
 
+/**
+ * 解決済みの技名文字列（例:「強波動拳」「SA1(Lv. 1)」）が、movesの中のどのMoveDefinitionの
+ * ものかを判定する（強度・特殊性能を問わず、素のMoveDefinition単位で照合する）。
+ * requiredPrecedingMoveName（直前の技の制約）の判定に使う。該当が無ければnull
+ */
+function resolveMoveDefinitionForResolvedName(
+  resolvedName: string,
+  moves: MoveDefinition[],
+): MoveDefinition | null {
+  for (const move of moves) {
+    if (move.strengthMode === 'level') {
+      if (parseFlatSpecialMoveValue(resolvedName, move.name)) return move;
+      continue;
+    }
+    if (parseSpecialMoveValue(resolvedName, move)) return move;
+  }
+  return null;
+}
+
 function SpecialMoveGroupBody({
   characterId,
   moves,
   value,
   onChange,
+  precedingMoveName,
 }: {
   characterId: string;
   moves: MoveDefinition[];
   value: string;
   onChange: (name: string, displayName?: string) => void;
+  precedingMoveName?: string;
 }) {
   const addMoveDefinition = useAppStore((state) => state.addMoveDefinition);
   const deleteMoveDefinition = useAppStore((state) => state.deleteMoveDefinition);
@@ -318,8 +345,17 @@ function SpecialMoveGroupBody({
     (state) => state.setMoveDefinitionSpecialVariantOptions,
   );
   const setMoveDefinitionStrengthMode = useAppStore((state) => state.setMoveDefinitionStrengthMode);
+  const setMoveDefinitionRequiredPrecedingMoveName = useAppStore(
+    (state) => state.setMoveDefinitionRequiredPrecedingMoveName,
+  );
   const [draftName, setDraftName] = useState('');
   const [draftShortName, setDraftShortName] = useState('');
+  // 「派生技の制約」「強度モード」「特殊性能」は普段あまり触らない項目のため、常に開いて
+  // 見せると縦に長くなり冗長に感じられていた。他のアコーディオンと同じく畳んだ状態から
+  // 始め、必要な時だけクリックして開く（2026-09-18ユーザー指摘）
+  const [isPrecedingMoveOpen, setIsPrecedingMoveOpen] = useState(false);
+  const [isStrengthModeOpen, setIsStrengthModeOpen] = useState(false);
+  const [isSpecialVariantOpen, setIsSpecialVariantOpen] = useState(false);
 
   // valueがどの技の何強度（＋選んだ特殊性能）に該当するかをまとめて判定する。
   // strengthMode==='level'な技は強度を持たないため、代わりにparseFlatSpecialMoveValueで判定する
@@ -353,7 +389,17 @@ function SpecialMoveGroupBody({
   // valueが今開いている技のものであれば、その強度・特殊性能の選択状態を復元する
   const pickingMoveMatch = pickingMove && parsedValue?.move.id === pickingMove.id ? parsedValue : null;
 
+  // 直前のノードの技名（precedingMoveName）がどのMoveDefinitionに該当するか（強度・特殊性能は
+  // 問わない）。「特定の技の直後にしか出せない派生技」（requiredPrecedingMoveName）の判定に使う
+  const precedingMove = precedingMoveName
+    ? resolveMoveDefinitionForResolvedName(precedingMoveName, moves)
+    : null;
+  const isBlockedByPrecedingMove = (move: MoveDefinition) =>
+    Boolean(move.requiredPrecedingMoveName) && move.requiredPrecedingMoveName !== precedingMove?.name;
+
   const handlePickMove = (move: MoveDefinition) => {
+    if (isBlockedByPrecedingMove(move)) return;
+
     const wasPicked = pickingMoveId === move.id;
     setPickingMoveId(wasPicked ? null : move.id);
 
@@ -402,6 +448,12 @@ function SpecialMoveGroupBody({
                   label={move.name}
                   active={isMoveConfirmed(move)}
                   pending={pickingMoveId === move.id && !isMoveConfirmed(move)}
+                  disabled={isBlockedByPrecedingMove(move)}
+                  title={
+                    isBlockedByPrecedingMove(move)
+                      ? `「${move.requiredPrecedingMoveName}」の直後でないと選べません`
+                      : undefined
+                  }
                   onClick={() => handlePickMove(move)}
                 />
                 <button
@@ -464,8 +516,49 @@ function SpecialMoveGroupBody({
             </fieldset>
           )}
 
-          <fieldset style={styles.fieldset}>
-            <legend style={styles.legend}>強度モード</legend>
+          <AccordionSection
+            title="派生技の制約（追加入力による追撃など・省略可）"
+            icon="🔗"
+            count={pickingMove.requiredPrecedingMoveName ? 1 : 0}
+            isOpen={isPrecedingMoveOpen}
+            onToggle={() => setIsPrecedingMoveOpen((open) => !open)}
+          >
+            <p style={styles.emptyHint}>
+              特定の技の直後にしか出せない追撃技などの場合、その基点となる技を選ぶと、
+              木にノードを追加・変更する時に直前のノードがその技でない限り選べなくなります
+              （補正が別に乗る追撃は、この技とは別の必殺技として登録し、木の上で子ノードとして
+              繋いでください）。
+            </p>
+            <select
+              className="input-field"
+              style={styles.addInput}
+              value={pickingMove.requiredPrecedingMoveName ?? ''}
+              onChange={(event) =>
+                setMoveDefinitionRequiredPrecedingMoveName(
+                  characterId,
+                  pickingMove.id,
+                  event.target.value || undefined,
+                )
+              }
+            >
+              <option value="">（制約なし）</option>
+              {moves
+                .filter((move) => move.id !== pickingMove.id)
+                .map((move) => (
+                  <option key={move.id} value={move.name}>
+                    {move.name}
+                  </option>
+                ))}
+            </select>
+          </AccordionSection>
+
+          <AccordionSection
+            title="強度モード"
+            icon="🎚️"
+            count={pickingMove.strengthMode ? 1 : 0}
+            isOpen={isStrengthModeOpen}
+            onToggle={() => setIsStrengthModeOpen((open) => !open)}
+          >
             <div style={{ display: 'grid', gap: 6 }}>
               <label style={styles.checkboxLabel}>
                 <input
@@ -504,7 +597,7 @@ function SpecialMoveGroupBody({
                 強度ではなく、レベルで区別する技
               </label>
             </div>
-          </fieldset>
+          </AccordionSection>
 
           {pickingMove.strengthMode === 'level' && (
             <fieldset style={styles.fieldset}>
@@ -521,8 +614,13 @@ function SpecialMoveGroupBody({
           )}
 
           {!pickingMove.strengthMode && (
-            <fieldset style={styles.fieldset}>
-              <legend style={styles.legend}>特殊性能（省略可）</legend>
+            <AccordionSection
+              title="特殊性能（省略可）"
+              icon="✨"
+              count={pickingMove.hasSpecialVariant ? 1 : 0}
+              isOpen={isSpecialVariantOpen}
+              onToggle={() => setIsSpecialVariantOpen((open) => !open)}
+            >
               <label style={styles.checkboxLabel}>
                 <input
                   type="checkbox"
@@ -555,7 +653,7 @@ function SpecialMoveGroupBody({
                     />
                   );
                 })()}
-            </fieldset>
+            </AccordionSection>
           )}
         </>
       )}
@@ -834,6 +932,8 @@ function MovePill({
   label,
   active,
   pending = false,
+  disabled = false,
+  title,
   onClick,
 }: {
   label: string;
@@ -841,17 +941,25 @@ function MovePill({
   // 「今まさに選択中（value と一致）」ではなく「強度・呼び名を選んでいる最中でまだ確定していない」
   // 状態を示す弱めの見た目。activeと同時にtrueにはならない想定
   pending?: boolean;
+  // 「特定の技の直後にしか出せない派生技」が、今の直前ノードでは条件を満たさない場合に
+  // 選べないようにする（MoveNamePicker.tsxのrequiredPrecedingMoveName参照）
+  disabled?: boolean;
+  title?: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      title={title}
       style={{
         ...styles.pill,
         borderColor: active ? 'var(--accent)' : pending ? 'var(--accent)' : 'var(--border)',
         background: active ? 'var(--accent)' : 'var(--bg-elevated)',
         color: active ? '#fff' : pending ? 'var(--accent)' : 'var(--text-secondary)',
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       {label}

@@ -125,7 +125,13 @@ function withFinishingSuperArt(path: MoveNode[]): MoveNode[] {
  * まだ選ばれていない場合はnullを返し、この枝のダメージ・ゲージ計算全体を打ち切る
  * （＝該当欄は自動計算されず未入力のままになる。ユーザー指定：「その技を選択するまでの
  * 間は、その分のダメージやゲージの欄は空欄にしておく」）。
- * 通常の木（startingMoveOptions未設定）はそのまま何もしない
+ * 通常の木（startingMoveOptions未設定）はそのまま何もしない。
+ *
+ * 最後の合成ノード（続きに直接つながる技）が複数ヒット技で、branchStats.startingMoveCancelHitIndex
+ * （実際に何段目でキャンセルしたか）が設定されている場合は、そのノードのhitIndicesを
+ * 1段目からその段までに絞り込む。ダメージ・Dゲージ・SAゲージの各計算は各ノードのhitIndices
+ * だけを合計に使うため、これだけで「キャンセルして途中の段までしか当たっていない」を
+ * 反映できる（2026-09-16ユーザー要望）
  */
 function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
   const root = path[0];
@@ -134,6 +140,9 @@ function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
   const targetNode = path[path.length - 1];
   const startingMoveNames = targetNode.branchStats?.startingMoveNames;
   if (!startingMoveNames || startingMoveNames.length === 0) return null;
+
+  const cancelHitIndex = targetNode.branchStats?.startingMoveCancelHitIndex ?? null;
+  const lastStepIndex = startingMoveNames.length - 1;
 
   const resolvedNodes: MoveNode[] = startingMoveNames.map((rawToken, index) => {
     const { moveName, attributes } = parseStarterMoveToken(rawToken);
@@ -144,6 +153,10 @@ function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
       displayName: undefined,
       startingMoveOptions: undefined,
       attributes: index === 0 ? [...root.attributes, ...attributes] : attributes,
+      hitIndices:
+        index === lastStepIndex && cancelHitIndex !== null
+          ? Array.from({ length: cancelHitIndex }, (_, i) => i + 1)
+          : undefined,
     };
   });
 

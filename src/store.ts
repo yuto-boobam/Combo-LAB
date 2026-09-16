@@ -490,6 +490,16 @@ export type AppState = {
     moveId: string,
     strengthMode: SpecialMoveStrengthMode | undefined,
   ) => void;
+  /**
+   * 必殺技が「特定の技の直後にしか出せない派生技」かどうかの基点となる技名を編集する
+   * （追加入力による追撃など、補正が別に乗るぶんを別ノードとして繋ぐための制約。
+   * types.tsのMoveDefinition.requiredPrecedingMoveName参照）。空文字/undefinedで制約なしに戻す
+   */
+  setMoveDefinitionRequiredPrecedingMoveName: (
+    characterId: string,
+    moveId: string,
+    requiredPrecedingMoveName: string | undefined,
+  ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
   /**
@@ -1003,6 +1013,24 @@ export const useAppStore = create<AppState>()(
                   ...character,
                   moveList: character.moveList.map((move) =>
                     move.id === moveId ? { ...move, strengthMode } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      setMoveDefinitionRequiredPrecedingMoveName: (characterId, moveId, requiredPrecedingMoveName) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId
+                      ? { ...move, requiredPrecedingMoveName: requiredPrecedingMoveName || undefined }
+                      : move,
                   ),
                   updatedAt: new Date().toISOString(),
                 }

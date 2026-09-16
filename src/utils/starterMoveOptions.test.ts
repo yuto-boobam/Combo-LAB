@@ -3,10 +3,30 @@
 import { describe, expect, it } from 'vitest';
 import {
   expandStarterMoveOptions,
+  parseStarterMoveChain,
   parseStarterMoveOptionsText,
   parseStarterMoveToken,
   serializeStarterMoveOptions,
 } from './starterMoveOptions';
+
+describe('parseStarterMoveChain', () => {
+  it('「→」「->」区切りで1つの並びをパースする（この枝の始動技の自由記入欄用）', () => {
+    expect(parseStarterMoveChain('強P→2中P')).toEqual(['強P', '2中P']);
+    expect(parseStarterMoveChain('強P->2中P')).toEqual(['強P', '2中P']);
+  });
+
+  it('単発の技名だけでも1要素の配列になる', () => {
+    expect(parseStarterMoveChain('2中P')).toEqual(['2中P']);
+  });
+
+  it('末尾に矢印だけ残っている途中入力は、空トークンを無視して確定した分だけ返す', () => {
+    expect(parseStarterMoveChain('強P→')).toEqual(['強P']);
+  });
+
+  it('空文字は空配列を返す', () => {
+    expect(parseStarterMoveChain('')).toEqual([]);
+  });
+});
 
 describe('parseStarterMoveOptionsText', () => {
   it('改行区切りで複数の候補（各1技）をパースする', () => {

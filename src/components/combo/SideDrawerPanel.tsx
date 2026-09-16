@@ -23,7 +23,7 @@ import { BranchStatsEditor } from './BranchStatsEditor';
 import { OdLevelToggle } from './OdLevelToggle';
 import { HitSelectionToggle } from './HitSelectionToggle';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
-import { parseStarterMoveOptionsText } from '../../utils/starterMoveOptions';
+import { parseStarterMoveOptionsText, parseStarterMoveToken } from '../../utils/starterMoveOptions';
 import {
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
@@ -672,6 +672,32 @@ function resolveNodePlusFrames(
   };
 }
 
+// 汎用コンボの始動技（この枝で選択済みのbranchStats.startingMoveNamesチェーンの最後の技、
+// ＝続きに直接つながる技）が複数ヒット技の場合に、「何段目でキャンセルしたか」を選ばせる
+// UIを表示するための情報を返す。技マスタ側でキャンセル種類（MoveHitStats.cancelType）が
+// 設定されている段だけを選択候補にする。単発技・未選択・キャンセル可能な段が無い場合はnull
+// （欄自体を出さない）
+function resolveStarterMoveCancelInfo(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  selectedNode: MoveNode,
+): { cancelableHitIndices: number[] } | null {
+  const chain = selectedNode.branchStats?.startingMoveNames;
+  if (!chain || chain.length === 0) return null;
+
+  const { moveName } = parseStarterMoveToken(chain[chain.length - 1]);
+  if (!moveName) return null;
+
+  const stats = moveStatsDatabase[characterId]?.[moveName];
+  if (!stats?.isMultiHit || stats.hits.length <= 1) return null;
+
+  const cancelableHitIndices = stats.hits
+    .map((hit, index) => (hit.cancelType && hit.cancelType !== '不可' ? index + 1 : null))
+    .filter((value): value is number => value !== null);
+
+  return cancelableHitIndices.length > 0 ? { cancelableHitIndices } : null;
+}
+
 function ReadOnlyNodeView({
   characterId,
   root,
@@ -717,6 +743,7 @@ function ReadOnlyNodeView({
   const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
   const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
   const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
+  const starterMoveCancelInfo = resolveStarterMoveCancelInfo(characterId, moveStatsDatabase, selectedNode);
 
   return (
     <>
@@ -745,6 +772,7 @@ function ReadOnlyNodeView({
             }))}
             onChangeOdUsage={() => {}}
             starterMoveOptions={root?.startingMoveOptions ?? []}
+            starterMoveCancelInfo={starterMoveCancelInfo}
           />
         </AccordionSection>
       )}
@@ -844,7 +872,7 @@ function NewTreeSection({
             checked={isGeneric}
             onChange={(event) => setIsGeneric(event.target.checked)}
           />
-          汎用コンボにする（複数の始動技から同じ続きに繋がる場合）
+          汎用コンボ（複数の始動技から同じ続きに繋がる）
         </label>
 
         {isGeneric ? (
@@ -869,7 +897,7 @@ function NewTreeSection({
                 className="input-field"
                 style={{ resize: 'vertical', fontFamily: 'inherit' }}
                 rows={3}
-                placeholder={'弱P\n弱K\n弱攻撃全般\nJ強K→強P/4強P/2強P\n強昇竜拳（PC/R）'}
+                placeholder={'弱P\n弱K\nJ強K→強P/4強P/2強P\n必殺技（PC/R）'}
                 value={genericStarterMovesText}
                 onChange={(event) => setGenericStarterMovesText(event.target.value)}
               />
@@ -1064,6 +1092,7 @@ function NodeEditor({
   const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
   const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
   const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
+  const starterMoveCancelInfo = resolveStarterMoveCancelInfo(characterId, moveStatsDatabase, selectedNode);
 
   // 兄弟ノード（同じ親を持つ枝）内での自分の位置。分岐している時だけ「上/下の枝と入れ替え」
   // 操作を出す（2026-08-28ユーザー要望：枝同士の順序を入れ替えられるようにする）
@@ -1196,6 +1225,7 @@ function NodeEditor({
             }))}
             onChangeOdUsage={(nodeId, next) => setNodeUsesOD(characterId, treeId, nodeId, next)}
             starterMoveOptions={root.startingMoveOptions ?? []}
+            starterMoveCancelInfo={starterMoveCancelInfo}
           />
         </AccordionSection>
       )}
@@ -1218,6 +1248,7 @@ function NodeEditor({
               setEditedDisplayName(displayName);
               setEditedFinishingSpecialVariant(finishingSpecialVariant);
             }}
+            precedingMoveName={parentNode?.moveName}
           />
           <button
             type="button"
@@ -1403,6 +1434,7 @@ function NodeEditor({
               setNewDisplayName(displayName);
               setNewFinishingSpecialVariant(finishingSpecialVariant);
             }}
+            precedingMoveName={selectedNode.moveName}
           />
 
           <AttributeEditor value={newAttributes} onChange={setNewAttributes} />

@@ -64,6 +64,18 @@ function cartesianProduct(steps: string[][]): string[][] {
 }
 
 /**
+ * 1候補ぶんのテキスト（例:「J強K→強P/4強P/2強P」）を、「→」「->」区切りで技名の並びへ
+ * 分解する。parseStarterMoveOptionsTextの1行ぶんの処理を切り出したもので、一覧に無い
+ * 経由技をその場で自由記入する場合（BranchStatsEditor.tsxの「この枝の始動技」欄）にも使う
+ */
+export function parseStarterMoveChain(text: string): string[] {
+  return text
+    .split(/→|->/)
+    .map((step) => step.trim())
+    .filter((step) => step.length > 0);
+}
+
+/**
  * テキスト⇄startingMoveOptions（MoveNode.startingMoveOptions）の変換。「/」は展開せず、
  * 各段の生の文字列（例:「強P/4強P」）をそのまま1トークンとして保持する
  * （見出し表示をコンパクトに保つため。展開が必要な場面はexpandStarterMoveOptions参照）
@@ -71,12 +83,7 @@ function cartesianProduct(steps: string[][]): string[][] {
 export function parseStarterMoveOptionsText(text: string): string[][] {
   return text
     .split(/[\n,、]/)
-    .map((candidate) =>
-      candidate
-        .split(/→|->/)
-        .map((step) => step.trim())
-        .filter((step) => step.length > 0),
-    )
+    .map(parseStarterMoveChain)
     .filter((chain) => chain.length > 0);
 }
 

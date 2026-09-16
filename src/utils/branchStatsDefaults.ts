@@ -29,4 +29,5 @@ export const DEFAULT_BRANCH_STATS: ComboBranchStats = {
   finishingSpecialVariant: null,
   finishingSuperArtName: null,
   startingMoveNames: null,
+  startingMoveCancelHitIndex: null,
 };

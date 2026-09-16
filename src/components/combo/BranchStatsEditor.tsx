@@ -8,7 +8,11 @@ import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../t
 import type { DamageBreakdown, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import { parsePlusFrameRange } from '../../utils/plusFrameRange';
-import { expandStarterMoveOptions } from '../../utils/starterMoveOptions';
+import {
+  expandStarterMoveOptions,
+  parseStarterMoveChain,
+  serializeStarterMoveOptions,
+} from '../../utils/starterMoveOptions';
 import { OdLevelToggle } from './OdLevelToggle';
 
 export type OdUsageOnPath = {
@@ -82,6 +86,9 @@ type Props = {
   // 候補一覧。渡された場合、この枝で実際に使った始動技を選ばせるUIを表示する
   // （選ぶまではダメージ・ゲージの自動計算が行われない。src/utils/comboGaugeCalc.ts参照）
   starterMoveOptions?: string[][];
+  // 選択済みの始動技（startingMoveNamesの最後の技）が複数ヒット技で、かつキャンセル可能な
+  // 段がある場合にのみ渡される。渡された場合、「何段目でキャンセルしたか」を選ばせるUIを表示する
+  starterMoveCancelInfo?: { cancelableHitIndices: number[] } | null;
 };
 
 // 「通常」ボタンは出さない（カウンター/パニカンをどちらもオフにすれば同じ状態に戻せるため）。
@@ -120,6 +127,7 @@ export function BranchStatsEditor({
   airPlusFrame = '',
   hideEmptyFields = false,
   starterMoveOptions = [],
+  starterMoveCancelInfo = null,
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
   // 計算式の内訳は普段は閉じておき、興味を持った人がボタンを押した時だけ見せる
@@ -129,12 +137,25 @@ export function BranchStatsEditor({
   const [isDGaugeBreakdownMode, setIsDGaugeBreakdownMode] = useState(false);
   const [isSaGaugeBreakdownMode, setIsSaGaugeBreakdownMode] = useState(false);
 
+  // 「この枝の始動技」の自由記入欄（一覧に無い経由技をその場で入力するため）の下書き。
+  // 確定前の入力途中の文字列（例:「強P→」）をそのまま保持したいので、値そのもの
+  // （stats.startingMoveNames）とは別にローカルで持ち、blur時にだけ反映する
+  // （矢印を打った直後に即座に反映すると、末尾の空トークンが消えて表示が巻き戻ってしまうため）。
+  // プリセットボタンを押した時もこの下書きを合わせて更新する（onClick内でsetCustomStarterDraftも呼ぶ）
+  const [customStarterDraft, setCustomStarterDraft] = useState(() =>
+    serializeStarterMoveOptions(stats.startingMoveNames ? [stats.startingMoveNames] : []),
+  );
+
   // starterMoveOptionsは見出し表示用にコンパクトな「強P/4強P」表記のまま保持されているため、
   // 実際に1つ選ばせるこのピッカーでだけ具体的な組み合わせへ展開する（expandStarterMoveOptions参照）
   const expandedStarterMoveOptions = useMemo(
     () => expandStarterMoveOptions(starterMoveOptions),
     [starterMoveOptions],
   );
+
+  // 旧データ（startingMoveCancelHitIndex追加前に保存されたbranchStats）はundefinedのままのため、
+  // nullと同じ「キャンセルしていない」扱いに正規化する
+  const starterMoveCancelHitIndex = stats.startingMoveCancelHitIndex ?? null;
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
@@ -514,9 +535,15 @@ export function BranchStatsEditor({
                 <button
                   key={chainLabel}
                   type="button"
-                  onClick={() =>
-                    updateAndResetAutoFields({ startingMoveNames: active ? null : chain })
-                  }
+                  onClick={() => {
+                    updateAndResetAutoFields({
+                      startingMoveNames: active ? null : chain,
+                      // 始動技を変えると何段目でキャンセルしたかの前提も変わるため、
+                      // 選び直しのたびに一旦リセットする
+                      startingMoveCancelHitIndex: null,
+                    });
+                    setCustomStarterDraft(active ? '' : serializeStarterMoveOptions([chain]));
+                  }}
                   disabled={readOnly}
                   style={{
                     ...styles.conditionButton,
@@ -527,6 +554,80 @@ export function BranchStatsEditor({
                   }}
                 >
                   {chainLabel}
+                </button>
+              );
+            })}
+          </div>
+
+          <label style={{ ...styles.fieldLabel, marginTop: 6 }}>
+            または自由記入（一覧に無い、経由技を挟んだ入り方をした場合。矢印は→か-&gt;で繋ぐ）
+            <input
+              type="text"
+              className="input-field"
+              value={customStarterDraft}
+              disabled={readOnly}
+              placeholder="例: 強P→2中P"
+              onChange={(event) => setCustomStarterDraft(event.target.value)}
+              onBlur={() => {
+                const chain = parseStarterMoveChain(customStarterDraft);
+                const nextChain = chain.length > 0 ? chain : null;
+                const currentSerialized = serializeStarterMoveOptions(
+                  stats.startingMoveNames ? [stats.startingMoveNames] : [],
+                );
+                const nextSerialized = serializeStarterMoveOptions(nextChain ? [nextChain] : []);
+                // 何も変えずにフォーカスを外しただけの場合、ダメージ等の自動計算欄を
+                // 無駄にリセットしないようにする
+                if (nextSerialized === currentSerialized) return;
+                updateAndResetAutoFields({
+                  startingMoveNames: nextChain,
+                  startingMoveCancelHitIndex: null,
+                });
+              }}
+            />
+          </label>
+        </div>
+      )}
+
+      {starterMoveCancelInfo && stats.startingMoveNames && (
+        <div style={styles.fieldLabel}>
+          始動技の何段目でキャンセルしたか
+          <div style={styles.threeColRow}>
+            <button
+              type="button"
+              onClick={() => updateAndResetAutoFields({ startingMoveCancelHitIndex: null })}
+              disabled={readOnly}
+              style={{
+                ...styles.conditionButton,
+                borderColor: starterMoveCancelHitIndex === null ? 'var(--accent)' : 'var(--border)',
+                background: starterMoveCancelHitIndex === null ? 'var(--accent)' : 'var(--bg-elevated)',
+                color: starterMoveCancelHitIndex === null ? '#fff' : 'var(--text-secondary)',
+                cursor: readOnly ? 'default' : 'pointer',
+              }}
+            >
+              キャンセルしていない
+            </button>
+
+            {starterMoveCancelInfo.cancelableHitIndices.map((hitIndex) => {
+              const active = starterMoveCancelHitIndex === hitIndex;
+              return (
+                <button
+                  key={hitIndex}
+                  type="button"
+                  onClick={() =>
+                    updateAndResetAutoFields({
+                      startingMoveCancelHitIndex: active ? null : hitIndex,
+                    })
+                  }
+                  disabled={readOnly}
+                  style={{
+                    ...styles.conditionButton,
+                    borderColor: active ? 'var(--accent)' : 'var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: active ? '#fff' : 'var(--text-secondary)',
+                    cursor: readOnly ? 'default' : 'pointer',
+                  }}
+                >
+                  {hitIndex}段目でキャンセル
                 </button>
               );
             })}

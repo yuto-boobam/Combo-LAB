@@ -45,6 +45,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     finishingSpecialVariant: null,
     finishingSuperArtName: null,
     startingMoveNames: null,
+    startingMoveCancelHitIndex: null,
     ...overrides,
   };
 }
@@ -914,6 +915,66 @@ describe('startingMoveOptions（複数の始動技から同じ続きに繋がる
     // J強K(400, 起点=100%) + 強P(600, テーブル2段目=100%) + 中P(1000, テーブル3段目=80%)
     // = 400+600+800=1800
     expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1800);
+  });
+
+  it('始動技（複数ヒット技）を途中の段でキャンセルした場合、branchStats.startingMoveCancelHitIndexで指定した段までしかダメージに含まれない', () => {
+    const leaf = makeNode('leaf', '強昇竜拳', {
+      branchStats: makeBranchStats({
+        startingMoveNames: ['3段技'],
+        startingMoveCancelHitIndex: 2,
+      }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['3段技']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '3段技': makeStats(
+          [
+            makeHit({ damage: 100, cancelType: '不可' }),
+            makeHit({ damage: 200, cancelType: '全般' }),
+            makeHit({ damage: 300, cancelType: '不可' }),
+          ],
+          true,
+        ),
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 3段技は2段目でキャンセルしたので1・2段目だけが加算され、3段目(300)は含まれない。
+    // 1段目(100, テーブル1段目=100%)+2段目(200, テーブル2段目=100%)=300。
+    // 続く強昇竜拳はテーブル3段目(80%)を消費: 1000*0.8=800。合計 300+800=1100
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1100);
+  });
+
+  it('startingMoveCancelHitIndexが未設定（キャンセルしていない）なら、始動技の複数ヒット技は全段がダメージに含まれる', () => {
+    const leaf = makeNode('leaf', '強昇竜拳', {
+      branchStats: makeBranchStats({ startingMoveNames: ['3段技'] }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['3段技']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '3段技': makeStats(
+          [
+            makeHit({ damage: 100, cancelType: '不可' }),
+            makeHit({ damage: 200, cancelType: '全般' }),
+            makeHit({ damage: 300, cancelType: '不可' }),
+          ],
+          true,
+        ),
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 全段(1〜3段目)ヒットしたので100+200+240(300*テーブル3段目80%)=540。
+    // 続く強昇竜拳はテーブル4段目(70%)を消費: 1000*0.7=700。合計 540+700=1240
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1240);
   });
 
   it('候補の技名に括弧で条件（例:「強昇竜拳（C）」）が付いていれば、その条件がダメージ計算・始動条件判定に反映される', () => {
