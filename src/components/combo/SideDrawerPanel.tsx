@@ -778,7 +778,12 @@ function ReadOnlyNodeView({
       )}
 
       <AccordionSection
-        title={`選択中のノードについて：${selectedNode.moveName}`}
+        title={
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>選択中のノードについて：</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{selectedNode.displayName || selectedNode.moveName}</span>
+          </>
+        }
         icon="👁️"
         count={selectedNode.attributes.length}
         isOpen={isOpen}
@@ -1231,7 +1236,12 @@ function NodeEditor({
       )}
 
       <AccordionSection
-        title={`選択中のノードについて：${selectedNode.moveName}`}
+        title={
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>選択中のノードについて：</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{selectedNode.displayName || selectedNode.moveName}</span>
+          </>
+        }
         icon="✏️"
         count={selectedNode.attributes.length}
         isOpen={isEditorOpen}
@@ -1418,7 +1428,16 @@ function NodeEditor({
       </AccordionSection>
 
       <AccordionSection
-        title={`「${selectedNode.moveName}」に繋げる技を選ぶ${newMoveName ? `： ${newMoveName}` : ''}`}
+        title={
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>
+              {`「${selectedNode.displayName || selectedNode.moveName}」に繋ぐ`}
+            </span>
+            {newMoveName && (
+              <span style={{ whiteSpace: 'nowrap' }}>{`： ${newDisplayName || newMoveName}`}</span>
+            )}
+          </>
+        }
         icon="➕"
         count={newAttributes.length}
         isOpen={isAddFormOpen}
