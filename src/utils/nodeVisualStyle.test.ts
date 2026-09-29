@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { resolveNodeVisualStyle } from './nodeVisualStyle';
 import type { NodeAttribute } from '../types';
 
-const attr = (type: Exclude<NodeAttribute['type'], 'characterLimited' | 'positionLimited' | 'other'>): NodeAttribute => ({
+const attr = (
+  type: Exclude<
+    NodeAttribute['type'],
+    'characterLimited' | 'positionLimited' | 'other' | 'wallSplat' | 'stun'
+  >,
+): NodeAttribute => ({
   type,
 });
 
