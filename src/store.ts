@@ -89,14 +89,45 @@ const VALID_SPECIAL_MOVE_STRENGTH_MODES: SpecialMoveStrengthMode[] = ['none', 'n
 /**
  * 2026-08-30に`startingMoveName: string | null`を`startingMoveNames: string[] | null`へ
  * 変更した際の移行措置。旧フィールドのまま保存されたデータ(このセッション中に作成された
- * ものを含む)を読み込んでも、選択済みの始動技が消えて見えないようにする
+ * ものを含む)を読み込んでも、選択済みの始動技が消えて見えないようにする。
+ *
+ * 2026-09-29に追加したisDamageAutoSynced等（damage/opponentDGaugeChip/dGaugeChange/
+ * saGaugeGainが自動計算値に追従したままかどうか）の移行措置も兼ねる。この4フィールドを
+ * 持たない旧データは、既に値が入っている（null以外）欄はこれまで通り「固定（手動入力済み
+ * かもしれない値）」として扱いfalseに、未入力（null）の欄はtrueにする。true一括にすると、
+ * 既に手で補正済みだった値が次回開いた時にまとめて自動計算値へ上書きされてしまうため
+ * （このケースの判別が付かない以上、安全側＝従来通り上書きしない、に倒す）
  */
 function migrateComboBranchStats(stats: ComboBranchStats): ComboBranchStats {
-  const legacy = stats as ComboBranchStats & { startingMoveName?: string | null };
-  if (Array.isArray(legacy.startingMoveNames)) return stats;
+  const legacy = stats as ComboBranchStats & {
+    startingMoveName?: string | null;
+    isDamageAutoSynced?: boolean;
+    isOpponentDGaugeChipAutoSynced?: boolean;
+    isDGaugeChangeAutoSynced?: boolean;
+    isSaGaugeGainAutoSynced?: boolean;
+  };
+  const startingMoveNames = Array.isArray(legacy.startingMoveNames)
+    ? stats.startingMoveNames
+    : legacy.startingMoveName
+      ? [legacy.startingMoveName]
+      : null;
   return {
     ...stats,
-    startingMoveNames: legacy.startingMoveName ? [legacy.startingMoveName] : null,
+    startingMoveNames,
+    isDamageAutoSynced:
+      typeof legacy.isDamageAutoSynced === 'boolean' ? legacy.isDamageAutoSynced : stats.damage === null,
+    isOpponentDGaugeChipAutoSynced:
+      typeof legacy.isOpponentDGaugeChipAutoSynced === 'boolean'
+        ? legacy.isOpponentDGaugeChipAutoSynced
+        : stats.opponentDGaugeChip === null,
+    isDGaugeChangeAutoSynced:
+      typeof legacy.isDGaugeChangeAutoSynced === 'boolean'
+        ? legacy.isDGaugeChangeAutoSynced
+        : stats.dGaugeChange === null,
+    isSaGaugeGainAutoSynced:
+      typeof legacy.isSaGaugeGainAutoSynced === 'boolean'
+        ? legacy.isSaGaugeGainAutoSynced
+        : stats.saGaugeGain === null,
   };
 }
 
@@ -216,8 +247,6 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
     minDamageGuaranteePercent: toNullableNumber(s.minDamageGuaranteePercent),
     dGaugeGainDuringRush: toNullableNumber(s.dGaugeGainDuringRush),
-    groundPlusFrame: typeof s.groundPlusFrame === 'string' ? s.groundPlusFrame : '',
-    airPlusFrame: typeof s.airPlusFrame === 'string' ? s.airPlusFrame : '',
     cancelType: CANCEL_TYPES.includes(s.cancelType as CancelType) ? (s.cancelType as CancelType) : null,
   };
 }
