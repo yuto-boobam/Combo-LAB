@@ -92,14 +92,33 @@ describe('expandStarterMoveOptions（ピッカーで1つ選ばせる時にだけ
     ]);
   });
 
-  it('括弧の中の「/」は展開対象に含めない（条件指定「PC/R」用）', () => {
-    expect(expandStarterMoveOptions([['強昇竜拳（PC/R）']])).toEqual([['強昇竜拳（PC/R）']]);
+  it('括弧の中が条件コード（持続/C/PC/R/R持続）だけの場合、コードの数だけ独立した候補に展開する（2026-09-28ユーザー要望：条件ごとに補正が異なるため別候補にしたい）', () => {
+    expect(expandStarterMoveOptions([['強昇竜拳（PC/R）']])).toEqual([
+      ['強昇竜拳（PC）'],
+      ['強昇竜拳（R）'],
+    ]);
   });
 
-  it('括弧付きの技名と、候補としての「/」展開を同時に使える', () => {
+  it('5種類の条件コードを1つの括弧にまとめて書いても、5つの独立した候補に展開する', () => {
+    expect(expandStarterMoveOptions([['2中P（持続/C/PC/R/R持続）']])).toEqual([
+      ['2中P（持続）'],
+      ['2中P（C）'],
+      ['2中P（PC）'],
+      ['2中P（R）'],
+      ['2中P（R持続）'],
+    ]);
+  });
+
+  it('括弧の中が条件コード以外（未知の注記等）を含む場合は展開せずそのまま1件で返す', () => {
+    expect(expandStarterMoveOptions([['強昇竜拳（X）']])).toEqual([['強昇竜拳（X）']]);
+    expect(expandStarterMoveOptions([['強昇竜拳（C/X）']])).toEqual([['強昇竜拳（C/X）']]);
+  });
+
+  it('括弧付きの技名と、候補としての「/」展開・条件コード展開を同時に使える', () => {
     expect(expandStarterMoveOptions([['強P（C）/4強P（PC/R）']])).toEqual([
       ['強P（C）'],
-      ['4強P（PC/R）'],
+      ['4強P（PC）'],
+      ['4強P（R）'],
     ]);
   });
 
@@ -145,6 +164,17 @@ describe('parseStarterMoveToken', () => {
 
   it('未知のコードは無視する', () => {
     expect(parseStarterMoveToken('強昇竜拳（X）')).toEqual({ moveName: '強昇竜拳', attributes: [] });
+  });
+
+  it('「技名（持続）」は持続ヒット専用の属性を持たないため、属性は空のまま技名だけ返す（＝通常ヒットと同じ補正で計算される）', () => {
+    expect(parseStarterMoveToken('2中P（持続）')).toEqual({ moveName: '2中P', attributes: [] });
+  });
+
+  it('「技名（R持続）」はR（ラッシュ）と同じラッシュ属性を返す（補正上はRと同じ扱い）', () => {
+    expect(parseStarterMoveToken('2中P（R持続）')).toEqual({
+      moveName: '2中P',
+      attributes: [{ type: 'rush' }],
+    });
   });
 });
 

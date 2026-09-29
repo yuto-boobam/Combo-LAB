@@ -20,12 +20,19 @@
 //
 // 技名の後ろに括弧で条件を添えると、「その技がその条件で当たった時だけ繋がる」を表現できる
 // （2026-08-30ユーザー要望。「〜の技のパニカンならつながる」を表現したい）。
-// 括弧の中はC(カウンター)/PC(パニッシュカウンター)/Rの組み合わせを「/」で並べる
-// （例:「強昇竜拳（C）」「強昇竜拳（PC/R）」）。技名を書かず「PC」「R」のように条件コードだけ
-// 単独で書くと、技を問わず「その条件さえ満たせば繋がる」という意味になる。
+// 括弧の中は持続(持続ヒット)/C(カウンター)/PC(パニッシュカウンター)/R(ラッシュ)/R持続
+// (ラッシュ攻撃の持続ヒット)を「/」で並べる（例:「2中P（持続/C/PC/R/R持続）」）。技名を書かず
+// 「PC」「R」のように条件コードだけ単独で書くと、技を問わず「その条件さえ満たせば繋がる」
+// という意味になる。
 // パース自体（parseStarterMoveOptionsText）はこの括弧を1つの技名文字列の一部としてそのまま
-// 保持するだけで中身は解釈しない。実際にmoveName/attributesへ分解するのは
-// src/utils/comboGaugeCalc.ts の resolveStartingMove が呼ぶparseStarterMoveToken（下記）。
+// 保持するだけで中身は解釈しない（見出し表示は「2中P（持続/C/PC/R/R持続）」のようにコンパクトな
+// ままにするため）。実際に選ばせる時（expandStarterMoveOptions、下記）に初めて、括弧の中の
+// 「/」区切りの条件コードを1つずつ独立した候補（「2中P（持続）」「2中P（C）」…）へ展開する
+// （2026-09-28ユーザー要望：持続ヒット・カウンター・パニッシュカウンター・ラッシュはそれぞれ
+// 補正が異なる別条件のため、1つのノードに全属性をまとめて付けるのではなく、条件ごとに
+// 選び分けられるようにしたい。詳細はexpandConditionAlternatives・comboGaugeCalc.tsの
+// calculateBranchOpponentDGaugeChip参照）。moveName/attributesへの分解自体は
+// src/utils/comboGaugeCalc.ts の resolveStartingMove が呼ぶparseStarterMoveToken（下記）で行う。
 // 括弧の中の「/」は候補展開用の「/」と衝突するため、括弧の中は展開対象から除外する
 // （splitTopLevelPreservingParens参照）。
 
@@ -91,11 +98,36 @@ export function serializeStarterMoveOptions(options: string[][]): string {
   return options.map((chain) => chain.join('→')).join('\n');
 }
 
+// 括弧の中で条件コード（持続/C/PC/R/R持続）だけを「/」で並べた場合に、独立した候補へ
+// 展開できる対象として認識するコード一覧。判定は大文字小文字を区別しない
+// （持続・R持続はASCII文字を含まないためtoUpperCaseで変化しない）。
+const SPLITTABLE_CONDITION_CODES = new Set(['持続', 'C', 'PC', 'R', 'R持続']);
+
+/**
+ * 1つの候補トークン（例:「2中P（持続/C/PC/R/R持続）」）の末尾の括弧が、条件コードだけの
+ * 「/」区切りである場合、コードの数だけ独立した候補（「2中P（持続）」「2中P（C）」…）に
+ * 展開する。それ以外（括弧が無い、括弧の中に条件コード以外の自由記述が混ざっている等）は
+ * そのまま1件で返す（従来通り無条件でそのまま扱う）
+ */
+function expandConditionAlternatives(token: string): string[] {
+  const match = token.match(/^(.*?)([（(])([^）)]*)([）)])\s*$/);
+  if (!match) return [token];
+
+  const [, namePart, openParen, conditionPart, closeParen] = match;
+  const codes = conditionPart.split('/').map((code) => code.trim().toUpperCase());
+  if (codes.length === 0 || !codes.every((code) => SPLITTABLE_CONDITION_CODES.has(code))) {
+    return [token];
+  }
+
+  return codes.map((code) => `${namePart}${openParen}${code}${closeParen}`);
+}
+
 /**
  * startingMoveOptionsの各段が「強P/4強P」のように複数パターンを含んでいる場合、
  * 具体的な組み合わせ（直積）へ展開する。技を1つずつ選ばせる必要がある場面
  * （BranchStatsEditor.tsxの「この枝の始動技」ピッカー）だけで使う。
- * 括弧の中の「/」（条件指定「PC/R」用）は展開対象に含めない
+ * 括弧の中の「/」（条件指定「持続/C/PC/R/R持続」用）は候補展開用の「/」とは区別し、
+ * expandConditionAlternativesで条件コードの数だけ独立した候補に展開する
  * （splitTopLevelPreservingParens参照）
  */
 export function expandStarterMoveOptions(options: string[][]): string[][] {
@@ -104,7 +136,8 @@ export function expandStarterMoveOptions(options: string[][]): string[][] {
       .map((step) =>
         splitTopLevelPreservingParens(step, '/')
           .map((name) => name.trim())
-          .filter((name) => name.length > 0),
+          .filter((name) => name.length > 0)
+          .flatMap((name) => expandConditionAlternatives(name)),
       )
       .filter((alternatives) => alternatives.length > 0);
 
@@ -116,6 +149,7 @@ const CONDITION_ATTRIBUTE_MAP: Record<string, NodeAttribute['type']> = {
   C: 'counter',
   PC: 'punishCounter',
   R: 'rush',
+  R持続: 'rush',
 };
 
 function parseConditionCodes(raw: string): NodeAttribute[] {
@@ -127,11 +161,17 @@ function parseConditionCodes(raw: string): NodeAttribute[] {
 }
 
 /**
- * parseStarterMoveOptionsTextで保存された1トークン（例:「強昇竜拳（PC/R）」「PC」「弱P」）を
+ * parseStarterMoveOptionsTextで保存された1トークン（例:「強昇竜拳（PC）」「PC」「弱P」）を
  * 実際の技名と属性（NodeAttribute、始動条件の判定・枠線色に使う）へ分解する。
  * 括弧が無く、トークン全体がC/PC/Rの組み合わせだけの場合は、技名を問わず条件だけを
  * 表す候補として扱う（moveNameは空文字を返す。呼び出し側=resolveStartingMoveで
- * 技データ未登録と同じ扱い＝ダメージ0・位置だけ消費、になる）
+ * 技データ未登録と同じ扱い＝ダメージ0・位置だけ消費、になる）。
+ * 「持続」はC/PC/Rのような専用属性を持たないため、そのコードだけ無視して
+ * moveName（技名）はそのまま返す（＝通常ヒットと同じ補正で計算される）。
+ * なお括弧の中に複数コードが「/」で並んでいる場合（例:「強昇竜拳（PC/R）」）は、通常は
+ * expandStarterMoveOptionsが先にコードの数だけ独立した候補へ展開するため、この関数まで
+ * 複数コードのまま渡ってくるのは「この枝の始動技」欄への直接の自由記入時だけ。
+ * その場合は後方互換のため、該当する属性を全て合成して返す
  */
 export function parseStarterMoveToken(token: string): { moveName: string; attributes: NodeAttribute[] } {
   const trimmed = token.trim();
