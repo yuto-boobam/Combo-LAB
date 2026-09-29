@@ -23,7 +23,7 @@
 // npm run devした時だけ行える（詳細は src/utils/localEditAccess.ts 参照）。
 
 import { useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, WheelEvent } from 'react';
 import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import AccordionSection from '../components/AccordionSection';
@@ -36,6 +36,13 @@ import { calculateOdLevelConstraintForVariant } from '../utils/comboGaugeCalc';
 
 const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 
+// number欄にフォーカスしたままマウスホイールを回すと、ブラウザの既定動作で値が
+// 意図せず増減してしまう（技データを見ながらスクロールしている時の誤操作事故になりやすい）
+// ため、フォーカスを外してホイール操作を無効化する（2026-09-29ユーザー指摘）
+function blurOnWheel(event: WheelEvent<HTMLInputElement>) {
+  event.currentTarget.blur();
+}
+
 // 「キャンセルの種類」ボタンは通常技・必殺技で選択肢が異なる（2026-08-27ユーザー指定）。
 // 通常技は「全般/SAすべて」のような広いキャンセル先を、必殺技は「SA2以上/SA3のみ」の
 // ようなSAレベル基準の狭いキャンセル先を選ぶ（実機のキャンセルルートの違いに合わせる）。
@@ -43,8 +50,10 @@ const SPECIAL_MOVE_STRENGTHS: MoveStrength[] = ['弱', '中', '強', 'OD'];
 const NORMAL_MOVE_CANCEL_TYPES: CancelType[] = ['全般', 'SAすべて', '一部の必殺', '不可'];
 const SPECIAL_MOVE_CANCEL_TYPES: CancelType[] = ['SA2以上', 'SA3のみ', '一部の必殺', '不可'];
 
-// 数値ではなく自由記述の文字列として保存するフィールド（modifierと有利フレームの2種）
-const TEXT_HIT_FIELDS = new Set<keyof MoveHitStats>(['modifier', 'groundPlusFrame', 'airPlusFrame']);
+// 数値ではなく自由記述の文字列として保存するフィールド（modifierのみ。有利フレームは
+// 2026-09-29ユーザー要望で技データ側から削除し、枝ごとの「プラスフレーム」欄への
+// 都度手入力に一本化した）
+const TEXT_HIT_FIELDS = new Set<keyof MoveHitStats>(['modifier']);
 
 const EMPTY_HIT: MoveHitStats = {
   damage: null,
@@ -55,8 +64,6 @@ const EMPTY_HIT: MoveHitStats = {
   dGaugeChipPunishCounter: null,
   minDamageGuaranteePercent: null,
   dGaugeGainDuringRush: null,
-  groundPlusFrame: '',
-  airPlusFrame: '',
   cancelType: null,
 };
 const EMPTY_STATS: MoveStats = {
@@ -321,6 +328,28 @@ function MoveStatsTable({
     });
   };
 
+  // SA専用。「Dゲージ回復（ヒット/ラッシュ中）」の1欄に「A/B」形式でまとめて入力させ、
+  // 内部的にはdGaugeGain（ヒット時）とdGaugeGainDuringRush（キャンセルラッシュ中）の
+  // 2つの数値へ分けて保存する（2026-09-29ユーザー指摘：SAだけ項目数が多く右にはみ出るため、
+  // 列を1つに減らしたい）
+  const updateDGaugeGainWithRush = (moveName: string, hitIndex: number, rawValue: string) => {
+    const current = moveStats[moveName] ?? EMPTY_STATS;
+    const toNullableNumber = (raw: string) => {
+      if (raw.trim() === '') return null;
+      const n = Number(raw);
+      return Number.isNaN(n) ? null : n;
+    };
+    const [rawGain = '', rawGainDuringRush = ''] = rawValue.split('/');
+    const dGaugeGain = toNullableNumber(rawGain);
+    const dGaugeGainDuringRush = toNullableNumber(rawGainDuringRush);
+    setMoveStats(characterId, moveName, {
+      ...current,
+      hits: current.hits.map((hit, index) =>
+        index === hitIndex ? { ...hit, dGaugeGain, dGaugeGainDuringRush } : hit,
+      ),
+    });
+  };
+
   const addHit = (moveName: string) => {
     const current = moveStats[moveName] ?? EMPTY_STATS;
     setMoveStats(characterId, moveName, { ...current, hits: [...current.hits, EMPTY_HIT] });
@@ -335,13 +364,13 @@ function MoveStatsTable({
     });
   };
 
-  const extraColumnCount = [showMinGuaranteeColumn, showDuringRushColumn].filter(Boolean).length;
+  const extraColumnCount = [showMinGuaranteeColumn].filter(Boolean).length;
   // repeat(0, ...)はCSS的に不正な値になり、grid-template-columns全体が無視されて
   // レイアウトが崩れる（全項目が縦積みになる）ため、0件の時は丸ごと省略する
   const extraColumnsTemplate = extraColumnCount > 0 ? ` repeat(${extraColumnCount}, 84px)` : '';
   const rowGridStyle = {
     ...styles.hitRow,
-    gridTemplateColumns: `54px 84px minmax(120px, 1fr) repeat(6, 84px)${extraColumnsTemplate} 20px`,
+    gridTemplateColumns: `54px 84px minmax(120px, 1fr) repeat(4, 84px)${extraColumnsTemplate} 20px`,
   };
 
   return (
@@ -350,17 +379,14 @@ function MoveStatsTable({
         <span style={styles.hitLabelCell} />
         <span style={styles.numHeaderCell}>ダメージ</span>
         <span style={styles.modHeaderCell}>補正</span>
-        <span style={styles.numHeaderCell}>Dゲージ回復<br />（ヒット）</span>
+        <span style={styles.numHeaderCell}>
+          Dゲージ回復<br />（{showDuringRushColumn ? 'ヒット/ラッシュ中' : 'ヒット'}）
+        </span>
         <span style={styles.numHeaderCell}>{saGaugeColumnLabel}</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（ガード）</span>
         <span style={styles.numHeaderCell}>Dゲージ削り<br />（{lastChipColumnLabel}）</span>
-        <span style={styles.numHeaderCell}>有利フレーム<br />（地上ヒット）</span>
-        <span style={styles.numHeaderCell}>有利フレーム<br />（空中ヒット）</span>
         {showMinGuaranteeColumn && (
           <span style={styles.numHeaderCell}>最低保証値<br />（%）</span>
-        )}
-        {showDuringRushColumn && (
-          <span style={styles.numHeaderCell}>Dゲージ回復<br />（ラッシュ中）</span>
         )}
         <span style={styles.hitRemoveCell} />
       </div>
@@ -419,6 +445,7 @@ function MoveStatsTable({
                         showMinGuaranteeColumn={showMinGuaranteeColumn}
                         showDuringRushColumn={showDuringRushColumn}
                         onChange={(field, value) => updateHitField(moveName, index, field, value)}
+                        onChangeDGaugeGainWithRush={(value) => updateDGaugeGainWithRush(moveName, index, value)}
                       />
                       <span style={styles.hitRemoveCell}>
                         <button
@@ -467,6 +494,7 @@ function MoveStatsTable({
                     showMinGuaranteeColumn={showMinGuaranteeColumn}
                     showDuringRushColumn={showDuringRushColumn}
                     onChange={(field, value) => updateHitField(moveName, 0, field, value)}
+                    onChangeDGaugeGainWithRush={(value) => updateDGaugeGainWithRush(moveName, 0, value)}
                   />
                   <span style={styles.hitRemoveCell} />
                 </div>
@@ -542,6 +570,7 @@ function HitFields({
   showMinGuaranteeColumn = false,
   showDuringRushColumn = false,
   onChange,
+  onChangeDGaugeGainWithRush,
 }: {
   hit: MoveHitStats;
   // このHitFieldsが技の何段目か（0始まり）
@@ -552,6 +581,10 @@ function HitFields({
   showMinGuaranteeColumn?: boolean;
   showDuringRushColumn?: boolean;
   onChange: (field: keyof MoveHitStats, rawValue: string) => void;
+  // showDuringRushColumn時だけ使う。「Dゲージ回復（ヒット/ラッシュ中）」欄の生テキスト
+  // （例:「0/2000」）をそのまま渡す。呼び出し側でdGaugeGain/dGaugeGainDuringRushの
+  // 2つへ分けて保存する（下記dGaugeGainDraft参照）
+  onChangeDGaugeGainWithRush?: (rawValue: string) => void;
 }) {
   const canBeComboStarter = hitIndex === 0;
   const isSharedNonFirstHit = sharesModifierAcrossHits && !canBeComboStarter;
@@ -574,24 +607,29 @@ function HitFields({
   // cancelTypeのような文字列/オブジェクト項目を誤ってinputのvalueへ渡さないよう、数値項目だけに絞った型にする
   type NumericHitField = Extract<
     keyof MoveHitStats,
-    'dGaugeGain' | 'saGaugeGain' | 'dGaugeChip' | 'dGaugeChipPunishCounter' | 'minDamageGuaranteePercent' | 'dGaugeGainDuringRush'
+    'dGaugeGain' | 'saGaugeGain' | 'dGaugeChip' | 'dGaugeChipPunishCounter' | 'minDamageGuaranteePercent'
   >;
+  // showDuringRushColumn（SA専用）時は、dGaugeGainを他のSA固有欄（最低保証値/ラッシュ中）と
+  // まとめて1列に収めるため、通常の数値欄一覧からは外し、下の専用入力に置き換える
+  // （2026-09-29ユーザー指摘：SAだけ項目が多く右にはみ出るため列数を減らしたい）
   const baseNumberFields: { key: NumericHitField }[] = [
-    { key: 'dGaugeGain' },
+    ...(showDuringRushColumn ? [] : [{ key: 'dGaugeGain' as const }]),
     { key: 'saGaugeGain' },
     { key: 'dGaugeChip' },
     { key: 'dGaugeChipPunishCounter' },
   ];
   const extraNumberFields: { key: NumericHitField }[] = [
     ...(showMinGuaranteeColumn ? [{ key: 'minDamageGuaranteePercent' as const }] : []),
-    ...(showDuringRushColumn ? [{ key: 'dGaugeGainDuringRush' as const }] : []),
   ];
-  // 有利フレームは単一値・幅のある表記（例:「+2~+4」）のどちらも自由記述で入力する
-  // （modifierと同じ考え方。詳細はtypes.tsのMoveHitStats.groundPlusFrame参照）
-  const plusFrameFields: { key: 'groundPlusFrame' | 'airPlusFrame' }[] = [
-    { key: 'groundPlusFrame' },
-    { key: 'airPlusFrame' },
-  ];
+
+  // 「Dゲージ回復（ヒット/ラッシュ中）」欄の下書き。入力途中の文字列（例:「0/」を打った直後）
+  // をそのまま保持したいので、分解済みの2つの数値そのものとは別にローカルで持つ
+  // （customStarterDraftと同じ考え方。詳細はBranchStatsEditor.tsx参照）
+  const [dGaugeGainDraft, setDGaugeGainDraft] = useState(() =>
+    hit.dGaugeGain === null && hit.dGaugeGainDuringRush === null
+      ? ''
+      : `${hit.dGaugeGain ?? ''}/${hit.dGaugeGainDuringRush ?? ''}`,
+  );
 
   return (
     <>
@@ -602,6 +640,7 @@ function HitFields({
         value={hit.damage ?? ''}
         readOnly={readOnly}
         onChange={(event) => onChange('damage', event.target.value)}
+        onWheel={blurOnWheel}
       />
       <input
         type="text"
@@ -616,6 +655,19 @@ function HitFields({
         readOnly={readOnly}
         onChange={(event) => onChange('modifier', event.target.value)}
       />
+      {showDuringRushColumn && (
+        <input
+          type="text"
+          className="input-field"
+          style={styles.numInput}
+          placeholder="0/2000"
+          title="「ヒット時/ラッシュ中」の順に「/」で区切って入力（例: 0/2000）"
+          value={dGaugeGainDraft}
+          readOnly={readOnly}
+          onChange={(event) => setDGaugeGainDraft(event.target.value)}
+          onBlur={() => onChangeDGaugeGainWithRush?.(dGaugeGainDraft)}
+        />
+      )}
       {baseNumberFields.map(({ key }) => (
         <input
           key={key}
@@ -625,18 +677,7 @@ function HitFields({
           value={hit[key] ?? ''}
           readOnly={readOnly}
           onChange={(event) => onChange(key, event.target.value)}
-        />
-      ))}
-      {plusFrameFields.map(({ key }) => (
-        <input
-          key={key}
-          type="text"
-          className="input-field"
-          style={styles.numInput}
-          placeholder="+2~+4 など"
-          value={hit[key]}
-          readOnly={readOnly}
-          onChange={(event) => onChange(key, event.target.value)}
+          onWheel={blurOnWheel}
         />
       ))}
       {extraNumberFields.map(({ key }) => (
@@ -648,6 +689,7 @@ function HitFields({
           value={hit[key] ?? ''}
           readOnly={readOnly}
           onChange={(event) => onChange(key, event.target.value)}
+          onWheel={blurOnWheel}
         />
       ))}
     </>
@@ -691,6 +733,20 @@ const styles: Record<string, CSSProperties> = {
   moveList: {
     display: 'grid',
     gap: 10,
+    // 列数が多く、画面幅によっては表全体が入り切らない（半分画面の100%表示等）。
+    // ページ全体をはみ出させて中央寄せの計算がおかしくなり右側が見切れるのではなく、
+    // この表の中だけで横スクロールできるようにする（2026-09-28ユーザー指摘）。
+    // CSSの仕様上、overflow-x:auto を付けた要素は overflow-y も自動的に
+    // auto 扱いになる（片方だけvisibleのままには出来ない）。高さを無制限のままにすると
+    // この要素自身は縦方向には実際には一切スクロールしない（中身がそのまま入り切る）ため、
+    // 見出し行のposition:stickyの基準がこの要素になってしまい、ページを縦スクロールしても
+    // 見出しが追従しなくなる（2026-09-28に横スクロール対応した際の副作用。ユーザー指摘で
+    // 発覚・2026-09-29修正）。そのためmaxHeightで明示的に高さを制限し、この表自体が
+    // 縦にも実際にスクロールするようにすることで、見出し行が縦スクロール中も追従しつつ、
+    // 横スクロール時はデータ行と一緒に動く、という両立を実現する
+    maxHeight: '65vh',
+    overflowY: 'auto',
+    overflowX: 'auto',
   },
   moveBlock: {
     display: 'grid',
@@ -759,7 +815,9 @@ const styles: Record<string, CSSProperties> = {
   // 見出し行。下にスクロールしてもその技セクション（通常技・必殺技など、MoveStatsTable
   // 1個分＝moveList）の中に留まる間だけ追従する。position:stickyは自分の親要素（moveList）
   // の範囲を超えては留まれない性質があるため、セクションをまたいだ瞬間に自然に手放され、
-  // 次のセクション自身の見出し行に引き継がれる（JS不要。2026-08-27ユーザー指定）
+  // 次のセクション自身の見出し行に引き継がれる（JS不要。2026-08-27ユーザー指定）。
+  // ↑を実際に機能させるにはmoveList自身が縦方向にスクロールする必要がある
+  // （styles.moveListのmaxHeight/overflowYのコメント参照）
   headerRow: {
     position: 'sticky',
     top: 0,
