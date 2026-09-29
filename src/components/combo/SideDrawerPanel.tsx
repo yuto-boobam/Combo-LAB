@@ -141,7 +141,7 @@ export function SideDrawerPanel({
         {!isReadOnly && (
           <NewTreeSection characterId={characterId} startOpen={comboTrees.length === 0} />
         )}
-        {!isReadOnly && clipboard && <ClipboardPreview />}
+        {!isReadOnly && clipboard && <ClipboardPreview characterId={characterId} />}
       </div>
       </aside>
     </div>

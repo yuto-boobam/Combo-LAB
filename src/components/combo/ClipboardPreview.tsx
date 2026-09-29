@@ -2,14 +2,14 @@
 // コピー確定済みのクリップボードをドロワー下部にミニツリーで表示する。
 // このパネル自体をドラッグして、キャンバス上の好きなノードへドロップすると、
 // クリップボードの内容がまるごとそのノードの子として貼り付けられる
-// （実際の貼り付け処理はドロップ先の MoveNodeCircle の onPasteDrop 経由で行う。
-// このコンポーネントは「これは貼り付け操作である」という印をドラッグデータに付けるだけ）。
+// （実際の貼り付け処理はnodeDragController.tsのstartNodeDragが行う）。
 
 import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
+import { startNodeDrag } from '../../utils/nodeDragController';
 import { ChainPreviewRow } from './ChainPreviewRow';
 
-export function ClipboardPreview() {
+export function ClipboardPreview({ characterId }: { characterId: string }) {
   const clipboard = useAppStore((state) => state.clipboard);
   const clearClipboard = useAppStore((state) => state.clearClipboard);
 
@@ -17,15 +17,9 @@ export function ClipboardPreview() {
 
   return (
     <div
-      draggable
-      onDragStart={(event) => {
-        event.dataTransfer.setData('application/json', JSON.stringify({ kind: 'clipboard-paste' }));
-        // MoveNodeCircle 側の onDragOver は常に dropEffect='move' を指定するため、
-        // ここを 'copy' にすると effectAllowed と不一致になりドロップ自体がブロックされる
-        // （実際の処理内容が貼り付けかどうかは onDrop 側で判定するので、ここは
-        // 既存のノード移動ドラッグと同じ 'move' に揃えておけばよい）
-        event.dataTransfer.effectAllowed = 'move';
-      }}
+      onMouseDown={(event) =>
+        startNodeDrag(characterId, { kind: 'clipboard-paste' }, event, `クリップボード（${clipboard.length}個）`)
+      }
       style={styles.box}
       title="ドラッグしてキャンバス上のノードにドロップすると貼り付けられます"
     >

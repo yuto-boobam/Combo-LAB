@@ -4,14 +4,83 @@
 // ファイルは基本的にコンポーネントのみをexportする必要があるため）。
 
 import type { MoveNode } from '../types';
+import { applyManualLineBreaks, resolveDisplayLabel } from './textDisplay';
 
-// 「キャンセルラッシュ」のような5文字の技名でも1行目（「キャンセル」）が折り返さず、
-// ｜で指定した位置で2行に分かれるように少し広めにしている（以前は72px→88pxに拡大した後、
-// 「ノード自体が少し大きすぎる」というフィードバックにより約77%の68pxへ縮小。この調整は
-// ズーム初期値ではなく寸法そのものを変える形で行う、とユーザーから明示的な指定あり）。
-// その後「技名（ストックあり）」のような長めの呼び名が2行目で見切れやすく、少し物足りない
-// とのフィードバックがあったため68px→76pxへ再度拡大した（2026-09-18ユーザー指摘）
-export const NODE_WIDTH = 76;
+// ノード幅の基本値（最小値）。以前は「一番長い技名でも改行させない」方針で
+// 72→88→68→76→92→100pxと技名が長くなるたびに広げ続けていたが、それでも
+// 別の少し長い技名が出るたびに同じ不満が繰り返されるため方針を転換。
+// 基本サイズは80pxに固定し、技名がこれに収まらない時だけnodeWidthFor側で
+// 技名の実際の長さに応じて幅を可変させる（＝改行が必要なほど長い技名の時だけ
+// 広がる）。それでも改行させたい場合は技名に「｜」を入れて明示的に改行位置を
+// 指定する運用のまま（2026-09-30ユーザー指摘：技によって柔軟にノードサイズを
+// 変えるべき）
+export const NODE_WIDTH = 80;
+// nodeWidthForの可変計算で使う定数。MoveNodeCircle.tsxの技名span（fontSize 10,
+// fontWeight 700）とノード本体のpadding（'5px 6px'）の実測に合わせている
+const NODE_LABEL_FONT_SIZE = 10;
+const NODE_LABEL_PADDING_X = 12; // padding '5px 6px' の左右合計
+// index.cssの body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif }
+// と同じフォント指定。Interは日本語グリフを持たないため、技名の日本語部分はOS標準の
+// 日本語フォント（Windows/Mac/Linuxでそれぞれ異なる）にフォールバックして描画される。
+// このフォールバック先フォントの全角文字は文字コード判定だけの概算より広く描画される
+// ことがあり、それが「改行されないはずが改行される」不具合の原因だった
+// （2026-09-30ユーザー指摘）
+const NODE_LABEL_FONT = `700 ${NODE_LABEL_FONT_SIZE}px 'Inter', -apple-system, BlinkMacSystemFont, sans-serif`;
+// 実測値そのままだと、ブラウザのCSSテキストレイアウトとCanvas計測の間のわずかな
+// 誤差（字間の丸め等）で改行してしまう余地が残るため、少し余裕を持たせる
+const NODE_LABEL_WIDTH_SAFETY_MARGIN = 1.08;
+
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+// ブラウザ実行時だけ使えるCanvas 2Dコンテキストを1つだけ作って使い回す（同じfontを
+// 使う限りコンテキストを毎回作り直す必要は無い）。テスト環境（Node、documentが無い）
+// ではnullを返し、呼び出し側は文字種ベースの概算にフォールバックする
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (measureContext !== undefined) return measureContext;
+  if (typeof document === 'undefined') {
+    measureContext = null;
+    return measureContext;
+  }
+  const ctx = document.createElement('canvas').getContext('2d');
+  if (ctx) ctx.font = NODE_LABEL_FONT;
+  measureContext = ctx;
+  return measureContext;
+}
+
+// 全角文字（ひらがな・カタカナ・CJK漢字・全角記号）はほぼ正方形でフォントサイズと
+// 同じ幅、半角文字（英数字・半角記号）はその約0.6倍、という単純な近似。Canvas計測が
+// 使えない環境（テスト等）でのフォールバック専用
+function isFullWidthChar(char: string): boolean {
+  const code = char.codePointAt(0) ?? 0;
+  return (
+    (code >= 0x3000 && code <= 0x30ff) || // 全角記号・ひらがな・カタカナ
+    (code >= 0x4e00 && code <= 0x9fff) || // CJK統合漢字
+    (code >= 0xff00 && code <= 0xffef) // 全角英数・記号
+  );
+}
+
+function estimateTextWidthByCharType(text: string): number {
+  let width = 0;
+  for (const char of text) {
+    width += isFullWidthChar(char) ? NODE_LABEL_FONT_SIZE : NODE_LABEL_FONT_SIZE * 0.62;
+  }
+  return width;
+}
+
+function estimateTextWidth(text: string): number {
+  const ctx = getMeasureContext();
+  if (ctx) return ctx.measureText(text).width * NODE_LABEL_WIDTH_SAFETY_MARGIN;
+  return estimateTextWidthByCharType(text);
+}
+
+/**
+ * 表示ラベルのうち、実際に描画される行（「｜」で改行された場合は各行）の中で
+ * 最も幅が必要な行を基準に、技名部分に必要な最小幅を求める
+ */
+function estimateLabelWidth(label: string): number {
+  const lines = applyManualLineBreaks(label).split('\n');
+  return Math.max(...lines.map(estimateTextWidth));
+}
 // 実測前（マウント直後）の仮の高さ。1〜2行の技名がだいたい収まる目安値で、
 // 実際の高さはuseNodeHeightsの実測値にすぐ置き換わる（NODE_WIDTHと同じ比率で縮小）
 export const NODE_DEFAULT_HEIGHT = 34;
@@ -37,7 +106,11 @@ export function isTutorialNode(node: Pick<MoveNode, 'id'>): boolean {
 // チュートリアルノードの追加幅（実キャラの特殊記入ぶんの拡張とは別に、さらに広げる）
 export const TUTORIAL_NODE_EXTRA_WIDTH = 60;
 
-export function nodeWidthFor(node: Pick<MoveNode, 'specialNote' | 'id'>): number {
-  const base = node.specialNote ? NODE_WIDTH + SPECIAL_NOTE_EXTRA_WIDTH : NODE_WIDTH;
+export function nodeWidthFor(
+  node: Pick<MoveNode, 'specialNote' | 'id' | 'moveName' | 'displayName'>,
+): number {
+  const requiredForLabel = Math.ceil(estimateLabelWidth(resolveDisplayLabel(node))) + NODE_LABEL_PADDING_X;
+  const dynamicBase = Math.max(NODE_WIDTH, requiredForLabel);
+  const base = node.specialNote ? dynamicBase + SPECIAL_NOTE_EXTRA_WIDTH : dynamicBase;
   return isTutorialNode(node) ? base + TUTORIAL_NODE_EXTRA_WIDTH : base;
 }
