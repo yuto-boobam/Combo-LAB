@@ -364,6 +364,17 @@ function buildSaGaugeSteps(
   let hasAnyData = false;
 
   path.forEach((node, index) => {
+    // 空振り/ガードは実際にヒットしていないため、technique側にSAゲージ回収量が
+    // 登録されていても加算しない（damage側のbuildFlatDamageHits・Dゲージ側の
+    // buildDGaugeContributionsと同じ扱い。2026-09-29ユーザー指摘：派生技に派生する前に
+    // 空振り扱いで止めた技のSAゲージが誤加算されていた）
+    if (
+      node.attributes.some((attribute) => attribute.type === 'whiff' || attribute.type === 'guard')
+    ) {
+      steps.push({ label: node.moveName, value: 0 });
+      return;
+    }
+
     const isTargetNode = index === path.length - 1;
     const stats = characterStats[lookupMoveName(node, isTargetNode)];
     if (!stats) {
@@ -416,8 +427,12 @@ export function calculateBranchSaGaugeBreakdown(
 /**
  * root〜targetNodeId（両端含む）の経路上にあるSA（スーパーアーツ）のヒットで、相手の
  * Dゲージを削った量の合計を求める。`MoveHitStats.dGaugeChipPunishCounter`はSAに限り
- * 「ヒット時」の削り量として扱う仕様（MoveStatsPage参照）。通常技のガード時チップ
- * （`dGaugeChip`/`dGaugeChipPunishCounter`）はこの自動計算のスコープ外（未実装）。
+ * 「ヒット時」の削り量として扱う仕様（MoveStatsPage参照）。SA以外のノードでも、
+ * `punishCounter`属性（汎用コンボの始動技候補で「PC」条件を選んだ場合等）が付いていれば
+ * 同じ`dGaugeChipPunishCounter`の値を「パニッシュカウンターでヒットした時の削り量」として
+ * 加算する（2026-09-28ユーザー要望：始動技がパニッシュカウンターで繋がった場合、ダメージ
+ * アップに加えてDゲージ削りの能力も持たせたい）。それ以外の通常技のガード時チップ
+ * （`dGaugeChip`）はこの自動計算のスコープ外（未実装）。
  *
  * 末端ノードのbranchStats.isJustParryStartがtrue（常にパニッシュカウンター扱い）の場合、
  * 合計を半分にする（実機確認済み。攻撃側自身のDゲージ増減=calculateBranchDGaugeChangeとは独立）。
@@ -441,10 +456,15 @@ export function calculateBranchOpponentDGaugeChip(
   let hasAnyData = false;
 
   path.forEach((node, index) => {
+    // 空振り/ガードは実際にヒットしていないため対象外（damage側のbuildFlatDamageHits・
+    // SAゲージ側のbuildSaGaugeStepsと同じ扱い）
+    if (node.attributes.some((attribute) => attribute.type === 'whiff' || attribute.type === 'guard')) return;
+
     const isSuperArt = moveList.some(
       (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
     );
-    if (!isSuperArt) return;
+    const isPunishCounterNode = node.attributes.some((attribute) => attribute.type === 'punishCounter');
+    if (!isSuperArt && !isPunishCounterNode) return;
 
     const isTargetNode = index === path.length - 1;
     const stats = characterStats[lookupMoveName(node, isTargetNode)];
@@ -772,7 +792,12 @@ function buildFlatDamageHits(
 
     if (stats) {
       hasAnyData = true;
-      effectiveHits(stats, node).forEach((hit, hitIndex) => {
+      // node.hitIndicesで一部の段だけに絞り込んでいる場合（例: 2段技のうち2段目だけ選択）、
+      // 絞り込み後の配列内での位置（0始まり）をそのまま「何段目か」の表示に使うと、
+      // 実際は2段目のみでも「(1/2段目)」のように1段目扱いの表記になってしまっていた
+      // （2026-09-29ユーザー指摘）。resolveHitIndicesが返す絶対段番号をラベルに使う
+      resolveHitIndices(stats, node).forEach((absoluteHitNumber, hitIndex) => {
+        const hit = stats.hits[absoluteHitNumber - 1];
         flatHits.push({
           damage: hit.damage ?? 0,
           modifierText: hit.modifier,
@@ -780,10 +805,14 @@ function buildFlatDamageHits(
           minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
           isSystemAction: isRushMove || hit.damage === 0,
           // 同じ技の複数ヒット(強Kの2段目等)は、登録時にsharesModifierAcrossHitsが立って
-          // いれば1段目とテーブルの段を共有する（詳細はdamageModifierCalc.ts参照）
+          // いれば1段目とテーブルの段を共有する（詳細はdamageModifierCalc.ts参照）。
+          // ここは「選択済みの段の中で何番目か」で判定するのが正しい（絞り込みで1段目が
+          // 除外されていれば、残った段は共有すべき前段が無いため段を進める側になる）
           sharesTableStepWithPrevious: stats.sharesModifierAcrossHits && hitIndex > 0,
           moveName: node.moveName,
-          hitLabel: stats.isMultiHit ? `${node.moveName}(${hitIndex + 1}/${stats.hits.length}段目)` : node.moveName,
+          hitLabel: stats.isMultiHit
+            ? `${node.moveName}(${absoluteHitNumber}/${stats.hits.length}段目)`
+            : node.moveName,
         });
       });
     } else {

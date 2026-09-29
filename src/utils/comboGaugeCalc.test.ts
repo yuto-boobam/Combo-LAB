@@ -4,6 +4,7 @@ import {
   calculateBranchDGaugeChange,
   calculateBranchDGaugeMinimumRequired,
   calculateBranchDamage,
+  calculateBranchDamageBreakdown,
   calculateBranchOpponentDGaugeChip,
   calculateBranchSaGaugeChange,
   calculateOdLevelConstraint,
@@ -26,6 +27,10 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     dGaugeChange: null,
     opponentDGaugeChip: null,
     saGaugeGain: null,
+    isDamageAutoSynced: true,
+    isOpponentDGaugeChipAutoSynced: true,
+    isDGaugeChangeAutoSynced: true,
+    isSaGaugeGainAutoSynced: true,
     damageRating: null,
     dGaugeRating: null,
     saGaugeRating: null,
@@ -34,7 +39,6 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     difficultyRating: null,
     overallRating: null,
     plusFrame: null,
-    plusFrameHitType: null,
     isThrowRange: false,
     canOkizeme: false,
     isFavorite: false,
@@ -74,8 +78,6 @@ function makeHit(overrides: Partial<MoveHitStats> = {}): MoveHitStats {
     dGaugeChipPunishCounter: null,
     minDamageGuaranteePercent: null,
     dGaugeGainDuringRush: null,
-    groundPlusFrame: '',
-    airPlusFrame: '',
     cancelType: null,
     ...overrides,
   };
@@ -157,6 +159,23 @@ describe('calculateBranchSaGaugeChange', () => {
     const a = makeNode('a', '弱P');
     expect(calculateBranchSaGaugeChange('ryu', {}, a, '存在しないid')).toBeNull();
   });
+
+  it('空振り属性のノードは、技データにSAゲージ回収量が登録されていても加算しない（派生技に派生する前に止めた技等）', () => {
+    const derived = makeNode('derived', 'グラン・フェッテ');
+    const cancelled = makeNode('cancelled', 'ランヴェルセ', {
+      attributes: [{ type: 'whiff' }],
+      children: [derived],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      manon: {
+        'ランヴェルセ': makeStats([makeHit({ saGaugeGain: 1000 })]),
+        'グラン・フェッテ': makeStats([makeHit({ saGaugeGain: 500 })]),
+      },
+    };
+
+    expect(calculateBranchSaGaugeChange('manon', moveStatsDatabase, cancelled, 'derived')).toBe(500);
+  });
 });
 
 describe('calculateBranchOpponentDGaugeChip', () => {
@@ -191,6 +210,42 @@ describe('calculateBranchOpponentDGaugeChip', () => {
     expect(
       calculateBranchOpponentDGaugeChip('ingrid', moveStatsDatabase, moveList, starter, 'sa'),
     ).toBe(1000);
+  });
+
+  it('空振り属性のSAノードは、技データにdGaugeChipPunishCounterが登録されていても加算しない', () => {
+    const sa = makeNode('sa', 'コズミックレイ', { attributes: [{ type: 'whiff' }] });
+    const starter = makeNode('starter', '強P', { children: [sa] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: { 'コズミックレイ': makeStats([makeHit({ dGaugeChipPunishCounter: 2000 })]) },
+    };
+    const moveList = [makeMove('コズミックレイ', 'superArt')];
+
+    expect(calculateBranchOpponentDGaugeChip('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBeNull();
+  });
+
+  it('SA以外でもpunishCounter属性が付いたノードはdGaugeChipPunishCounterを加算する（始動技候補「PC」条件選択時の想定）', () => {
+    const starter = makeNode('starter', '2中P', { attributes: [{ type: 'punishCounter' }] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      manon: { '2中P': makeStats([makeHit({ dGaugeChipPunishCounter: 1500 })]) },
+    };
+
+    expect(
+      calculateBranchOpponentDGaugeChip('manon', moveStatsDatabase, [], starter, 'starter'),
+    ).toBe(1500);
+  });
+
+  it('punishCounter属性が無い通常のノードは、SAでなければ寄与0のまま（従来通り）', () => {
+    const starter = makeNode('starter', '2中P', { attributes: [{ type: 'rush' }] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      manon: { '2中P': makeStats([makeHit({ dGaugeChipPunishCounter: 1500 })]) },
+    };
+
+    expect(
+      calculateBranchOpponentDGaugeChip('manon', moveStatsDatabase, [], starter, 'starter'),
+    ).toBeNull();
   });
 
   it('技データが1件も登録されていない経路ではnullを返す', () => {
@@ -1350,6 +1405,19 @@ describe('node.hitIndices（複数ヒット技のうち実際に何段目が当�
     // 2段目まで当たれば、2段目ぶんの補正済みダメージが上乗せされ1段目のみより大きくなる
     expect(fullDamage).not.toBeNull();
     expect(fullDamage!).toBeGreaterThan(partialDamage!);
+  });
+
+  it('calculateBranchDamageBreakdown: hitIndicesに2だけ指定した場合、内訳のhitLabelは絶対段番号「(2/2段目)」になる（絞り込み後の相対位置で「(1/2段目)」と誤表示していた不具合の修正。2026-09-29ユーザー指摘）', () => {
+    const twoHit = makeStats([makeHit({ damage: 50 }), makeHit({ damage: 1300 })], true);
+    const moveStatsDatabase: MoveStatsDatabase = { char: { 強K: twoHit } };
+
+    const onlySecond = makeNode('n', '強K', { hitIndices: [2] });
+
+    const breakdown = calculateBranchDamageBreakdown('char', moveStatsDatabase, moveList, onlySecond, 'n');
+
+    expect(breakdown?.entries).toHaveLength(1);
+    expect(breakdown?.entries[0].hitLabel).toBe('強K(2/2段目)');
+    expect(breakdown?.entries[0].damage).toBe(1300);
   });
 
   it('calculateBranchSaGaugeChange: hitIndicesに2だけ指定すると、2段目のSAゲージ増加だけを合計する（2段技のうち2段目しか当たらないケース）', () => {
