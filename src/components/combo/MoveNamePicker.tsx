@@ -20,6 +20,7 @@ import type { CSSProperties } from 'react';
 import { useAppStore } from '../../store';
 import type { MoveDefinition, MoveStrength } from '../../types';
 import { NORMAL_MOVE_NAMES, SYSTEM_MOVE_NAMES } from '../../data/commonMoves';
+import { canConfigureMoveDefinitionsLocally } from '../../utils/localEditAccess';
 import AccordionSection from '../AccordionSection';
 
 type SectionKey = 'normal' | 'special' | 'superArt' | 'system';
@@ -37,6 +38,12 @@ type Props = {
   // 出せない派生技」（requiredPrecedingMoveName）が直前の技と一致しない場合、その必殺技は
   // 選べないようにする（誤って派生技だけを単体で置いてしまう登録ミスを防ぐ。2026-09-17ユーザー要望）
   precedingMoveName?: string;
+  // 選択中/新規追加ノードのbranchStats.finishingSpecialVariant（あれば）。「常にコンボの締めで
+  // 使う」（finishesComboOnSelect）設定の必殺技は、技名に特殊性能を焼き込まずbranchStats側で
+  // 持つため、value文字列からは今どの特殊性能が選ばれているか判別できない。この値を渡すことで
+  // 「特殊性能」欄のハイライトを正しく表示する（2026-09-30ユーザー要望：メダルLvのような
+  // 「同じ技名のまま、枝の末端で切り替えたい」特殊性能をSA以外の必殺技にも対応させる）
+  activeFinishingSpecialVariant?: string;
 };
 
 function computeInitialOpenSections(
@@ -68,7 +75,13 @@ function computeInitialOpenSections(
   return initial;
 }
 
-export function MoveNamePicker({ characterId, value, onChange, precedingMoveName }: Props) {
+export function MoveNamePicker({
+  characterId,
+  value,
+  onChange,
+  precedingMoveName,
+  activeFinishingSpecialVariant,
+}: Props) {
   const moveList = useAppStore(
     (state) => state.characters.find((character) => character.id === characterId)?.moveList ?? [],
   );
@@ -128,6 +141,7 @@ export function MoveNamePicker({ characterId, value, onChange, precedingMoveName
           value={value}
           onChange={onChange}
           precedingMoveName={precedingMoveName}
+          activeFinishingSpecialVariant={activeFinishingSpecialVariant}
         />
       </AccordionSection>
 
@@ -325,12 +339,14 @@ function SpecialMoveGroupBody({
   value,
   onChange,
   precedingMoveName,
+  activeFinishingSpecialVariant,
 }: {
   characterId: string;
   moves: MoveDefinition[];
   value: string;
-  onChange: (name: string, displayName?: string) => void;
+  onChange: (name: string, displayName?: string, finishingSpecialVariant?: string) => void;
   precedingMoveName?: string;
+  activeFinishingSpecialVariant?: string;
 }) {
   const addMoveDefinition = useAppStore((state) => state.addMoveDefinition);
   const deleteMoveDefinition = useAppStore((state) => state.deleteMoveDefinition);
@@ -348,12 +364,15 @@ function SpecialMoveGroupBody({
   const setMoveDefinitionRequiredPrecedingMoveName = useAppStore(
     (state) => state.setMoveDefinitionRequiredPrecedingMoveName,
   );
+  const setMoveDefinitionFinishesComboOnSelect = useAppStore(
+    (state) => state.setMoveDefinitionFinishesComboOnSelect,
+  );
   const [draftName, setDraftName] = useState('');
   const [draftShortName, setDraftShortName] = useState('');
-  // 「派生技の制約」「強度モード」「特殊性能」は普段あまり触らない項目のため、常に開いて
-  // 見せると縦に長くなり冗長に感じられていた。他のアコーディオンと同じく畳んだ状態から
-  // 始め、必要な時だけクリックして開く（2026-09-18ユーザー指摘）
-  const [isPrecedingMoveOpen, setIsPrecedingMoveOpen] = useState(false);
+  // 「強度モード」「特殊性能」は普段あまり触らない項目のため、常に開いて見せると縦に
+  // 長くなり冗長に感じられていた。畳んだ状態から始め、必要な時だけクリックして開く
+  // （2026-09-18ユーザー指摘）。「派生技の制約」はローカル限定表示になり、かつ内容も
+  // 短くなったため開閉自体を廃止した（2026-09-28ユーザー指摘）
   const [isStrengthModeOpen, setIsStrengthModeOpen] = useState(false);
   const [isSpecialVariantOpen, setIsSpecialVariantOpen] = useState(false);
 
@@ -516,88 +535,81 @@ function SpecialMoveGroupBody({
             </fieldset>
           )}
 
-          <AccordionSection
-            title="派生技の制約（追加入力による追撃など・省略可）"
-            icon="🔗"
-            count={pickingMove.requiredPrecedingMoveName ? 1 : 0}
-            isOpen={isPrecedingMoveOpen}
-            onToggle={() => setIsPrecedingMoveOpen((open) => !open)}
-          >
-            <p style={styles.emptyHint}>
-              特定の技の直後にしか出せない追撃技などの場合、その基点となる技を選ぶと、
-              木にノードを追加・変更する時に直前のノードがその技でない限り選べなくなります
-              （補正が別に乗る追撃は、この技とは別の必殺技として登録し、木の上で子ノードとして
-              繋いでください）。
-            </p>
-            <select
-              className="input-field"
-              style={styles.addInput}
-              value={pickingMove.requiredPrecedingMoveName ?? ''}
-              onChange={(event) =>
-                setMoveDefinitionRequiredPrecedingMoveName(
-                  characterId,
-                  pickingMove.id,
-                  event.target.value || undefined,
-                )
-              }
-            >
-              <option value="">（制約なし）</option>
-              {moves
-                .filter((move) => move.id !== pickingMove.id)
-                .map((move) => (
-                  <option key={move.id} value={move.name}>
-                    {move.name}
-                  </option>
-                ))}
-            </select>
-          </AccordionSection>
+          {canConfigureMoveDefinitionsLocally() && (
+            <fieldset style={styles.fieldset}>
+              <legend style={styles.legend}>派生技の制約（追加入力など）</legend>
+              <select
+                className="input-field"
+                style={styles.addInput}
+                value={pickingMove.requiredPrecedingMoveName ?? ''}
+                onChange={(event) =>
+                  setMoveDefinitionRequiredPrecedingMoveName(
+                    characterId,
+                    pickingMove.id,
+                    event.target.value || undefined,
+                  )
+                }
+              >
+                <option value="">（制約なし）</option>
+                {moves
+                  .filter((move) => move.id !== pickingMove.id)
+                  .map((move) => (
+                    <option key={move.id} value={move.name}>
+                      {move.name}
+                    </option>
+                  ))}
+              </select>
+            </fieldset>
+          )}
 
-          <AccordionSection
-            title="強度モード"
-            icon="🎚️"
-            count={pickingMove.strengthMode ? 1 : 0}
-            isOpen={isStrengthModeOpen}
-            onToggle={() => setIsStrengthModeOpen((open) => !open)}
-          >
-            <div style={{ display: 'grid', gap: 6 }}>
-              <label style={styles.checkboxLabel}>
-                <input
-                  type="radio"
-                  name={`strength-mode-${pickingMove.id}`}
-                  checked={!pickingMove.strengthMode}
-                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, undefined)}
-                />
-                弱・中・強・OD（通常の4強度）
-              </label>
-              <label style={styles.checkboxLabel}>
-                <input
-                  type="radio"
-                  name={`strength-mode-${pickingMove.id}`}
-                  checked={pickingMove.strengthMode === 'none'}
-                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'none')}
-                />
-                強度が存在しない技
-              </label>
-              <label style={styles.checkboxLabel}>
-                <input
-                  type="radio"
-                  name={`strength-mode-${pickingMove.id}`}
-                  checked={pickingMove.strengthMode === 'normalOd'}
-                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'normalOd')}
-                />
-                強度が「無印」とODしかない技
-              </label>
-              <label style={styles.checkboxLabel}>
-                <input
-                  type="radio"
-                  name={`strength-mode-${pickingMove.id}`}
-                  checked={pickingMove.strengthMode === 'level'}
-                  onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'level')}
-                />
-                強度ではなく、レベルで区別する技
-              </label>
-            </div>
-          </AccordionSection>
+          {canConfigureMoveDefinitionsLocally() && (
+            <AccordionSection
+              title="強度モード"
+              icon="🎚️"
+              count={pickingMove.strengthMode ? 1 : 0}
+              isOpen={isStrengthModeOpen}
+              onToggle={() => setIsStrengthModeOpen((open) => !open)}
+            >
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="radio"
+                    name={`strength-mode-${pickingMove.id}`}
+                    checked={!pickingMove.strengthMode}
+                    onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, undefined)}
+                  />
+                  弱・中・強・OD（通常の4強度）
+                </label>
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="radio"
+                    name={`strength-mode-${pickingMove.id}`}
+                    checked={pickingMove.strengthMode === 'none'}
+                    onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'none')}
+                  />
+                  強度が存在しない技
+                </label>
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="radio"
+                    name={`strength-mode-${pickingMove.id}`}
+                    checked={pickingMove.strengthMode === 'normalOd'}
+                    onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'normalOd')}
+                  />
+                  強度が「無印」とODしかない技
+                </label>
+                <label style={styles.checkboxLabel}>
+                  <input
+                    type="radio"
+                    name={`strength-mode-${pickingMove.id}`}
+                    checked={pickingMove.strengthMode === 'level'}
+                    onChange={() => setMoveDefinitionStrengthMode(characterId, pickingMove.id, 'level')}
+                  />
+                  強度ではなく、レベルで区別する技
+                </label>
+              </div>
+            </AccordionSection>
+          )}
 
           {pickingMove.strengthMode === 'level' && (
             <fieldset style={styles.fieldset}>
@@ -609,28 +621,52 @@ function SpecialMoveGroupBody({
                 onOptionsChange={(next) =>
                   setMoveDefinitionSpecialVariantOptions(characterId, pickingMove.id, next)
                 }
+                canManage={canConfigureMoveDefinitionsLocally()}
               />
             </fieldset>
           )}
 
-          {!pickingMove.strengthMode && (
+          {canConfigureMoveDefinitionsLocally() && !pickingMove.strengthMode && (
+            <label style={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={pickingMove.hasSpecialVariant ?? false}
+                onChange={(event) =>
+                  setMoveDefinitionHasSpecialVariant(characterId, pickingMove.id, event.target.checked)
+                }
+              />
+              特殊性能あり
+            </label>
+          )}
+
+          {!pickingMove.strengthMode && pickingMove.hasSpecialVariant && (
             <AccordionSection
-              title="特殊性能（省略可）"
+              title="特殊性能"
               icon="✨"
-              count={pickingMove.hasSpecialVariant ? 1 : 0}
+              count={
+                pickingMoveMatch?.strength
+                  ? (pickingMove.specialVariantsByStrength?.[pickingMoveMatch.strength as MoveStrength]
+                      ?.length ?? 0)
+                  : 0
+              }
               isOpen={isSpecialVariantOpen}
               onToggle={() => setIsSpecialVariantOpen((open) => !open)}
             >
-              <label style={styles.checkboxLabel}>
-                <input
-                  type="checkbox"
-                  checked={pickingMove.hasSpecialVariant ?? false}
-                  onChange={(event) =>
-                    setMoveDefinitionHasSpecialVariant(characterId, pickingMove.id, event.target.checked)
-                  }
-                />
-                特殊性能あり
-              </label>
+              {canConfigureMoveDefinitionsLocally() && (
+                <label
+                  style={styles.checkboxLabel}
+                  title="オンにすると、特殊性能を選んでも技名（例:「弱ランヴェルセ」）は変えず、実際に選んだ特殊性能はこの枝の末端ノードのコンボ情報欄で保持する。マネージュ・ドレのメダルLvのように、木では同じ技名のまま使い、末端ノードごとに違うレベルを選びたい場合に使う（2026-09-30ユーザー要望）"
+                >
+                  <input
+                    type="checkbox"
+                    checked={pickingMove.finishesComboOnSelect ?? false}
+                    onChange={(event) =>
+                      setMoveDefinitionFinishesComboOnSelect(characterId, pickingMove.id, event.target.checked)
+                    }
+                  />
+                  技名に焼き込まず、末端ノードで切り替える
+                </label>
+              )}
 
               {pickingMove.hasSpecialVariant &&
                 (() => {
@@ -642,14 +678,26 @@ function SpecialMoveGroupBody({
                       </p>
                     );
                   }
+                  // 「技名に焼き込まず、末端ノードで切り替える」がオンの場合、技名(value)には
+                  // 特殊性能が含まれないため、今どれが選ばれているかはvalueから判定できない。
+                  // 呼び出し側から渡されるノードのbranchStats.finishingSpecialVariantを見る
+                  // （SuperArtGroupBodyと同じ考え方。finishesComboOnSelectがtrueの間だけ）
+                  const activeVariant = pickingMove.finishesComboOnSelect
+                    ? (activeFinishingSpecialVariant ?? null)
+                    : (pickingMoveMatch?.subLevel ?? null);
                   return (
                     <SpecialVariantRegistration
                       options={pickingMove.specialVariantsByStrength?.[strength] ?? []}
-                      activeVariant={pickingMoveMatch?.subLevel ?? null}
-                      onSelectVariant={(variant) => onChange(`${strength}${pickingMove.name}(${variant})`, variant)}
+                      activeVariant={activeVariant}
+                      onSelectVariant={(variant) =>
+                        pickingMove.finishesComboOnSelect
+                          ? onChange(`${strength}${pickingMove.name}`, pickingMove.shortName, variant)
+                          : onChange(`${strength}${pickingMove.name}(${variant})`, variant)
+                      }
                       onOptionsChange={(next) =>
                         setMoveDefinitionSpecialVariantsForStrength(characterId, pickingMove.id, strength, next)
                       }
+                      canManage={canConfigureMoveDefinitionsLocally()}
                     />
                   );
                 })()}
@@ -658,6 +706,7 @@ function SpecialMoveGroupBody({
         </>
       )}
 
+      {canConfigureMoveDefinitionsLocally() && (
       <fieldset style={styles.fieldset}>
         <legend style={styles.legend}>追加登録</legend>
         <div style={{ display: 'grid', gap: 6 }}>
@@ -696,6 +745,7 @@ function SpecialMoveGroupBody({
           />
         </div>
       </fieldset>
+      )}
     </div>
   );
 }
@@ -711,11 +761,15 @@ function SpecialVariantRegistration({
   activeVariant,
   onSelectVariant,
   onOptionsChange,
+  canManage = true,
 }: {
   options: string[];
   activeVariant: string | null;
   onSelectVariant: (variant: string) => void;
   onOptionsChange: (next: string[]) => void;
+  // falseの間、既存の選択肢（ピル）はそのまま選べるが、新規登録欄と削除ボタンは隠す。
+  // 「登録済みの前提でコンボを組むだけ」の公開Web向け（2026-09-28ユーザー要望）
+  canManage?: boolean;
 }) {
   const [draftVariant, setDraftVariant] = useState('');
 
@@ -742,41 +796,45 @@ function SpecialVariantRegistration({
                 active={activeVariant === variant}
                 onClick={() => onSelectVariant(variant)}
               />
-              <button
-                type="button"
-                title="この選択肢を削除"
-                style={styles.removeButton}
-                onClick={() => handleRemove(variant)}
-              >
-                ×
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  title="この選択肢を削除"
+                  style={styles.removeButton}
+                  onClick={() => handleRemove(variant)}
+                >
+                  ×
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input
-          type="text"
-          className="input-field"
-          style={styles.addInput}
-          placeholder="新しい特殊性能を登録...（例: ビーム｜Lv.2・改行したい位置に｜）"
-          value={draftVariant}
-          onChange={(event) => setDraftVariant(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') handleAdd();
-          }}
-        />
-        <button
-          type="button"
-          className="btn-ghost"
-          style={styles.addButton}
-          onClick={handleAdd}
-          disabled={!draftVariant.trim()}
-        >
-          登録
-        </button>
-      </div>
+      {canManage && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            type="text"
+            className="input-field"
+            style={styles.addInput}
+            placeholder="新しい特殊性能を登録...（例: ビーム｜Lv.2・改行したい位置に｜）"
+            value={draftVariant}
+            onChange={(event) => setDraftVariant(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') handleAdd();
+            }}
+          />
+          <button
+            type="button"
+            className="btn-ghost"
+            style={styles.addButton}
+            onClick={handleAdd}
+            disabled={!draftVariant.trim()}
+          >
+            登録
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -871,6 +929,7 @@ function SuperArtGroupBody({
                       onChange(`${move.name}(${variant})`, variant)
                 }
                 onOptionsChange={(next) => setMoveDefinitionSpecialVariantOptions(characterId, move.id, next)}
+                canManage={canConfigureMoveDefinitionsLocally()}
               />
             )}
           </div>
@@ -1024,7 +1083,9 @@ const styles: Record<string, CSSProperties> = {
   legend: {
     fontSize: 11,
     fontWeight: 800,
-    color: 'var(--text-muted)',
+    // text-mutedだと暗すぎて読みにくいとの指摘（2026-09-29ユーザー指摘）。
+    // 主張しすぎないtext-primaryではなく、その中間のtext-secondaryへ明るくする
+    color: 'var(--text-secondary)',
     padding: '0 4px',
   },
   emptyHint: {

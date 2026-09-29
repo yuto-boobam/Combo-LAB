@@ -22,3 +22,12 @@ export function canEditMoveStatsLocally(): boolean {
 export function canEditComboShowcaseLocally(): boolean {
   return import.meta.env.DEV && isLoopbackHostname();
 }
+
+// 必殺技の「派生技の制約」「強度モード」「特殊性能」の登録・設定（MoveDefinition側の
+// メタ情報）は、普段コンボを組むだけの利用者には不要な準備作業のため、公開中のWebでは
+// 表示しない。既に登録済みの内容（技を選ぶ・強度を選ぶ・登録済みの特殊性能を選ぶ、等）は
+// 引き続き全員が使えるようにし、「新しく登録する／設定を変える」操作だけをこの判定で隠す
+// （2026-09-28ユーザー要望）
+export function canConfigureMoveDefinitionsLocally(): boolean {
+  return import.meta.env.DEV && isLoopbackHostname();
+}
