@@ -41,6 +41,7 @@ import {
 import {
   TREE_LAYOUT_CONFIG,
   CANVAS_PADDING,
+  DRAWER_WIDTH,
   TREE_BLOCK_GAP,
   EXIT_TRANSITION_MS,
   MIN_ZOOM,
@@ -846,7 +847,7 @@ export function ComboTreePage() {
             <div
               style={{
                 position: 'relative',
-                width: (activeForest.layout.width + CANVAS_PADDING * 2) * zoom,
+                width: (activeForest.layout.width + CANVAS_PADDING * 2 + DRAWER_WIDTH) * zoom,
                 height: (activeForest.layout.height + CANVAS_PADDING * 2 + tutorialClosingCtaExtraHeight) * zoom,
               }}
             >
@@ -856,7 +857,11 @@ export function ComboTreePage() {
                   position: 'absolute',
                   top: 0,
                   left: 0,
-                  width: activeForest.layout.width + CANVAS_PADDING * 2,
+                  // 右側だけ、サイドドロワーの幅ぶん常に余白を確保しておく。ドロワーが開くと
+                  // キャンバス自体の表示幅がドロワーの分だけ物理的に狭まるため、この余白が
+                  // 無いと右端付近のノードがドロワーの下に隠れたまま、スクロールしても
+                  // 追い切れなくなる（2026-09-30ユーザー指摘）
+                  width: activeForest.layout.width + CANVAS_PADDING * 2 + DRAWER_WIDTH,
                   height: activeForest.layout.height + CANVAS_PADDING * 2 + tutorialClosingCtaExtraHeight,
                   transform: `scale(${zoom})`,
                   transformOrigin: 'top left',
@@ -1595,8 +1600,10 @@ function TreeBlockHeader({
           <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)' }}>
             対象の始動技（改行/カンマ区切り。2技以上を経由する候補は「→」で繋ぐ。ある段に
             複数パターンがある場合は「強P/4強P/2強P」のように「/」で並べると自動展開される。
-            技名の後ろに「（C）」「（PC/R）」で条件を添えると「その条件で当たった時だけ
-            繋がる」を表現できる。C=カウンター、PC=パニッシュカウンター、R=ラッシュ）
+            技名の後ろに「（C）」「（持続/C/PC/R/R持続）」で条件を添えると「その条件で当たった
+            時だけ繋がる」を表現できる（持続=持続ヒット・通常補正、C=カウンター・ダメージ増、
+            PC=パニッシュカウンター・ダメージ増とDゲージ削り、R/R持続=ラッシュ攻撃・通常補正。
+            1つの括弧にまとめて書いても選択時は独立した候補に分かれる）
             <textarea
               className="input-field"
               autoFocus

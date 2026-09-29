@@ -7,7 +7,6 @@ import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
 import type { DamageBreakdown, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
-import { parsePlusFrameRange } from '../../utils/plusFrameRange';
 import {
   expandStarterMoveOptions,
   parseStarterMoveChain,
@@ -72,11 +71,6 @@ type Props = {
   // 画面から直接調整できるようにしてほしい、というユーザー要望）
   odUsagesOnPath?: OdUsageOnPath[];
   onChangeOdUsage?: (nodeId: string, next: boolean) => void;
-  // このノードの技（複数ヒット技は最終段）に登録済みの有利フレーム（自由記述）。
-  // プラスフレーム欄の「地上/空中」トグルで参照・選択できるようにする。未登録/技データ
-  // 未参照の場合は空文字または未指定
-  groundPlusFrame?: string;
-  airPlusFrame?: string;
   // trueの間、未入力（null/false/未選択）の項目は表示自体を省く。実際の編集画面では
   // 「空の入力欄が編集入り口になる」ため常にfalseで使うが、チュートリアルキャラクターの
   // 「コンボの情報」欄は初見の情報量を減らす目的で使う（呼び出し側のSideDrawerPanel.tsxが
@@ -123,8 +117,6 @@ export function BranchStatsEditor({
   finishingSuperArtOptions = [],
   odUsagesOnPath = [],
   onChangeOdUsage,
-  groundPlusFrame = '',
-  airPlusFrame = '',
   hideEmptyFields = false,
   starterMoveOptions = [],
   starterMoveCancelInfo = null,
@@ -162,12 +154,10 @@ export function BranchStatsEditor({
   };
 
   // 始動条件・SA締めのように、この枝のダメージ・ゲージ計算の前提そのものを変える変更は、
-  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加の4欄も明示的に未入力（null）へ戻す。
-  // これらの欄は「未入力の間だけ自動計算値で埋まる」仕様（SideDrawerPanel.tsx参照）なので、
-  // ここでnullに戻すことで新しい前提での自動計算値が改めて反映される。すでに手動で入力
-  // していた値もここでリセット対象になる点は、前提が変わった以上その値自体の根拠も
-  // 変わっているため妥当（2026-08-28ユーザー報告：カウンター/SA締めを変えてもダメージ欄が
-  // 追従しない不具合の修正）
+  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加の4欄も明示的に未入力（null）へ戻し、
+  // 自動追従（isXAutoSynced）を再度trueにする。すでに手動で固定していた値もここでリセット
+  // 対象になる点は、前提が変わった以上その値自体の根拠も変わっているため妥当
+  // （2026-08-28ユーザー報告：カウンター/SA締めを変えてもダメージ欄が追従しない不具合の修正）
   const updateAndResetAutoFields = (patch: Partial<ComboBranchStats>) => {
     onChange({
       ...stats,
@@ -176,6 +166,10 @@ export function BranchStatsEditor({
       opponentDGaugeChip: null,
       dGaugeChange: null,
       saGaugeGain: null,
+      isDamageAutoSynced: true,
+      isOpponentDGaugeChipAutoSynced: true,
+      isDGaugeChangeAutoSynced: true,
+      isSaGaugeGainAutoSynced: true,
     });
   };
 
@@ -216,10 +210,7 @@ export function BranchStatsEditor({
   // hideEmptyFields時、各セクションを「未入力なら畳む」判定。実際の編集画面では
   // 常にfalse相当（空欄も編集の入り口として必要）なので通常は全て表示される
   const showPlusFrameSection =
-    !hideEmptyFields ||
-    stats.plusFrame !== null ||
-    stats.opponentDGaugeChip !== null ||
-    stats.plusFrameHitType !== null;
+    !hideEmptyFields || stats.plusFrame !== null || stats.opponentDGaugeChip !== null;
   const showRatingGrid =
     !hideEmptyFields ||
     [
@@ -271,8 +262,10 @@ export function BranchStatsEditor({
         <NumberField
           label="ダメージ"
           value={stats.damage}
-          onChange={(next) => update({ damage: next })}
+          onChange={(next) => update({ damage: next, isDamageAutoSynced: false })}
           readOnly={readOnly}
+          isAutoSynced={stats.isDamageAutoSynced}
+          onResetToAuto={() => update({ isDamageAutoSynced: true })}
         />
 
         {/* 経路上に技データが1件も無く計算対象が無い場合はボタン自体を出さない
@@ -354,63 +347,35 @@ export function BranchStatsEditor({
       {damageBreakdown && <div style={styles.sectionDivider} />}
 
       {showPlusFrameSection && (
-        <>
-          <div style={styles.twoColRow}>
-            <NumberField
-              label="プラスフレーム"
-              value={stats.plusFrame}
-              onChange={(next) => update({ plusFrame: next })}
-              readOnly={readOnly}
-            />
+        <div style={styles.twoColRow}>
+          <NumberField
+            label="プラスフレーム"
+            value={stats.plusFrame}
+            onChange={(next) => update({ plusFrame: next })}
+            readOnly={readOnly}
+          />
 
-            <NumberField
-              label="Dゲージ削り量"
-              value={stats.opponentDGaugeChip}
-              onChange={(next) => update({ opponentDGaugeChip: next })}
-              readOnly={readOnly}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
-            {(['ground', 'air'] as const).map((hitType) => {
-              const active = stats.plusFrameHitType === hitType;
-              return (
-                <button
-                  key={hitType}
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => update({ plusFrameHitType: active ? null : hitType })}
-                  style={{
-                    ...styles.conditionButton,
-                    borderColor: active ? 'var(--accent)' : 'var(--border)',
-                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
-                    color: active ? '#fff' : 'var(--text-secondary)',
-                    cursor: readOnly ? 'default' : 'pointer',
-                  }}
-                >
-                  {hitType === 'ground' ? '地上ヒット' : '空中ヒット'}
-                </button>
-              );
-            })}
-          </div>
-          {stats.plusFrameHitType && (
-            <PlusFrameRangePicker
-              text={stats.plusFrameHitType === 'ground' ? groundPlusFrame : airPlusFrame}
-              readOnly={readOnly}
-              onPick={(next) => update({ plusFrame: next })}
-            />
-          )}
-        </>
+          <NumberField
+            label="Dゲージ削り量"
+            value={stats.opponentDGaugeChip}
+            onChange={(next) => update({ opponentDGaugeChip: next, isOpponentDGaugeChipAutoSynced: false })}
+            readOnly={readOnly}
+            isAutoSynced={stats.isOpponentDGaugeChipAutoSynced}
+            onResetToAuto={() => update({ isOpponentDGaugeChipAutoSynced: true })}
+          />
+        </div>
       )}
 
       <GaugeChangeField
         label="Dゲージ増減"
         value={stats.dGaugeChange}
-        onChange={(next) => update({ dGaugeChange: next })}
+        onChange={(next) => update({ dGaugeChange: next, isDGaugeChangeAutoSynced: false })}
         readOnly={readOnly}
         breakdown={dGaugeBreakdown}
         isBreakdownMode={isDGaugeBreakdownMode}
         onToggleBreakdownMode={() => setIsDGaugeBreakdownMode((open) => !open)}
+        isAutoSynced={stats.isDGaugeChangeAutoSynced}
+        onResetToAuto={() => update({ isDGaugeChangeAutoSynced: true })}
       />
 
       {/* SF6は「ゲージが0でなければ消費行動を発動できる」仕様（名目コストを満額持っている
@@ -427,11 +392,13 @@ export function BranchStatsEditor({
       <GaugeChangeField
         label="SAゲージ増加"
         value={stats.saGaugeGain}
-        onChange={(next) => update({ saGaugeGain: next })}
+        onChange={(next) => update({ saGaugeGain: next, isSaGaugeGainAutoSynced: false })}
         readOnly={readOnly}
         breakdown={saGaugeBreakdown}
         isBreakdownMode={isSaGaugeBreakdownMode}
         onToggleBreakdownMode={() => setIsSaGaugeBreakdownMode((open) => !open)}
+        isAutoSynced={stats.isSaGaugeGainAutoSynced}
+        onResetToAuto={() => update({ isSaGaugeGainAutoSynced: true })}
       />
 
       {showRatingGrid && (
@@ -787,48 +754,6 @@ export function BranchStatsEditor({
   );
 }
 
-/** プラスフレーム欄の「地上/空中」トグルの下に出す、技データの登録内容から選ぶUI。
- * 範囲としてパースできればチップボタン、できなければ生テキストの参考表示、
- * 空ならその旨のヒントを出す */
-function PlusFrameRangePicker({
-  text,
-  readOnly,
-  onPick,
-}: {
-  text: string;
-  readOnly: boolean;
-  onPick: (next: number) => void;
-}) {
-  if (!text) {
-    return <p style={styles.plusFrameHint}>（このヒット方向の有利フレームは未登録です）</p>;
-  }
-
-  const values = parsePlusFrameRange(text);
-  if (!values) {
-    return <p style={styles.plusFrameHint}>登録内容：{text}</p>;
-  }
-
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-      {values.map((value) => (
-        <button
-          key={value}
-          type="button"
-          disabled={readOnly}
-          onClick={() => onPick(value)}
-          style={{
-            ...styles.conditionButton,
-            padding: '2px 8px',
-            cursor: readOnly ? 'default' : 'pointer',
-          }}
-        >
-          {value >= 0 ? `+${value}` : value}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // Dゲージ増減・SAゲージ増加で共用する、「合計⇄内訳」をワンボタンで切り替えられる欄。
 // 内訳モードでは編集不可の読み取り専用テキストに切り替わる（合計モードに戻せば通常通り
 // 編集できる）。内訳の各ステップは長い矢印区切りの文字列でも折り返して全文表示し、
@@ -844,6 +769,8 @@ function GaugeChangeField({
   breakdown,
   isBreakdownMode,
   onToggleBreakdownMode,
+  isAutoSynced = true,
+  onResetToAuto,
 }: {
   label: string;
   value: number | null;
@@ -852,6 +779,10 @@ function GaugeChangeField({
   breakdown?: { steps: GaugeStep[]; total: number; totalExcludingEarlyRecovery?: number } | null;
   isBreakdownMode: boolean;
   onToggleBreakdownMode: () => void;
+  // falseの間（ユーザーが手で書き換えて固定した状態）だけ「自動計算に戻す」ボタンを出す。
+  // 詳細はtypes.tsのComboBranchStats.isDamageAutoSynced等のコメント参照
+  isAutoSynced?: boolean;
+  onResetToAuto?: () => void;
 }) {
   const hasEarlyRecoveryNote =
     breakdown?.totalExcludingEarlyRecovery !== undefined &&
@@ -861,18 +792,25 @@ function GaugeChangeField({
     <div style={styles.fieldLabel}>
       <div style={styles.fieldLabelRow}>
         <span>{label}</span>
-        {/* 「合計(-19600)」⇄「内訳(+200→+200→-20000)」をワンボタンで切り替える。
-            内訳が無い（技データ未登録等）場合はボタン自体を出さない */}
-        {breakdown && breakdown.steps.length > 0 && (
-          <button
-            type="button"
-            className="btn-ghost"
-            style={styles.autoCalcButton}
-            onClick={onToggleBreakdownMode}
-          >
-            {isBreakdownMode ? '合計で見る' : '内訳で見る'}
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {!readOnly && !isAutoSynced && onResetToAuto && (
+            <button type="button" className="btn-ghost" style={styles.autoCalcButton} onClick={onResetToAuto}>
+              自動計算に戻す
+            </button>
+          )}
+          {/* 「合計(-19600)」⇄「内訳(+200→+200→-20000)」をワンボタンで切り替える。
+              内訳が無い（技データ未登録等）場合はボタン自体を出さない */}
+          {breakdown && breakdown.steps.length > 0 && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={onToggleBreakdownMode}
+            >
+              {isBreakdownMode ? '合計で見る' : '内訳で見る'}
+            </button>
+          )}
+        </div>
       </div>
 
       {isBreakdownMode && breakdown ? (
@@ -912,15 +850,28 @@ function NumberField({
   value,
   onChange,
   readOnly = false,
+  isAutoSynced = true,
+  onResetToAuto,
 }: {
   label: string;
   value: number | null;
   onChange: (next: number | null) => void;
   readOnly?: boolean;
+  // falseの間（ユーザーが手で書き換えて固定した状態）だけ「自動計算に戻す」ボタンを出す。
+  // 詳細はtypes.tsのComboBranchStats.isDamageAutoSynced等のコメント参照
+  isAutoSynced?: boolean;
+  onResetToAuto?: () => void;
 }) {
   return (
     <div style={styles.fieldLabel}>
-      <span>{label}</span>
+      <div style={styles.fieldLabelRow}>
+        <span>{label}</span>
+        {!readOnly && !isAutoSynced && onResetToAuto && (
+          <button type="button" className="btn-ghost" style={styles.autoCalcButton} onClick={onResetToAuto}>
+            自動計算に戻す
+          </button>
+        )}
+      </div>
       <input
         type="number"
         className="input-field"
@@ -1044,12 +995,6 @@ const styles: Record<string, CSSProperties> = {
     marginTop: -6,
     fontSize: 11,
     fontWeight: 700,
-    color: 'var(--text-muted)',
-  },
-  plusFrameHint: {
-    margin: 0,
-    marginTop: -4,
-    fontSize: 11,
     color: 'var(--text-muted)',
   },
   formulaToggle: {
