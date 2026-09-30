@@ -22,6 +22,7 @@ describe('resolveNodeVisualStyle', () => {
       borderWidth: 'normal',
       borderStyle: 'solid',
       hasDelay: false,
+      hasComboEnd: false,
     });
   });
 
@@ -120,6 +121,12 @@ describe('resolveNodeVisualStyle', () => {
   it('ディレイ属性はhasDelayを立てるが、色には影響しない', () => {
     const result = style('技', [attr('delay')]);
     expect(result.hasDelay).toBe(true);
+    expect(result.bodyColorKind).toBe('default');
+  });
+
+  it('コンボ終了属性はhasComboEndを立てるが、色には影響しない', () => {
+    const result = style('技', [attr('comboEnd')]);
+    expect(result.hasComboEnd).toBe(true);
     expect(result.bodyColorKind).toBe('default');
   });
 });

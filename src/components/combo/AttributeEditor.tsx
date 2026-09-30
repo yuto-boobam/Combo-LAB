@@ -13,6 +13,10 @@
 // specialNoteの概念自体がない箇所を想定）。
 // 空中パニカン・壁やられ・スタンは色を持たない独立したチェックボックス（2026-09-26ユーザー要望）。
 // 壁やられ・スタンはさらに「ガードで発生／ヒットで発生」を選べる（ImpactAttributeRow参照）。
+// この3つは共通システム技「インパクト」でしか起こらないため、技名がインパクトのノードでのみ
+// 表示する（isImpactMove参照。2026-09-30ユーザー指定）。インパクトでないノードには、代わりに
+// 「コンボ終了」チェックボックスを表示する（このノードでダメージ補正計算を区切り、以降を
+// 別のコンボとして扱う目印。インパクトのノードでは表示しない＝ユーザー指定）。
 
 import type { CSSProperties } from 'react';
 import type { ImpactHitOrGuard, NodeAttribute, NodeAttributeType } from '../../types';
@@ -47,11 +51,11 @@ type Props = {
   // （2026-08-28ユーザー要望）。未指定なら従来通りディレイ単独の行のまま
   recordsBranchStats?: boolean;
   onRecordsBranchStatsChange?: (checked: boolean) => void;
-  // trueの間、「壁やられ」「スタン」（この枝の終わりを表す属性。ガード/ヒットの選択も伴う）を
-  // 選べるようにする。末端ノード（または「コンボの情報」欄が出ているノード）でのみtrueを渡す想定
-  // （呼び出し側の判定はSideDrawerPanel.tsxのisNaturalStatsEndpoint/showStats参照）。
-  // 空中パニカンは経路の途中でも起こりうるため、この制限を受けず常に選べる
-  allowFinishingAttributes?: boolean;
+  // trueの間、「壁やられ」「スタン」「空中パニカン」（共通システム技「インパクト」でしか
+  // 起こらない属性）を選べるようにする。呼び出し側はこのノードの技名が
+  // nodeVisualStyle.tsのIMPACT_MOVE_NAMEと一致するかどうかを渡す（2026-09-30ユーザー指定）。
+  // falseの間は代わりに「コンボ終了」チェックボックスを表示する
+  isImpactMove?: boolean;
 };
 
 export function AttributeEditor({
@@ -62,7 +66,7 @@ export function AttributeEditor({
   onSpecialNoteChange,
   recordsBranchStats,
   onRecordsBranchStatsChange,
-  allowFinishingAttributes = false,
+  isImpactMove = false,
 }: Props) {
   const has = (type: NodeAttributeType) => value.some((attribute) => attribute.type === type);
 
@@ -160,18 +164,18 @@ export function AttributeEditor({
           ディレイ
         </label>
 
-        <label style={styles.checkboxRow}>
-          <input
-            type="checkbox"
-            checked={has('airPunishCounter')}
-            disabled={readOnly}
-            onChange={() => toggleIndependent('airPunishCounter')}
-          />
-          空中パニカン
-        </label>
-
-        {allowFinishingAttributes && (
+        {isImpactMove ? (
           <>
+            <label style={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={has('airPunishCounter')}
+                disabled={readOnly}
+                onChange={() => toggleIndependent('airPunishCounter')}
+              />
+              空中パニカン
+            </label>
+
             <ImpactAttributeRow
               label="壁やられ"
               attr={wallSplatAttr}
@@ -188,6 +192,16 @@ export function AttributeEditor({
               onSelectHitOrGuard={(hitOrGuard) => setImpactAttribute('stun', true, hitOrGuard)}
             />
           </>
+        ) : (
+          <label style={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={has('comboEnd')}
+              disabled={readOnly}
+              onChange={() => toggleIndependent('comboEnd')}
+            />
+            コンボ終了
+          </label>
         )}
 
         {onRecordsBranchStatsChange && (

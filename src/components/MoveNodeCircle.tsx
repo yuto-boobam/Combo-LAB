@@ -187,20 +187,37 @@ export function MoveNodeCircle({
         </button>
       )}
 
-      {visual.hasDelay && (
-        <span
-          title={node.specialNote || 'ディレイ'}
-          style={{
-            position: 'absolute',
-            top: -2,
-            right: -2,
-            width: 11,
-            height: 11,
-            borderRadius: '50%',
-            background: 'var(--node-delay-badge)',
-            border: '1.5px solid var(--bg-surface)',
-          }}
-        />
+      {/* ディレイ・コンボ終了は、チェックを入れたこと自体が見た目でも分かるよう
+          小さなバッジで示す（2026-09-30ユーザー要望）。両方並ぶ場合に重ならないよう
+          1つの行にまとめる。ディレイ＝丸・ピンク、コンボ終了＝角・赤で形と色の両方を
+          変え、小さいサイズでも見分けやすくしている */}
+      {(visual.hasDelay || visual.hasComboEnd) && (
+        <div style={{ position: 'absolute', top: -2, right: -2, display: 'flex', gap: 3 }}>
+          {visual.hasDelay && (
+            <span
+              title={node.specialNote || 'ディレイ'}
+              style={{
+                width: 11,
+                height: 11,
+                borderRadius: '50%',
+                background: 'var(--node-delay-badge)',
+                border: '1.5px solid var(--bg-surface)',
+              }}
+            />
+          )}
+          {visual.hasComboEnd && (
+            <span
+              title="コンボ終了（ここで1本のコンボが終わり、以降は別のコンボとして計算されます）"
+              style={{
+                width: 11,
+                height: 11,
+                borderRadius: 3,
+                background: 'var(--node-combo-end-badge)',
+                border: '1.5px solid var(--bg-surface)',
+              }}
+            />
+          )}
+        </div>
       )}
 
       {node.branchStats?.isFavorite && (

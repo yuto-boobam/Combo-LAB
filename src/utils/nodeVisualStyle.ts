@@ -35,6 +35,13 @@ export const RUSH_HIGHLIGHT_MOVE_NAMES = ['キャンセルラッシュ', '生ラ
  */
 export const CANCEL_RUSH_MOVE_NAME = 'キャンセルラッシュ';
 
+/**
+ * 共通システム技「インパクト」の技名。壁やられ・スタン・空中パニカンはこの技でしか
+ * 起こらないため、AttributeEditor.tsx側でこの技名のノードだけにそれらのチェックボックスを
+ * 出す判定に使う（2026-09-30ユーザー指定）
+ */
+export const IMPACT_MOVE_NAME = 'インパクト';
+
 export type NodeBodyColorKind = 'default' | 'guard' | 'whiff' | 'situational' | 'rush';
 export type NodeBorderColorKind = 'default' | 'counter' | 'punishCounter' | 'rush';
 
@@ -44,6 +51,9 @@ export type NodeVisualStyle = {
   borderWidth: 'normal' | 'thick';
   borderStyle: 'solid' | 'dashed';
   hasDelay: boolean;
+  // 「コンボ終了」が付いているかどうか。ディレイと同じ丸バッジ方式で示す
+  // （2026-09-30ユーザー要望：チェックを入れたことが見た目でも分かるようにしたい）
+  hasComboEnd: boolean;
 };
 
 const BODY_COLOR_PRIORITY: NodeAttributeType[] = ['guard', 'whiff', 'situational'];
@@ -84,6 +94,7 @@ export function resolveNodeVisualStyle(moveName: string, attributes: NodeAttribu
     borderWidth: borderColorKind !== 'default' || isWhiff ? 'thick' : 'normal',
     borderStyle: isWhiff ? 'dashed' : 'solid',
     hasDelay: types.has('delay'),
+    hasComboEnd: types.has('comboEnd'),
   };
 }
 

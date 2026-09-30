@@ -109,17 +109,22 @@ export type NodeAttributeType =
   | 'other'            // その他
   // 以下3つは色を割り当てず（本体色/枠線色グループには含めない）、独立したチェックボックス
   // として追加した属性（2026-09-26ユーザー要望）。
-  // wallSplat・stunは「この枝の終わり」を表す属性のため、末端ノード（またはガード/空振り/
-  // recordsBranchStatsで統計欄を出しているノード）でのみ選べるようにする
-  // （AttributeEditor.tsxのallowFinishingAttributes参照）。airPunishCounterは経路の途中でも
-  // 起こりうるため制限なし。
+  // wallSplat・stun・airPunishCounterは共通システム技「インパクト」でしか起こらないため、
+  // 技名が「インパクト」のノードでのみ選べるようにする
+  // （AttributeEditor.tsxのisImpactMove参照。2026-09-30ユーザー指定：以前はwallSplat・stunが
+  // 末端ノード限定・airPunishCounterは無制限だったが、インパクト限定に統一した）。
   // wallSplat・stunはガードで受けた場合とヒットした場合とで状況が大きく異なるため、
   // チェックを入れた後に「ガード」「ヒット」のどちらだったかを選べるようにする
   // （下記NodeAttributeのhitOrGuard参照。2026-09-27ユーザー指摘：単に有無だけでなく
   // ガード/ヒットを選べるようにしたい）
   | 'wallSplat'        // 壁やられ
   | 'airPunishCounter' // 空中パニカン
-  | 'stun';            // スタン
+  | 'stun'             // スタン
+  // このノードで1本のコンボを終える（この後に続くノードは、起き攻めセットアップなど
+  // 別のコンボの始まりとして扱う）目印。ダメージ補正計算をここで区切って独立させるための
+  // 境界として使う（src/utils/comboGaugeCalc.tsのsplitPathIntoComboSegments参照）。
+  // インパクト技のノードでは表示しない（AttributeEditor.tsx参照。2026-09-30ユーザー要望）
+  | 'comboEnd';         // コンボ終了
 
 /** wallSplat・stun属性が「ガードで発生したか」「ヒットで発生したか」。未選択はnull */
 export type ImpactHitOrGuard = 'guard' | 'hit';

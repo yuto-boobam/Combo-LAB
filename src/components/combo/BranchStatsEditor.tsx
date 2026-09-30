@@ -32,6 +32,11 @@ type Props = {
   // ダメージ計算式の内訳。「計算式」ボタンを押した時だけ展開して見せる
   // （普段は閉じておく。2026-08-26ユーザー指定：計算根拠を見せる正式な機能として採用）
   damageBreakdown?: DamageBreakdown | null;
+  // このノードより前に「コンボ終了」で区切られた区間（1本目のコンボ等）の内訳。
+  // 古い順に並ぶ。空配列（デフォルト）＝このノードの経路にコンボ終了が無い＝今まで通り
+  // 「ダメージ」欄1つだけの見た目のまま（2026-09-30ユーザー要望：起き攻めセットアップ後の
+  // 2本目のコンボを別計算にしたうえで、末端ノードでは両方のダメージ・計算式を見たい）
+  priorComboSegments?: DamageBreakdown[];
   // 誘導ガイド（チュートリアル用）: trueの間、「ダメージ・計算式」欄をスポットライトで
   // 光らせ、「計算式」を開くよう誘導する（このコンポーネント自身はチュートリアルの
   // 手順を知らず、呼び出し側が段階を判断してここへ渡すだけ。highlightComboInfoと同じ考え方）
@@ -134,6 +139,7 @@ export function BranchStatsEditor({
   readOnly = false,
   requiredStartHitCondition = null,
   damageBreakdown = null,
+  priorComboSegments = [],
   highlightDamageFormula = false,
   onFormulaOpened,
   showFormulaExplanation = false,
@@ -277,6 +283,23 @@ export function BranchStatsEditor({
         {stats.isFavorite ? '★ お気に入り登録済み' : '☆ お気に入りに登録'}
       </button>
 
+      {/* 「コンボ終了」で区切られた、このノードより前の区間（1本目・2本目…のコンボ）の
+          ダメージと計算式。区間が無い（＝コンボ終了を使っていない従来通りのコンボ）場合は
+          何も表示しない（2026-09-30ユーザー要望） */}
+      {priorComboSegments.length > 0 && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {priorComboSegments.map((segment, index) => (
+            <PriorComboSegmentBlock
+              key={index}
+              label={`コンボ${index + 1}`}
+              breakdown={segment}
+              showFormulaExplanation={showFormulaExplanation}
+            />
+          ))}
+          <div style={styles.sectionDivider} />
+        </div>
+      )}
+
       {/* ダメージ・計算式を囲んで誘導する。ドロワーは overflow:hidden/auto な祖先を
           複数持つため、画面全体を暗くする.tutorial-spotlight（box-shadowの9999px拡散）は
           ドロワーの外まで届かずクリップされてしまう。代わりに、①②③のステップで実績のある
@@ -287,7 +310,9 @@ export function BranchStatsEditor({
         style={{ display: 'grid', gap: 10, borderRadius: 10 }}
       >
         <NumberField
-          label="ダメージ"
+          // コンボ終了で区切られた区間がある時だけ「コンボ2（現在）」のように何本目かを
+          // 添える。区間が無い（従来通りの1本のコンボ）時は今まで通り「ダメージ」のまま
+          label={priorComboSegments.length > 0 ? `ダメージ（コンボ${priorComboSegments.length + 1}・現在）` : 'ダメージ'}
           value={stats.damage}
           onChange={(next) => update({ damage: next, isDamageAutoSynced: false })}
           readOnly={readOnly}
@@ -323,45 +348,7 @@ export function BranchStatsEditor({
             </button>
 
             {isFormulaOpen && (
-              <div style={styles.debugBreakdown}>
-                {showFormulaExplanation && (
-                  <div style={styles.formulaExplanation}>
-                    ただの足し算ではなく、ストリートファイター6と同じ補正計算をしたうえで算出しています
-                  </div>
-                )}
-                <div style={styles.debugBreakdownHeader}>
-                  起点基準値{damageBreakdown.startBase}%
-                  {damageBreakdown.rushTriggerPosition !== null &&
-                    `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
-                </div>
-                {damageBreakdown.entries.map((entry) => {
-                  const note = formatDamageEntryNote(entry);
-                  return (
-                    <div key={entry.position} style={styles.debugBreakdownRow}>
-                      {entry.position}発目 {entry.hitLabel}
-                      {note && ` : ${note}`}
-                      {' → '}
-                      {entry.isSystemAction ? (
-                        'ダメージ0（位置のみ消費）'
-                      ) : (
-                        <>
-                          <span style={styles.formulaEmphasis}>{entry.damage}</span>
-                          {' × '}
-                          <span
-                            className={showFormulaExplanation ? 'tutorial-formula-blink' : undefined}
-                            style={styles.formulaEmphasisPercent}
-                          >
-                            {entry.percent}%
-                          </span>
-                          {' = '}
-                          <span style={styles.formulaEmphasis}>{Math.round(entry.contribution)}</span>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-                <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
-              </div>
+              <DamageFormulaBreakdown breakdown={damageBreakdown} showFormulaExplanation={showFormulaExplanation} />
             )}
           </div>
         )}
@@ -777,6 +764,90 @@ export function BranchStatsEditor({
   );
 }
 
+// 「計算式」ボタンを開いた時の中身（起点基準値・各段の内訳・合計）。現在の区間の
+// ダメージ（NumberField直下）と、このノードより前の区間（PriorComboSegmentBlock）の
+// 両方から共通で使う（2026-09-30ユーザー要望：コンボ終了で区切った各区間の計算式を
+// それぞれ見られるようにする）
+function DamageFormulaBreakdown({
+  breakdown,
+  showFormulaExplanation,
+}: {
+  breakdown: DamageBreakdown;
+  showFormulaExplanation: boolean;
+}) {
+  return (
+    <div style={styles.debugBreakdown}>
+      {showFormulaExplanation && (
+        <div style={styles.formulaExplanation}>
+          ただの足し算ではなく、ストリートファイター6と同じ補正計算をしたうえで算出しています
+        </div>
+      )}
+      <div style={styles.debugBreakdownHeader}>
+        起点基準値{breakdown.startBase}%
+        {breakdown.rushTriggerPosition !== null &&
+          `／ラッシュ発生位置${breakdown.rushTriggerPosition}発目〜`}
+      </div>
+      {breakdown.entries.map((entry) => {
+        const note = formatDamageEntryNote(entry);
+        return (
+          <div key={entry.position} style={styles.debugBreakdownRow}>
+            {entry.position}発目 {entry.hitLabel}
+            {note && ` : ${note}`}
+            {' → '}
+            {entry.isSystemAction ? (
+              'ダメージ0（位置のみ消費）'
+            ) : (
+              <>
+                <span style={styles.formulaEmphasis}>{entry.damage}</span>
+                {' × '}
+                <span
+                  className={showFormulaExplanation ? 'tutorial-formula-blink' : undefined}
+                  style={styles.formulaEmphasisPercent}
+                >
+                  {entry.percent}%
+                </span>
+                {' = '}
+                <span style={styles.formulaEmphasis}>{Math.round(entry.contribution)}</span>
+              </>
+            )}
+          </div>
+        );
+      })}
+      <div style={styles.debugBreakdownRow}>合計：{breakdown.total}</div>
+    </div>
+  );
+}
+
+// 「コンボ終了」で区切られた、末端ノードより前の1区間ぶんの読み取り専用ブロック
+// （ラベル＋合計ダメージ＋開閉式の「計算式」。中身はDamageFormulaBreakdownを再利用）。
+// 現在の区間のダメージ欄（NumberField）と違い編集はできない
+// （その区間自身のノードを選べば、そちらの「コンボの情報」欄から編集できるため）
+function PriorComboSegmentBlock({
+  label,
+  breakdown,
+  showFormulaExplanation,
+}: {
+  label: string;
+  breakdown: DamageBreakdown;
+  showFormulaExplanation: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      <div style={styles.priorComboHeader}>
+        <span>{label}</span>
+        <span style={styles.priorComboDamage}>{breakdown.total}</span>
+      </div>
+      <button type="button" className="btn-ghost" style={styles.formulaToggle} onClick={() => setIsOpen((open) => !open)}>
+        <span>計算式</span>
+        <span style={{ ...styles.formulaToggleChevron, transform: isOpen ? 'rotate(180deg)' : 'none' }}>⌄</span>
+      </button>
+      {isOpen && <DamageFormulaBreakdown breakdown={breakdown} showFormulaExplanation={showFormulaExplanation} />}
+    </div>
+  );
+}
+
 // Dゲージ増減・SAゲージ増加で共用する、「合計⇄内訳」をワンボタンで切り替えられる欄。
 // 内訳モードでは編集不可の読み取り専用テキストに切り替わる（合計モードに戻せば通常通り
 // 編集できる）。内訳の各ステップは長い矢印区切りの文字列でも折り返して全文表示し、
@@ -1044,6 +1115,20 @@ const styles: Record<string, CSSProperties> = {
     margin: '2px 0',
     // 通常のvar(--border)よりも一段明るい区切り線用の色（見出し無しでも区切りが目立つように）
     background: 'var(--border-hover)',
+  },
+  // コンボ終了で区切られた、末端ノードより前の区間（PriorComboSegmentBlock）のラベル行
+  priorComboHeader: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--text-secondary)',
+  },
+  priorComboDamage: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: 'var(--text-primary)',
   },
   // 計算式の内訳表示（元は調査用のデバッグ表示だったが、計算根拠を見せる機能として
   // 「計算式」ボタンの開閉式に変更した。2026-08-26ユーザー指定）。当初の赤枠・赤文字は

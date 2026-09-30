@@ -27,6 +27,7 @@ import { HitSelectionToggle } from './HitSelectionToggle';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import { parseStarterMoveOptionsText, parseStarterMoveToken } from '../../utils/starterMoveOptions';
 import {
+  calculateAllComboDamageSegments,
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
   calculateBranchDGaugeBreakdown,
@@ -40,7 +41,9 @@ import {
   findOdRelevantNodesOnPath,
   lookupMoveName,
   resolveHitIndices,
+  type DamageBreakdown,
 } from '../../utils/comboGaugeCalc';
+import { IMPACT_MOVE_NAME } from '../../utils/nodeVisualStyle';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
 import { ChainPreviewRow } from './ChainPreviewRow';
@@ -732,12 +735,20 @@ function ReadOnlyNodeView({
 
   const showStats =
     selectedNode.children.length === 0 ||
-    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff') ||
+    selectedNode.attributes.some(
+      (attribute) => attribute.type === 'guard' || attribute.type === 'whiff' || attribute.type === 'comboEnd',
+    ) ||
     (selectedNode.recordsBranchStats ?? false);
 
   const requiredStartHitCondition = root
     ? calculateRequiredStartHitCondition(root, selectedNode.id)
     : null;
+  const priorComboSegments =
+    root && showStats
+      ? (calculateAllComboDamageSegments(characterId, moveStatsDatabase, moveList, root, selectedNode.id) ?? [])
+          .slice(0, -1)
+          .filter((segment): segment is DamageBreakdown => segment !== null)
+      : [];
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
   const finishingSuperArtOptions = findFinishingSuperArtOptions(
     moveList,
@@ -767,6 +778,7 @@ function ReadOnlyNodeView({
             onChange={() => {}}
             readOnly
             requiredStartHitCondition={requiredStartHitCondition}
+            priorComboSegments={priorComboSegments}
             finishingSuperArtMove={finishingSuperArtMove}
             finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
@@ -802,7 +814,7 @@ function ReadOnlyNodeView({
             readOnly
             specialNote={selectedNode.specialNote}
             onSpecialNoteChange={() => {}}
-            allowFinishingAttributes={showStats}
+            isImpactMove={selectedNode.moveName === IMPACT_MOVE_NAME}
           />
 
           {odConstraint && (
@@ -931,7 +943,11 @@ function NewTreeSection({
           />
         )}
 
-        <AttributeEditor value={newRootAttributes} onChange={setNewRootAttributes} />
+        <AttributeEditor
+          value={newRootAttributes}
+          onChange={setNewRootAttributes}
+          isImpactMove={newRootMoveName === IMPACT_MOVE_NAME}
+        />
 
         <button
           type="button"
@@ -1029,7 +1045,9 @@ function NodeEditor({
   // 止めるケースを記録するための機能。詳細はtypes.tsのMoveNode.recordsBranchStats参照）
   const isNaturalStatsEndpoint =
     selectedNode.children.length === 0 ||
-    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
+    selectedNode.attributes.some(
+      (attribute) => attribute.type === 'guard' || attribute.type === 'whiff' || attribute.type === 'comboEnd',
+    );
   const showStatsEditor = isNaturalStatsEndpoint || (selectedNode.recordsBranchStats ?? false);
 
   const autoSaGaugeChange = calculateBranchSaGaugeChange(
@@ -1091,6 +1109,14 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  // 「コンボ終了」で区切られた、このノードより前の区間（1本目・2本目…のコンボ）の
+  // ダメージ内訳。最後の区間（=damageBreakdown・autoDamageが表す「現在のコンボ」）は
+  // 含めない（BranchStatsEditor側で二重表示にならないよう除く）
+  const priorComboSegments = (
+    calculateAllComboDamageSegments(characterId, moveStatsDatabase, moveList, root, selectedNode.id) ?? []
+  )
+    .slice(0, -1)
+    .filter((segment): segment is DamageBreakdown => segment !== null);
   const requiredStartHitCondition = calculateRequiredStartHitCondition(root, selectedNode.id);
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
   const finishingSuperArtOptions = findFinishingSuperArtOptions(
@@ -1227,6 +1253,7 @@ function NodeEditor({
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
             requiredStartHitCondition={requiredStartHitCondition}
             damageBreakdown={damageBreakdown}
+            priorComboSegments={priorComboSegments}
             dGaugeBreakdown={dGaugeBreakdown}
             dGaugeMinimumRequired={dGaugeMinimumRequired}
             saGaugeBreakdown={saGaugeBreakdown}
@@ -1318,7 +1345,7 @@ function NodeEditor({
                 ? (checked) => setNodeRecordsBranchStats(characterId, treeId, selectedNode.id, checked)
                 : undefined
             }
-            allowFinishingAttributes={showStatsEditor}
+            isImpactMove={selectedNode.moveName === IMPACT_MOVE_NAME}
           />
 
           {odConstraint && (
@@ -1477,7 +1504,11 @@ function NodeEditor({
             activeFinishingSpecialVariant={newFinishingSpecialVariant}
           />
 
-          <AttributeEditor value={newAttributes} onChange={setNewAttributes} allowFinishingAttributes />
+          <AttributeEditor
+            value={newAttributes}
+            onChange={setNewAttributes}
+            isImpactMove={newMoveName === IMPACT_MOVE_NAME}
+          />
 
           <button
             type="button"

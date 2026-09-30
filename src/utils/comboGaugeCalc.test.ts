@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateAllComboDamageSegments,
   calculateBranchDGaugeBreakdown,
   calculateBranchDGaugeChange,
   calculateBranchDGaugeMinimumRequired,
@@ -1478,5 +1479,122 @@ describe('node.hitIndices（複数ヒット技のうち実際に何段目が当�
     expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, allSelected, 'n')).toBe(500);
     expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, outOfRange, 'n')).toBe(500);
     expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, unset, 'n')).toBe(500);
+  });
+});
+
+describe('「コンボ終了」属性によるダメージ計算の区間分割', () => {
+  it('comboEndが1つも無い経路は、従来通りroot〜対象ノードの全体が1つの区間として計算される（後方互換）', () => {
+    const c = makeNode('c', '強P');
+    const b = makeNode('b', '中P', { children: [c] });
+    const a = makeNode('a', '弱P', { children: [b] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '強P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    const damage = calculateBranchDamage('ryu', moveStatsDatabase, [], a, 'c');
+    const segments = calculateAllComboDamageSegments('ryu', moveStatsDatabase, [], a, 'c');
+
+    expect(segments).toHaveLength(1);
+    expect(segments?.[0]?.total).toBe(damage);
+    // 弱P:300(100%) + 中P:1000(テーブル2段目=100%) + 強P:1000(テーブル3段目=80%) = 2100
+    expect(damage).toBe(2100);
+  });
+
+  it('comboEndが付いたノードを選択すると、そこまでの経路がちょうど1区間として計算される（1本目のコンボ自身の末端として扱われる）', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', { attributes: [{ type: 'comboEnd' }], children: [leaf] });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    // 弱P:300(100%) + 中P:1000(テーブル2段目=100%) = 1300（弱Kは経路に含まれない）
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'kd')).toBe(1300);
+  });
+
+  it('comboEndより後のノードを選択すると、comboEndノードの次〜対象ノードだけの区間で独立して計算される（1本目の補正を引き継がない）', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', { attributes: [{ type: 'comboEnd' }], children: [leaf] });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    // comboEndを無視した場合は弱Kがテーブル3段目(80%)=400になるはずだが、区間が
+    // 独立しているため弱K単体が新しい起点(100%)として計算され500になる
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'leaf')).toBe(500);
+  });
+
+  it('calculateAllComboDamageSegmentsは、区間ごとの内訳を古い順の配列で返す（末端は最後の要素、それより前がpriorComboSegments用）', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', { attributes: [{ type: 'comboEnd' }], children: [leaf] });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    const segments = calculateAllComboDamageSegments('ryu', moveStatsDatabase, [], starter, 'leaf');
+
+    expect(segments).toHaveLength(2);
+    expect(segments?.[0]?.total).toBe(1300); // 1本目: 弱P→中P(comboEnd)
+    expect(segments?.[1]?.total).toBe(500); // 2本目: 弱Kのみ、独立した起点
+  });
+
+  it('始動条件の必須判定(calculateRequiredStartHitCondition)も対象区間だけを見る。1本目にあるパニカン属性は2本目には影響しない', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', {
+      attributes: [{ type: 'comboEnd' }, { type: 'punishCounter' }],
+      children: [leaf],
+    });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    // 1本目の末端(kd自身)を対象にすると、kd自身のpunishCounter属性が経路内にあるためパニカン必須
+    expect(calculateRequiredStartHitCondition(starter, 'kd')).toBe('パニカン');
+    // 2本目の末端(leaf)を対象にすると、kdは別区間（1本目）に属するため制約を引き継がない
+    expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBeNull();
+  });
+
+  it('3本以上に分割された場合も、区間の数だけ配列が並び、それぞれ独立して計算される', () => {
+    const leaf3 = makeNode('leaf3', '弱K');
+    const end2 = makeNode('end2', '中K', { attributes: [{ type: 'comboEnd' }], children: [leaf3] });
+    const end1 = makeNode('end1', '中P', { attributes: [{ type: 'comboEnd' }], children: [end2] });
+    const starter = makeNode('starter', '弱P', { children: [end1] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '中K': makeStats([makeHit({ damage: 800 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    const segments = calculateAllComboDamageSegments('ryu', moveStatsDatabase, [], starter, 'leaf3');
+
+    expect(segments).toHaveLength(3);
+    expect(segments?.[0]?.total).toBe(1300); // 弱P→中P(comboEnd)
+    expect(segments?.[1]?.total).toBe(800); // 中K(comboEnd)単体、独立した起点
+    expect(segments?.[2]?.total).toBe(500); // 弱K単体、独立した起点
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'leaf3')).toBe(500);
   });
 });
