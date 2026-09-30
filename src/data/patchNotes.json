@@ -1,5 +1,25 @@
 [
   {
+    "id": "2026-09-30-1f06a348",
+    "date": "2026-09-30",
+    "buildNumber": 32,
+    "type": "spec-change",
+    "title": "計算式を見やすくした",
+    "description": "不要な記入を削除し、計算している数値の箇所を目立たせるような変更をした。",
+    "beforeImageUrl": "/images/patch-notes/2026/09/20260930-build32-before.png?v=1790701704185",
+    "afterImageUrl": "/images/patch-notes/2026/09/20260930-build32-after.png?v=1790701709260"
+  },
+  {
+    "id": "2026-09-30-ef2945ed",
+    "date": "2026-09-30",
+    "buildNumber": 31,
+    "type": "spec-change",
+    "title": "ノードの配置をエルボー型コネクタへ",
+    "description": "ベジェ曲線は計算の問題で、高さ次第では千二弛みが生じてしまう問題が多発していた。そのため、曲線ではなく、折れ線を活用して弛みの発生を防止した。",
+    "beforeImageUrl": null,
+    "afterImageUrl": null
+  },
+  {
     "id": "2026-09-17-302eb2b7",
     "date": "2026-09-17",
     "buildNumber": 30,
