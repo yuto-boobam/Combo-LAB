@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
-import type { DamageBreakdown, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
+import type { DamageBreakdown, DamageBreakdownEntry, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
 import {
   expandStarterMoveOptions,
@@ -100,6 +100,33 @@ const START_HIT_CONDITION_RANK: Record<BranchStartHitCondition, number> = {
   カウンター: 1,
   パニカン: 2,
 };
+
+/**
+ * 計算式の内訳（「計算式」ボタンの中身）で、各段の技名の後ろに添える注記を組み立てる。
+ * 以前は`modifier="${entry.modifierText || 'なし'}"`のように、補正が無い段にも
+ * 毎回`modifier=""`という表記が付き、専用の補正が無いことを示すためだけの「なし」も
+ * 機械的な印象で読みにくいとの指摘があった（2026-09-30ユーザー指摘）。
+ * `modifier=`という接頭辞は外して補正名だけを表示し、補正が何も無い段（modifierTextが
+ * 空でラッシュ後でもない）は注記自体を出さないようにする
+ */
+export function formatDamageEntryNote(entry: DamageBreakdownEntry): string {
+  if (entry.isSystemAction) return '敵にヒットしない行動のため補正対象外';
+
+  const parts: string[] = [];
+  if (entry.modifierText) parts.push(entry.modifierText);
+  if (entry.isRush) parts.push('ラッシュ後');
+  const base = parts.join('／');
+
+  if (entry.isSuperArt && entry.minDamageGuaranteePercent !== null) {
+    if (entry.percent === entry.minDamageGuaranteePercent) {
+      return `SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`;
+    }
+    const guaranteeNote = `（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`;
+    return base ? `${base}${guaranteeNote}` : guaranteeNote;
+  }
+
+  return base;
+}
 
 export function BranchStatsEditor({
   value,
@@ -307,36 +334,32 @@ export function BranchStatsEditor({
                   {damageBreakdown.rushTriggerPosition !== null &&
                     `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
                 </div>
-                {damageBreakdown.entries.map((entry) => (
-                  <div key={entry.position} style={styles.debugBreakdownRow}>
-                    {entry.position}発目 {entry.hitLabel}
-                    {entry.isSystemAction
-                      ? ' : 敵にヒットしない行動のため補正対象外'
-                      : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
-                        ? entry.percent === entry.minDamageGuaranteePercent
-                          ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
-                          : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
-                        : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
-                    {' → '}
-                    {entry.isSystemAction ? (
-                      'ダメージ0（位置のみ消費）'
-                    ) : (
-                      <>
-                        <span style={showFormulaExplanation ? styles.formulaEmphasis : undefined}>
-                          {entry.damage}
-                        </span>
-                        {' × '}
-                        <span
-                          className={showFormulaExplanation ? 'tutorial-formula-blink' : undefined}
-                          style={showFormulaExplanation ? styles.formulaEmphasisPercent : undefined}
-                        >
-                          {entry.percent}%
-                        </span>
-                        {` = ${Math.round(entry.contribution)}`}
-                      </>
-                    )}
-                  </div>
-                ))}
+                {damageBreakdown.entries.map((entry) => {
+                  const note = formatDamageEntryNote(entry);
+                  return (
+                    <div key={entry.position} style={styles.debugBreakdownRow}>
+                      {entry.position}発目 {entry.hitLabel}
+                      {note && ` : ${note}`}
+                      {' → '}
+                      {entry.isSystemAction ? (
+                        'ダメージ0（位置のみ消費）'
+                      ) : (
+                        <>
+                          <span style={styles.formulaEmphasis}>{entry.damage}</span>
+                          {' × '}
+                          <span
+                            className={showFormulaExplanation ? 'tutorial-formula-blink' : undefined}
+                            style={styles.formulaEmphasisPercent}
+                          >
+                            {entry.percent}%
+                          </span>
+                          {' = '}
+                          <span style={styles.formulaEmphasis}>{Math.round(entry.contribution)}</span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
                 <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
               </div>
             )}
@@ -1055,17 +1078,19 @@ const styles: Record<string, CSSProperties> = {
   debugBreakdownRow: {
     lineHeight: 1.5,
   },
-  // チュートリアルキャラクター限定、各段の「技のダメージ×補正%」を目立たせて、
-  // 単純な足し算ではなく補正計算をしていることを数値そのもので実感させる
-  // （2026-08-30ユーザー要望）。太字だけでは目立たないとの指摘を受け、補正%側は
-  // 下線も加えて「ここが補正されている数値」だとより分かるようにした（2026-08-31）
+  // 各段の「技のダメージ×補正% = 段ダメージ」のうち、実際に計算に使っている数値だけを
+  // 緑色にして目立たせる。技名や注記など数値以外の説明文に埋もれて、どこが計算箇所か
+  // 分かりにくいとの指摘を受けた（2026-09-30ユーザー指摘）。当初はチュートリアル
+  // キャラクター限定の強調だったが、この見やすさは全キャラクター共通で欲しい内容の
+  // ため常時オンにした。太字だけでは目立たないとの指摘を受け、補正%側は下線も加えて
+  // 「ここが補正されている数値」だとより分かるようにした（2026-08-31）
   formulaEmphasis: {
     fontWeight: 800,
-    color: 'var(--accent-blue-text)',
+    color: 'var(--accent-green-text)',
   },
   formulaEmphasisPercent: {
     fontWeight: 800,
-    color: 'var(--accent-blue-text)',
+    color: 'var(--accent-green-text)',
     textDecoration: 'underline',
   },
   // ダメージ評価/Dゲージ評価/SAゲージ評価/運び評価を2×2で並べるためのグリッド。
