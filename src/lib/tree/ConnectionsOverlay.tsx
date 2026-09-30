@@ -1,9 +1,11 @@
 // src/lib/tree/ConnectionsOverlay.tsx
-// SVGコネクター: 各ノードのDOM座標を監視し、動的にベジェ曲線を描画する。
-// ドラッグ&ドロップやテキスト入力によるレイアウト変更に即座に追従する。
+// SVGコネクター: 各ノードのDOM座標を監視し、角丸のエルボー型コネクタ（水平→垂直→水平の
+// 折れ線）を動的に描画する。ドラッグ&ドロップやテキスト入力によるレイアウト変更に
+// 即座に追従する。経路の実際の計算はconnectorPath.ts参照
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TreeColumn, TreeLayout, TreeNodeLike } from './types';
+import { computeConnectorPath } from './connectorPath';
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
@@ -97,33 +99,10 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
           (childRect.top + childRect.height / 2 - svgRect.top) / zoom,
         );
 
-        // 滑らかなベジェ曲線の制御点
-        //
-        // 2026-08-30に一度「縦距離もオフセットの下限に反映する」修正を試みたが、
-        // 縦距離が横距離の2倍を超えると制御点同士が互いの反対側を追い越してしまい
-        // （cp1xがendXを超え、cp2xがstartXを下回る）、ループ状に膨らんで悪化した
-        // （ユーザー指摘、2026-08-30）。線の曲げ方では直せない・根本原因は
-        // computeTreeLayout側で兄弟ノードの高さが揃っていないため縦距離が偏って
-        // 伸びることだったので、そちらをlayout.ts側で対処し、ここは元の横距離基準に戻した。
-        //
-        // ただし横距離基準のcp1x/cp2xだけだと、縦距離が横距離よりずっと大きいリンク
-        // （部分木が深い兄弟の隣で、後続の兄弟だけ大きく下に離れる場合など）では、
-        // 始点・終点の接線が常に水平（cp1y=startY, cp2y=endY）なため、曲線が両端で
-        // 一度水平に「垂れ下がって」から縦に大きく動く、たるんだロープのような見た目になる
-        // （ユーザー指摘、2026-08-30）。x方向は動かさず（交差・ループの心配がないまま）、
-        // 縦距離が横距離に対して大きいリンクだけ、制御点のy成分を終点側へわずかに
-        // 寄せることで、両端の水平な垂れを減らし張った線に近づける。
-        const distanceX = Math.max((endX - startX) / 2, 20);
-        const dy = endY - startY;
-        // 縦距離が横距離と同程度以下ならほぼ0、大きく上回るほど1に近づく（青天井ではない）
-        const steepness = Math.min(Math.abs(dy) / (Math.abs(endX - startX) + distanceX), 1);
-        const verticalPull = dy * 0.3 * steepness;
-        const cp1x = startX + distanceX;
-        const cp1y = startY + verticalPull;
-        const cp2x = endX - distanceX;
-        const cp2y = endY - verticalPull;
-
-        const d = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
+        // 経路（角丸のエルボー型コネクタ）の計算はconnectorPath.tsに切り出してある
+        // （「線がたるんで見える」不具合が2回報告されており、単体テストで守れるように
+        // するため。経緯・仕組みの詳細はそちらのコメント参照）
+        const d = computeConnectorPath({ x: startX, y: startY }, { x: endX, y: endY });
         const id = `${link.parentId}-${link.childId}`;
 
         newPaths.push({ id, d, color: link.color });
@@ -185,7 +164,15 @@ export function ConnectionsOverlay<T extends TreeNodeLike>({
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
-        zIndex: 0,
+        // ノードの折りたたみ帯やお気に入り印などの装飾バッジ(position:absolute)は
+        // z-index未指定(auto)で、このSVGより後にDOM上へ描画される。z-indexが同じ
+        // (auto同士、またはautoと明示的な0)場合はDOM順で決まるため、このSVGにz-index:0の
+        // ままだとノード側の装飾が上に乗ってしまい、接続線の一部がバッジの丸い縁で欠けて
+        // 見える（列間隔が狭く接続線がノードのすぐ際を通るこのアプリでは特に、折りたたみ
+        // 開閉バッジの丸ボタンとほぼ重なるため目立っていた。2026-09-30ユーザー報告：
+        // 「線の中央が直線にならない」の実体はこれだった）。ノード装飾より確実に上へ
+        // 描画されるよう、z-indexを引き上げる
+        zIndex: 5,
         overflow: 'visible',
       }}
     >

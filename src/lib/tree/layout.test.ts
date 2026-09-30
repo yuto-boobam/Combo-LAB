@@ -151,6 +151,43 @@ describe('computeTreeLayout', () => {
     expect(gapBC).toBe(110);
   });
 
+  it('子が3人（奇数）の時、親は最初と最後の平均ではなく、真ん中の子とぴったり同じ高さになる', () => {
+    // root -> a(浅い部分木) / b(真ん中、葉のみ) / c(深く枝分かれする重い部分木)
+    // aとcの部分木の重さが不揃いなので、「最初と最後の子の中心の平均」だとbの位置とは
+    // ズレる。真ん中の子(b)とrootの高さが厳密に一致することを確認する
+    // （2026-09-30ユーザー指摘：親を子の中心の平均ではなく、木の中心＝真ん中の子に
+    // 合わせるべき、という方針への変更）
+    const root = node('root', [
+      node('a'),
+      node('b'),
+      node('c', [node('c1'), node('c2'), node('c3')]),
+    ]);
+    const heights = { root: 80, a: 50, b: 50, c: 50, c1: 50, c2: 50, c3: 50 };
+
+    const layout = computeTreeLayout(root, new Set(), heights, CONFIG);
+
+    const centerOf = (id: string) => {
+      const pos = layout.positions.get(id)!;
+      return pos.y + pos.height / 2;
+    };
+
+    expect(centerOf('root')).toBe(centerOf('b'));
+  });
+
+  it('子が4人（偶数）の時、親は真ん中2人の子の中心の平均になる', () => {
+    const root = node('root', [node('a'), node('b'), node('c'), node('d')]);
+    const heights = { root: 80, a: 50, b: 50, c: 50, d: 50 };
+
+    const layout = computeTreeLayout(root, new Set(), heights, CONFIG);
+
+    const centerOf = (id: string) => {
+      const pos = layout.positions.get(id)!;
+      return pos.y + pos.height / 2;
+    };
+
+    expect(centerOf('root')).toBe((centerOf('b') + centerOf('c')) / 2);
+  });
+
   it('分岐後は二度と交わらないため、片方の枝が幅広でも、もう片方の枝の子孫の位置には影響しない', () => {
     // root -> a(leaf, 幅広400) / b -> b1(子)
     const root = node('root', [node('a'), node('b', [node('b1')])]);

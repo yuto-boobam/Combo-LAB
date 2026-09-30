@@ -158,10 +158,22 @@ export function computeTreeLayout<T extends TreeNodeLike>(
       cursorY += dropZonePad;
     });
 
-    // 直接の子どもたち（最初と最後）の中心に自分を合わせる。
-    // ただし自分の持ち場（[topY, topY + required]）からはみ出さないよう安全域にクランプする。
+    // 自分のY座標は、直接の子どもたちの「中央値」に合わせる（子2人なら2人の中間、
+    // 3人なら真ん中の子とぴったり同じ高さ、4人なら真ん中2人の中間）。
+    // 以前は最初と最後の子の中心の平均（tidy treeレイアウトの定番）を使っていたが、
+    // 兄弟同士の部分木の大きさが不揃いだと、これが「3人兄弟の真ん中」の実際の位置とは
+    // 一致せず、親と真ん中の子の高さがわずかにズレてしまっていた。このズレが原因で、
+    // 見た目には「ほぼ同じ高さ」の親子リンクでも実際にはdyが0にならず、
+    // ConnectionsOverlay.tsx側の接続線がわずかに斜めの角丸エルボーになって
+    // 「たるんで」見えていた（2026-09-30ユーザー指摘：真ん中の子から親に高さを
+    // 合わせに行くのではなく、そもそも親を木の中心＝真ん中の子に合わせるべき、との方針）。
+    // childCentersは子を追加した順（＝Y座標が小さい順）にそのまま並んでいるため、
+    // ソートし直さずインデックスの中央値がそのまま使える。
+    const midIndex = Math.floor(childCenters.length / 2);
     const rawCenter =
-      (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
+      childCenters.length % 2 === 1
+        ? childCenters[midIndex]
+        : (childCenters[midIndex - 1] + childCenters[midIndex]) / 2;
     const nodeY = Math.min(
       Math.max(rawCenter - own / 2, topY),
       topY + required - own,
