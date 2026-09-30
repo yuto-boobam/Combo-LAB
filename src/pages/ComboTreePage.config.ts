@@ -25,6 +25,11 @@ export const TREE_LAYOUT_CONFIG: TreeLayoutConfig = {
 /** キャンバス端の余白(px) */
 export const CANVAS_PADDING = 48;
 
+/** サイドドロワーの幅(px)。SideDrawerPanel.tsxと共有し、ドロワーが開いた時にキャンバスの
+ * 右端付近のノードが隠れないよう、キャンバス右側の余白を確保する分にも使う
+ * （2026-09-30ユーザー指摘） */
+export const DRAWER_WIDTH = 400;
+
 /** 1キャラが複数の木（森）を持つ場合、木と木の縦の間隔(px)。ラベル表示分の余白も含む */
 export const TREE_BLOCK_GAP = 48;
 

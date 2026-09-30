@@ -54,9 +54,15 @@ function App() {
     // 前回選んでいたキャラクターのコンボ画面や使い方ガイドへ自動で飛んでしまう
     // 不具合を防ぐ（2026-08-31ユーザー指摘）。'TOKEN_REFRESHED'等、操作中に
     // バックグラウンドで発火するイベントまでリセット対象にすると、閲覧中に
-    // 突然キャラ選択画面へ戻される規模の大きい不具合になるため、対象は限定する
+    // 突然キャラ選択画面へ戻される規模の大きい不具合になるため、対象は限定する。
+    // ただし'SIGNED_IN'は、別タブを見てから戻ってきた時のセッション再検証でも
+    // 同じユーザーのまま再度発火することがある（Supabase既知の挙動）ため、
+    // ユーザーIDが実際に変わった時（＝本当のログイン）だけリセットする
+    // （2026-09-14ユーザー指摘：別タブから戻るとホーム画面に戻ってしまう不具合）
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN') goToCharacterSelect();
+      const previousUserId = useAppStore.getState().user?.id ?? null;
+      const nextUserId = session?.user?.id ?? null;
+      if (event === 'SIGNED_IN' && previousUserId !== nextUserId) goToCharacterSelect();
       setUser(session?.user ?? null);
     });
 

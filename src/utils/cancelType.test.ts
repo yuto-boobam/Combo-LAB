@@ -13,8 +13,6 @@ function makeHit(overrides: Partial<MoveHitStats> = {}): MoveHitStats {
     dGaugeChipPunishCounter: null,
     minDamageGuaranteePercent: null,
     dGaugeGainDuringRush: null,
-    groundPlusFrame: '',
-    airPlusFrame: '',
     cancelType: null,
     ...overrides,
   };

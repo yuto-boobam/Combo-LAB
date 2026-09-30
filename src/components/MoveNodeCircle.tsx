@@ -4,18 +4,15 @@
 // 幅は固定し、高さは技名の行数（最大2行）に応じて伸縮させることで、
 // 円形だった頃より縦のスペースを取らないようにしている。
 
-import { useState } from 'react';
 import type { MoveNode } from '../types';
 import {
   resolveNodeVisualStyle,
   NODE_BODY_COLOR_VAR,
   NODE_BORDER_COLOR_VAR,
-  CANCEL_RUSH_MOVE_NAME,
 } from '../utils/nodeVisualStyle';
 import { NODE_DEFAULT_HEIGHT, isTutorialNode, nodeWidthFor } from '../utils/nodeSizing';
-import { applyManualLineBreaks } from '../utils/textDisplay';
-
-type DraggedNodeData = { id: string; parentId: string | null; index: number };
+import { applyManualLineBreaks, resolveDisplayLabel } from '../utils/textDisplay';
+import { useDragOverZone, useIsDragSource } from '../utils/nodeDragController';
 
 type Props = {
   node: MoveNode;
@@ -24,9 +21,11 @@ type Props = {
   onClick: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
-  parentId: string | null;
-  dragIndex: number;
-  onDrop: (draggedData: DraggedNodeData) => void;
+  // ドラッグ開始（mousedown）時に呼ぶ。ドラッグ元・ドロップ先の判定や実際の付け替え/
+  // 並び替え処理はすべてnodeDragController.tsのstartNodeDragが行うため、呼び出し側
+  // （ComboTreePage.tsx）はcharacterId・このノードのidとparentIdを渡すだけの
+  // 薄いラッパーを渡せばよい（isRootのノード等、渡さない場合はドラッグ不可になる）
+  onDragMouseDown?: (event: React.MouseEvent) => void;
   readOnly?: boolean;
   // コピーモード関連（コピーモード中でない時はすべて未指定でよい）
   isCopyModeActive?: boolean;
@@ -40,8 +39,6 @@ type Props = {
   isGroupSelected?: boolean;
   // 展開表示中の名前付きグループの先頭ノードにのみ渡す。「折りたたむ」バッジを出す
   groupBadge?: { groupName: string; onCollapse: () => void };
-  // クリップボードをドラッグ&ドロップで貼り付けられた時に呼ばれる
-  onPasteDrop?: () => void;
   // trueの間、枠をパルスさせて注意を引く（誘導ガイド向け。呼び出し側が
   // 「今このノードをクリックしてほしい」を判断する）
   isGuideTarget?: boolean;
@@ -54,9 +51,7 @@ export function MoveNodeCircle({
   onClick,
   isExpanded = true,
   onToggleExpand,
-  parentId,
-  dragIndex,
-  onDrop,
+  onDragMouseDown,
   readOnly = false,
   isCopyModeActive = false,
   isCopyAnchor = false,
@@ -67,27 +62,28 @@ export function MoveNodeCircle({
   isGroupCandidate = false,
   isGroupSelected = false,
   groupBadge,
-  onPasteDrop,
   isGuideTarget = false,
 }: Props) {
-  const [isDragOver, setIsDragOver] = useState(false);
   const isLeaf = node.children.length === 0;
   const visual = resolveNodeVisualStyle(node.moveName, node.attributes);
 
-  // 「キャンセルラッシュ」は名前が長く見切れやすいため、呼び名が未設定の場合に限り
-  // デフォルトで改行位置を指定する（呼び名が設定されていればそちらを優先する）
-  const displayLabel =
-    !node.displayName && node.moveName === CANCEL_RUSH_MOVE_NAME
-      ? 'キャンセル｜ラッシュ'
-      : node.displayName || node.moveName;
+  const displayLabel = resolveDisplayLabel(node);
 
   const isPicked = isCopyAnchor || isCopySelected || isGroupAnchor || isGroupSelected;
+  // 他のノードをドラッグ中、自分の上にカーソルが重なっているか、重なっているなら
+  // 子として追加('child')・直前/直後に兄弟として挿入('before'/'after')のどれを指しているか。
+  // 以前のHTML5 D&D実装ではonDragOver由来のisDragOver状態でこの枠色ハイライトを出していた
+  const dragOverZone = useDragOverZone(node.id);
+  const isDragOverChild = dragOverZone === 'child';
+  // 自分自身がドラッグされている最中か。以前はブラウザの標準D&Dが自動でドラッグ元を
+  // 半透明にしていたが、mousedownベースの自前実装ではその見た目が無いため、ここで代替する
+  const isDragSource = useIsDragSource(node.id);
 
   // コピー/グループ化モード中は「起点/候補ではないノード」をクリックできないようにするため、
   // 通常の選択リング（isSelected）ではなくそれ専用の枠色を優先する
   const borderColor = isPicked
     ? 'var(--accent)'
-    : isDragOver || isSelected
+    : isDragOverChild || isSelected
       ? 'var(--accent)'
       : NODE_BORDER_COLOR_VAR[visual.borderColorKind];
 
@@ -99,36 +95,9 @@ export function MoveNodeCircle({
   return (
     <div
       id={`node-${node.id}`}
-      draggable={!isRoot && !readOnly && !isDisabledMode}
-      onDragStart={(event) => {
-        if (readOnly || isDisabledMode) return;
-        event.dataTransfer.setData(
-          'application/json',
-          JSON.stringify({ id: node.id, parentId, index: dragIndex }),
-        );
-        event.dataTransfer.effectAllowed = 'move';
-      }}
-      onDragOver={(event) => {
-        if (readOnly) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-        setIsDragOver(true);
-      }}
-      onDragLeave={() => setIsDragOver(false)}
-      onDrop={(event) => {
-        if (readOnly) return;
-        event.preventDefault();
-        setIsDragOver(false);
-        try {
-          const data = JSON.parse(event.dataTransfer.getData('application/json'));
-          if (data?.kind === 'clipboard-paste') {
-            onPasteDrop?.();
-          } else if (data?.id) {
-            onDrop(data);
-          }
-        } catch (error) {
-          console.error('Drop error', error);
-        }
+      onMouseDown={(event) => {
+        if (isRoot || readOnly || isDisabledMode) return;
+        onDragMouseDown?.(event);
       }}
       onClick={onClick}
       className="flex flex-col items-center justify-center select-none"
@@ -138,16 +107,34 @@ export function MoveNodeCircle({
         borderRadius: 'var(--radius-lg)',
         position: 'relative',
         background: NODE_BODY_COLOR_VAR[visual.bodyColorKind],
-        border: `${visual.borderWidth === 'thick' || isPicked ? 3 : 1.5}px ${isCopyAnchor || isGroupAnchor ? 'dashed' : visual.borderStyle} ${borderColor}`,
-        boxShadow: isSelected ? '0 0 0 3px var(--accent-glow)' : 'none',
+        border: `${visual.borderWidth === 'thick' || isPicked || isDragOverChild ? 3 : 1.5}px ${isCopyAnchor || isGroupAnchor ? 'dashed' : visual.borderStyle} ${borderColor}`,
+        boxShadow: isSelected || isDragOverChild ? '0 0 0 3px var(--accent-glow)' : 'none',
         padding: '5px 6px',
         textAlign: 'center',
-        opacity: isInactiveDuringMode ? 0.35 : 1,
+        opacity: isDragSource ? 0.4 : isInactiveDuringMode ? 0.35 : 1,
         cursor: isInactiveDuringMode ? 'default' : 'pointer',
         transition: 'border-color 0.15s, box-shadow 0.15s, opacity 0.15s',
         ...(isGuideTarget ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
       }}
     >
+      {/* ドロップ先の上寄り/下寄りにカーソルがある間だけ、挿入先を示す線を出す
+          （中央付近＝子として追加ならisDragOverChildのボーダー光で示すため、ここでは出さない） */}
+      {(dragOverZone === 'before' || dragOverZone === 'after') && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            [dragOverZone === 'before' ? 'top' : 'bottom']: -4,
+            height: 3,
+            borderRadius: 999,
+            background: 'var(--accent)',
+            boxShadow: '0 0 6px var(--accent)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
       {(isCopySelected || isGroupSelected) && (
         <span
           title={isGroupSelected ? 'グループ化対象' : 'コピー対象'}
@@ -200,20 +187,37 @@ export function MoveNodeCircle({
         </button>
       )}
 
-      {visual.hasDelay && (
-        <span
-          title={node.specialNote || 'ディレイ'}
-          style={{
-            position: 'absolute',
-            top: -2,
-            right: -2,
-            width: 11,
-            height: 11,
-            borderRadius: '50%',
-            background: 'var(--node-delay-badge)',
-            border: '1.5px solid var(--bg-surface)',
-          }}
-        />
+      {/* ディレイ・コンボ終了は、チェックを入れたこと自体が見た目でも分かるよう
+          小さなバッジで示す（2026-09-30ユーザー要望）。両方並ぶ場合に重ならないよう
+          1つの行にまとめる。ディレイ＝丸・ピンク、コンボ終了＝角・赤で形と色の両方を
+          変え、小さいサイズでも見分けやすくしている */}
+      {(visual.hasDelay || visual.hasComboEnd) && (
+        <div style={{ position: 'absolute', top: -2, right: -2, display: 'flex', gap: 3 }}>
+          {visual.hasDelay && (
+            <span
+              title={node.specialNote || 'ディレイ'}
+              style={{
+                width: 11,
+                height: 11,
+                borderRadius: '50%',
+                background: 'var(--node-delay-badge)',
+                border: '1.5px solid var(--bg-surface)',
+              }}
+            />
+          )}
+          {visual.hasComboEnd && (
+            <span
+              title="コンボ終了（ここで1本のコンボが終わり、以降は別のコンボとして計算されます）"
+              style={{
+                width: 11,
+                height: 11,
+                borderRadius: 3,
+                background: 'var(--node-combo-end-badge)',
+                border: '1.5px solid var(--bg-surface)',
+              }}
+            />
+          )}
+        </div>
       )}
 
       {node.branchStats?.isFavorite && (

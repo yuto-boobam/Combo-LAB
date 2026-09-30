@@ -5,7 +5,9 @@
 import type { CSSProperties, ReactNode } from 'react';
 
 type AccordionSectionProps = {
-  title: string;
+  // 長い技名等で改行位置を指定したい呼び出し元向けに、文字列だけでなくReactNode
+  // （<br/>を含むフラグメント等）も渡せるようにしている
+  title: ReactNode;
   icon: string;
   count: number;
   isOpen: boolean;
@@ -48,6 +50,10 @@ export default function AccordionSection({
       >
         <span style={styles.sectionTitle}>
           <span>{icon}</span>
+          {/* titleが複数のReactNode（例: ラベルと技名を別々のwhiteSpace:nowrapなspan）で
+              構成される場合、それぞれがsectionTitle（flexWrap:wrap）の独立したflexアイテムに
+              なるため、収まらない時だけ技名側がまるごと次の行へ折り返る（アイテムの途中で
+              千切れない）。折り返した行もflex-start基準で左端から始まる */}
           {title}
         </span>
 
@@ -84,11 +90,19 @@ const styles: Record<string, CSSProperties> = {
     width: '100%',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    // titleが2行になる場合（<br/>を含むReactNode）に、アイコン・件数バッジ・シェブロンが
+    // 2行ぶんの高さの中央（＝行と行の間）に来て中途半端な位置に見えてしまっていたため、
+    // 先頭行の高さに揃うよう上寄せにする（1行だけのtitleでは見た目に影響しない。
+    // 2026-09-21ユーザー指摘）
+    alignItems: 'flex-start',
     gap: 10,
     border: 0,
     background: 'var(--bg-elevated)',
     color: 'var(--text-primary)',
+    // <button>要素はブラウザ既定でtext-align:centerが当たるため、titleが2行になった時に
+    // 短い方の行だけ中央寄せに見えてしまっていた。明示的に左揃えへ戻す
+    // （2026-09-22ユーザー指摘）
+    textAlign: 'left',
     padding: '9px 11px',
     minHeight: 40,
     cursor: 'pointer',
@@ -96,7 +110,12 @@ const styles: Record<string, CSSProperties> = {
 
   sectionTitle: {
     display: 'inline-flex',
-    alignItems: 'center',
+    // 上のsectionHeaderと同じ理由。アイコンをtitleの1行目と揃える
+    alignItems: 'flex-start',
+    // titleが「ラベル＋技名」のように複数のReactNodeで構成される場合、収まらない時だけ
+    // 技名側を折り返す（呼び出し側でそれぞれをwhiteSpace:nowrapにして、技名の途中で
+    // 折り返されないようにする。折り返した2行目もflex-start基準で左端から始まる）
+    flexWrap: 'wrap',
     gap: 8,
     fontSize: 13,
     fontWeight: 900,

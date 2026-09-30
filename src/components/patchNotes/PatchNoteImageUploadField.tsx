@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { uploadPatchNoteImage } from '../../services/patchNotesService';
+import { resolvePatchNoteImageUrl } from '../../utils/resolvePatchNoteImageUrl';
 
 interface PatchNoteImageUploadFieldProps {
   displayLabel: string;
@@ -79,7 +80,7 @@ export default function PatchNoteImageUploadField({
 
       {value && (
         <img
-          src={value}
+          src={resolvePatchNoteImageUrl(value)}
           alt={`${displayLabel}プレビュー`}
           style={styles.preview}
           onError={(event) => {

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { resolveNodeVisualStyle } from './nodeVisualStyle';
 import type { NodeAttribute } from '../types';
 
-const attr = (type: Exclude<NodeAttribute['type'], 'characterLimited' | 'positionLimited' | 'other'>): NodeAttribute => ({
+const attr = (
+  type: Exclude<
+    NodeAttribute['type'],
+    'characterLimited' | 'positionLimited' | 'other' | 'wallSplat' | 'stun'
+  >,
+): NodeAttribute => ({
   type,
 });
 
@@ -17,6 +22,7 @@ describe('resolveNodeVisualStyle', () => {
       borderWidth: 'normal',
       borderStyle: 'solid',
       hasDelay: false,
+      hasComboEnd: false,
     });
   });
 
@@ -115,6 +121,12 @@ describe('resolveNodeVisualStyle', () => {
   it('ディレイ属性はhasDelayを立てるが、色には影響しない', () => {
     const result = style('技', [attr('delay')]);
     expect(result.hasDelay).toBe(true);
+    expect(result.bodyColorKind).toBe('default');
+  });
+
+  it('コンボ終了属性はhasComboEndを立てるが、色には影響しない', () => {
+    const result = style('技', [attr('comboEnd')]);
+    expect(result.hasComboEnd).toBe(true);
     expect(result.bodyColorKind).toBe('default');
   });
 });

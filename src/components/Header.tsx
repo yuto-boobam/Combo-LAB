@@ -50,6 +50,11 @@ interface HeaderProps {
   // rightSlotとは違い、パッチノート／バックアップ／ログアウトより後ろ（右端）に表示する。
   // ページ固有の常設ボタン（例: サイドドロワー開閉）向け。
   trailingSlot?: ReactNode;
+  // 1行目（ブランド・パッチノート・バックアップ・ログアウトなど）が横幅不足で
+  // 詰まってしまう問題への対応。2行目（現在位置の行）の右側に空きがあるため、
+  // 表示モード切り替えやズームなどページ固有の操作系はこちらへ置く
+  // （2026-09-14ユーザー指摘：ウェブ側レイアウトのスペース不足）
+  secondRowRightSlot?: ReactNode;
   // 指定すると「エクスポート」「上書き保存」がこのキャラ1人分だけを対象にする。
   // 未指定（例: キャラ選択画面）の場合はその2項目自体を出さない。
   character?: Character;
@@ -64,6 +69,7 @@ export default function Header({
   breadcrumbs,
   rightSlot,
   trailingSlot,
+  secondRowRightSlot,
   character,
 }: HeaderProps) {
   const isGuest = useAppStore((state) => state.isGuest);
@@ -278,7 +284,10 @@ export default function Header({
     breadcrumbs && breadcrumbs.length > 0 ? breadcrumbs : title ? [title] : [];
 
   const hasSecondRow =
-    Boolean(breadcrumbsSlot) || breadcrumbItems.length > 0 || Boolean(subtitle);
+    Boolean(breadcrumbsSlot) ||
+    breadcrumbItems.length > 0 ||
+    Boolean(subtitle) ||
+    Boolean(secondRowRightSlot);
 
   return (
     <>
@@ -515,6 +524,10 @@ export default function Header({
                 </nav>
               )}
             </div>
+
+            {secondRowRightSlot && (
+              <div style={styles.secondRowRightSlot}>{secondRowRightSlot}</div>
+            )}
           </div>
         )}
       </header>
@@ -704,11 +717,19 @@ const styles: Record<string, CSSProperties> = {
   secondRow: {
     minHeight: 34,
     display: 'flex',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 10,
+    rowGap: 6,
     padding: '5px 12px 8px',
     borderTop: '1px solid var(--border)',
     boxSizing: 'border-box',
+  },
+  secondRowRightSlot: {
+    flex: '0 0 auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
   },
   breadcrumbLabel: {
     flex: '0 0 auto',

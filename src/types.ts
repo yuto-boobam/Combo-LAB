@@ -52,11 +52,14 @@ export type MoveDefinition = {
    */
   specialVariantsByStrength?: Partial<Record<MoveStrength, string[]>>;
   /**
-   * SA(superArt)・特殊性能ありの技のみで使う。trueなら「この技は常にコンボの締め（末端）で
-   * 使う」という前提とし、特殊性能を選んだ時にノード名へ焼き込まず（技名は素のまま、
-   * 例:「SA1」）、代わりに末端ノードの`ComboBranchStats.finishingSpecialVariant`へ直接
-   * セットする（MoveNamePicker/SideDrawerPanel参照）。falseまたは未設定なら従来通り
-   * `${技名}(${特殊性能})`をノード名に焼き込む（この後さらに技を繋げる可能性がある技向け）
+   * SA(superArt)・必殺技(special)を問わず、特殊性能ありの技でのみ使う。trueなら「特殊性能を
+   * 選んでも技名は変えず、実際に使った特殊性能は末端ノードのbranchStats側で持つ」という
+   * 前提とし、特殊性能を選んだ時にノード名へ焼き込まず（技名は素のまま、例:「SA1」
+   * 「弱ランヴェルセ」）、代わりに末端ノードの`ComboBranchStats.finishingSpecialVariant`へ
+   * 直接セットする（MoveNamePicker/SideDrawerPanel参照）。falseまたは未設定なら従来通り
+   * `${技名}(${特殊性能})`をノード名に焼き込む（この後さらに技を繋げる可能性がある技向け）。
+   * マネージュ・ドレのメダルLvのように「木では同じ技名のまま使い、実際のレベルは枝ごとに
+   * 違う」場合はtrueにする（2026-09-30ユーザー要望：SA以外の必殺技にも対応）
    */
   finishesComboOnSelect?: boolean;
   /**
@@ -73,6 +76,19 @@ export type MoveDefinition = {
    *   手順自体が不要な技向け。旧`hasFlatVariants: true`に相当）
    */
   strengthMode?: SpecialMoveStrengthMode;
+  /**
+   * 必殺技(special)のみで使う。「追加入力による追撃部分は別の技として扱われ、補正が
+   * 別に乗る」ゲーム固有の仕様に対応するため、追撃部分は元の必殺技とは別のMoveDefinition
+   * として登録し、木の上では元の技のノードの子ノードとして繋ぐ（1段目→2段目をそれぞれ
+   * 独立したノードにすることで、補正の自動計算はそのまま正しく機能する）。
+   * この技が「特定の技の直後にしか出せない派生技」の場合、ここにその基点となる技名
+   * （MoveDefinition.name。強度接頭辞は含めない素の名前）を設定すると、木にノードを
+   * 追加/変更する際、直前のノード（親ノード）の技名（強度を除いた素の名前）がこれと
+   * 一致する場合しか選べなくなる（MoveNamePicker参照）。これにより「本来ありえない
+   * 場所に派生技だけを単体で置いてしまう」誤登録を防ぐ。未設定＝制約なし
+   * （2026-09-17ユーザー要望）
+   */
+  requiredPrecedingMoveName?: string;
 };
 
 // ── ノードの属性 ──────────────────────────────────────────────────────────
@@ -90,17 +106,46 @@ export type NodeAttributeType =
   | 'airHit'           // 空中ヒット
   | 'delay'            // ディレイ
   | 'okizeme'          // 起き攻め
-  | 'other';           // その他
+  | 'other'            // その他
+  // 以下3つは色を割り当てず（本体色/枠線色グループには含めない）、独立したチェックボックス
+  // として追加した属性（2026-09-26ユーザー要望）。
+  // wallSplat・stun・airPunishCounterは共通システム技「インパクト」でしか起こらないため、
+  // 技名が「インパクト」のノードでのみ選べるようにする
+  // （AttributeEditor.tsxのisImpactMove参照。2026-09-30ユーザー指定：以前はwallSplat・stunが
+  // 末端ノード限定・airPunishCounterは無制限だったが、インパクト限定に統一した）。
+  // wallSplat・stunはガードで受けた場合とヒットした場合とで状況が大きく異なるため、
+  // チェックを入れた後に「ガード」「ヒット」のどちらだったかを選べるようにする
+  // （下記NodeAttributeのhitOrGuard参照。2026-09-27ユーザー指摘：単に有無だけでなく
+  // ガード/ヒットを選べるようにしたい）
+  | 'wallSplat'        // 壁やられ
+  | 'airPunishCounter' // 空中パニカン
+  | 'stun'             // スタン
+  // このノードで1本のコンボを終える（この後に続くノードは、起き攻めセットアップなど
+  // 別のコンボの始まりとして扱う）目印。ダメージ補正計算をここで区切って独立させるための
+  // 境界として使う（src/utils/comboGaugeCalc.tsのsplitPathIntoComboSegments参照）。
+  // インパクト技のノードでは表示しない（AttributeEditor.tsx参照。2026-09-30ユーザー要望）
+  | 'comboEnd';         // コンボ終了
+
+/** wallSplat・stun属性が「ガードで発生したか」「ヒットで発生したか」。未選択はnull */
+export type ImpactHitOrGuard = 'guard' | 'hit';
 
 /**
  * characterLimited / positionLimited / other は自由記述メモを伴う。
+ * wallSplat / stun は発生条件（ガード/ヒット、未選択ならnull）を伴う。
  * それ以外は type だけで意味が完結する。
  */
 export type NodeAttribute =
   | { type: 'characterLimited'; note: string }
   | { type: 'positionLimited'; note: string }
   | { type: 'other'; note: string }
-  | { type: Exclude<NodeAttributeType, 'characterLimited' | 'positionLimited' | 'other'> };
+  | { type: 'wallSplat'; hitOrGuard: ImpactHitOrGuard | null }
+  | { type: 'stun'; hitOrGuard: ImpactHitOrGuard | null }
+  | {
+      type: Exclude<
+        NodeAttributeType,
+        'characterLimited' | 'positionLimited' | 'other' | 'wallSplat' | 'stun'
+      >;
+    };
 
 // ── 枝（コンボ）の統計情報 ──────────────────────────────────────────────────
 
@@ -121,11 +166,28 @@ export type ComboBranchStats = {
   /**
    * この枝で相手のDゲージを削った量。SAのヒットが相手のDゲージを削る仕様
    * （`MoveHitStats.dGaugeChipPunishCounter`、SAに限り「ヒット時」の削り量として扱う）
-   * に基づく。ジャストパリィ始動（常にパニッシュカウンター扱い）の場合は自動計算側で
-   * 半分にする（実機確認済み。攻撃側自身のDゲージ増減=dGaugeChangeとは独立）
+   * に基づく。SA以外でも`punishCounter`属性が付いたノード（始動技候補の「PC」条件選択時等）
+   * は同じ値をヒット時の削り量として加算する。ジャストパリィ始動（常にパニッシュカウンター
+   * 扱い）の場合は自動計算側で半分にする（実機確認済み。攻撃側自身のDゲージ増減=
+   * dGaugeChangeとは独立）
    */
   opponentDGaugeChip: number | null;
   saGaugeGain: number | null;
+
+  /**
+   * damage/opponentDGaugeChip/dGaugeChange/saGaugeGainの4欄が、自動計算値に追従したままか
+   * （true）、ユーザーが手で書き換えて固定されたか（false）。trueの間はSideDrawerPanel.tsxの
+   * 自動計算欄への反映useEffectが、経路上の技データが後から変わって計算結果が変化するたびに
+   * 欄の値を常に最新へ上書きし続ける。falseになったら（NumberField/GaugeChangeFieldで
+   * ユーザーが直接値を入力した時点で自動的にfalseになる）、「自動計算に戻す」ボタンを押すか
+   * 前提そのものが変わってupdateAndResetAutoFieldsでnullに戻るまで上書きされない
+   * （2026-09-29ユーザー指摘：技データを後から修正しても、既に自動入力済みの欄が古い値の
+   * まま反映されない問題を解消したい）
+   */
+  isDamageAutoSynced: boolean;
+  isOpponentDGaugeChipAutoSynced: boolean;
+  isDGaugeChangeAutoSynced: boolean;
+  isSaGaugeGainAutoSynced: boolean;
 
   damageRating: Rating5 | null;
   dGaugeRating: Rating5 | null;
@@ -138,11 +200,10 @@ export type ComboBranchStats = {
   difficultyRating: Rating5 | null;
   overallRating: Rating5 | null;
 
-  plusFrame: number | null; // 具体的なフレーム数（例: +3）
-  /** プラスフレームが地上ヒット/空中ヒットのどちらの当たり方に基づくものかの選択。
-   * 技データ側のgroundPlusFrame/airPlusFrameのどちらを参照・表示するかの切り替えに使う。
-   * null = 未選択（従来通りplusFrameを自由入力するだけ） */
-  plusFrameHitType: 'ground' | 'air' | null;
+  // 具体的なフレーム数（例: +3）。ケースバイケースで変わりやすいため、技データ側の
+  // プリセットは持たずコンボの枝ごとに都度手入力する（2026-09-29ユーザー要望で
+  // 技データ側のgroundPlusFrame/airPlusFrameおよびそれを参照する仕組みを廃止）
+  plusFrame: number | null;
   isThrowRange: boolean;
   canOkizeme: boolean;
 
@@ -193,6 +254,16 @@ export type ComboBranchStats = {
    * 通常の木（rootが実技）では常にnullのままでよい
    */
   startingMoveNames: string[] | null;
+
+  /**
+   * startingMoveNamesで選んだ始動技チェーンの最後の技（続きに直接つながる技）が
+   * 複数ヒット技の場合に、実際に何段目でキャンセルしたか（1始まり）。
+   * null＝キャンセルしていない（全段ヒットしたものとして計算する）。
+   * 技マスタ側でその段にキャンセル種類（MoveHitStats.cancelType）が設定されている
+   * 段だけが選択候補になる（2026-09-16ユーザー要望：多段技の始動技でキャンセルの
+   * 有無を判別できるようにしたい）。詳細はsrc/utils/comboGaugeCalc.tsのresolveStartingMove参照
+   */
+  startingMoveCancelHitIndex: number | null;
 };
 
 // ── ノード（技） ──────────────────────────────────────────────────────────
@@ -296,20 +367,13 @@ export type MoveHitStats = {
   dGaugeGain: number | null;  // ヒット時のDゲージ回復量
   saGaugeGain: number | null; // SAゲージ回収量（SAだけ「消費量」として扱う。MoveStatsPage参照）
   dGaugeChip: number | null;  // ガードされた時に相手のDゲージを削る量
-  dGaugeChipPunishCounter: number | null; // パニッシュカウンターでガードされた時に相手のDゲージを削る量（SAだけ「ヒット時」の削り量として扱う。MoveStatsPage参照）
+  dGaugeChipPunishCounter: number | null; // パニッシュカウンターでガードされた時に相手のDゲージを削る量（SAは「ヒット時」の削り量として扱う。それ以外でも枝のノードにpunishCounter属性が付いていれば同様にヒット時の削り量として加算される。MoveStatsPage・comboGaugeCalc.tsのcalculateBranchOpponentDGaugeChip参照）
   // コンボ補正で減っても、ダメージがこの割合(%)を下回らないという最低保証(SA3は50%等)。
   // 主にSA用だが型自体は全カテゴリ共通のMoveHitStatsに置く
   minDamageGuaranteePercent: number | null;
   // キャンセルラッシュ中にこの技をヒットさせた時のDゲージ回復量。SA以外は一律0として扱うため、
   // SA技だけ個別の値（SA1/2は0、SA3は通常時と異なる値、等）を登録する。null = 未入力
   dGaugeGainDuringRush: number | null;
-
-  // 有利フレーム（地上ヒット時）の自由記述。単一の値（例:「+3」）だけでなく、技表通り幅を
-  // 持たせた表記（例:「+2~+4」）もそのまま入力できるようにmodifierと同じ文字列型にしている。
-  // 末端ノード側で締めの技に応じてこの範囲を表示する機能の元データになる想定。基本は空文字
-  groundPlusFrame: string;
-  // 有利フレーム（空中ヒット時）の自由記述。地上ヒットとは別に登録できるよう分けている
-  airPlusFrame: string;
 
   /**
    * この段（複数ヒット技なら段ごと、単発技ならhits[0]）の時点でどんなキャンセルができるか。

@@ -11,6 +11,7 @@ import { useAppStore, useVisibleCharacters } from '../store';
 import Header from '../components/Header';
 import { MoveNodeCircle } from '../components/MoveNodeCircle';
 import { GroupPillNode } from '../components/GroupPillNode';
+import { NodeDragGhost } from '../components/NodeDragGhost';
 import { SideDrawerPanel } from '../components/combo/SideDrawerPanel';
 import { ComboRankingList } from '../components/combo/ComboRankingList';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -18,8 +19,9 @@ import { hasGuestSeenTutorial } from '../utils/guestTutorialSession';
 import type { ComboTree, MoveNode } from '../types';
 import { resolveBorderColorKind, NODE_LINE_COLOR_VAR } from '../utils/nodeVisualStyle';
 import { findNodeInComboTrees } from '../utils/comboTreeSearch';
+import { startNodeDrag } from '../utils/nodeDragController';
 import { nodeWidthFor, GROUP_PILL_WIDTH } from '../utils/nodeSizing';
-import { applyManualLineBreaks } from '../utils/textDisplay';
+import { applyManualLineBreaks, resolveDisplayLabel } from '../utils/textDisplay';
 import { parseStarterMoveOptionsText, serializeStarterMoveOptions } from '../utils/starterMoveOptions';
 import { TUTORIAL_CHARACTER_ID } from '../data/tutorialCharacter';
 import {
@@ -41,14 +43,13 @@ import {
 import {
   TREE_LAYOUT_CONFIG,
   CANVAS_PADDING,
+  DRAWER_WIDTH,
   TREE_BLOCK_GAP,
   EXIT_TRANSITION_MS,
   MIN_ZOOM,
   MAX_ZOOM,
   ZOOM_STEP,
 } from './ComboTreePage.config';
-
-type DraggedNodeData = { id: string; parentId: string | null; index: number };
 
 // 木をまたいでも接続線・ドロップ先を判別できるよう、どの木に属するかをタグ付けする
 type TaggedColumn = TreeColumn<MoveNode> & { treeId: string };
@@ -66,11 +67,7 @@ type TreeBlock = {
   columns: TaggedColumn[];
 };
 
-const {
-  cardWidth: NODE_WIDTH,
-  rootWidth: ROOT_WIDTH,
-  dropZoneHeight: DROP_ZONE_HEIGHT,
-} = TREE_LAYOUT_CONFIG;
+const { cardWidth: NODE_WIDTH, rootWidth: ROOT_WIDTH } = TREE_LAYOUT_CONFIG;
 
 // 汎用コンボの木の見出し（TreeBlockHeader）は、ラベルの下に対象の始動技一覧をもう1行
 // 表示する分だけ余分に縦の高さを使う（2026-08-30ユーザー要望）。木同士の積み上げ位置
@@ -108,7 +105,6 @@ export function ComboTreePage() {
   const toggleNodeExpanded = useAppStore((state) => state.toggleNodeExpanded);
   const selectedNodeId = useAppStore((state) => state.selectedNodeId);
   const selectNode = useAppStore((state) => state.selectNode);
-  const moveNode = useAppStore((state) => state.moveNode);
   const deleteComboTree = useAppStore((state) => state.deleteComboTree);
   const moveComboTree = useAppStore((state) => state.moveComboTree);
   const renameComboTree = useAppStore((state) => state.renameComboTree);
@@ -116,7 +112,6 @@ export function ComboTreePage() {
   const copyModeAnchorId = useAppStore((state) => state.copyModeAnchorId);
   const copySelectedIds = useAppStore((state) => state.copySelectedIds);
   const toggleCopySelection = useAppStore((state) => state.toggleCopySelection);
-  const pasteClipboard = useAppStore((state) => state.pasteClipboard);
   const groupModeActive = useAppStore((state) => state.groupModeActive);
   const groupModeAnchorId = useAppStore((state) => state.groupModeAnchorId);
   const groupSelectedIds = useAppStore((state) => state.groupSelectedIds);
@@ -363,11 +358,12 @@ export function ComboTreePage() {
   const [zoom, setZoom] = useState(1);
 
   // ── サイドドロワーの開閉。長く続くコンボを画面いっぱいに見たい時に閉じられるようにする。
-  // チュートリアルキャラクターだけは、初回に「クリックして開く」を体験してもらうため
-  // 閉じた状態から始める（それ以外のキャラは従来通り開いた状態から始まる）
-  const [isDrawerOpen, setIsDrawerOpen] = useState(
-    () => character?.id !== TUTORIAL_CHARACTER_ID || alreadySeenTutorial,
-  );
+  // まだ1つもコンボの木を登録していない時だけ、始動技の入力を促すため自動で開いた
+  // 状態から始める。既にコンボがある場合は木を広く見られるよう閉じた状態から始める
+  // （チュートリアル用キャラクターは最初から用意されたコンボがあるため、このルールの
+  // ままで自然に閉じた状態になり、「クリックして開く」を体験してもらう導線もそのまま成立する）
+  // （2026-09-15ユーザー指摘：既にコンボがある時までドロワーが自動で開いてしまう不具合）
+  const [isDrawerOpen, setIsDrawerOpen] = useState(() => trees.length === 0);
 
   // ── コンボ/グループ表示モードの切り替え。「グループ」は名前付きグループの
   // 全出現箇所だけを一覧する読み取り中心のビュー（実データはcomboTreesのまま）
@@ -717,14 +713,10 @@ export function ComboTreePage() {
               : `${character.name} のコンボ評価一覧`
         }
         character={character}
-        rightSlot={
-          <>
+        secondRowRightSlot={
+          <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <ViewModeTabs mode={treeViewMode} onChange={handleTreeViewModeChange} />
             <ZoomBar zoom={zoom} onChange={setZoom} />
-          </>
-        }
-        trailingSlot={
-          <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* 使い方ガイドをもう一度行うためのボタン。ゲストを除きアカウント単位で
                 初回だけ自動的に誘導が始まり、以降はここから手動で再挑戦する
                 （2026-08-31ユーザー指定） */}
@@ -828,7 +820,21 @@ export function ComboTreePage() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* ── ツリービュー本体 */}
-        <div ref={scrollRef} className="flex-1 overflow-auto" style={{ position: 'relative' }}>
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-auto"
+          // 内側のキャンバス（木構造の実データ部分）だけでなく、コンボが1本も無い
+          // 空の状態やコンボの右側・下側の余白でも同じようにドラッグでパンできる
+          // ようにする（2026-09-30ユーザー要望：操作性向上のため、コンボが書かれて
+          // いない箇所でもパンできるようにしたい）。handleCanvasMouseDown自体は
+          // 「event.target === event.currentTarget（クリックした場所がそのdiv自身の
+          // 背景で、ノード等の子要素の上ではない）」の時しか反応しないガードを持つ
+          // ため、同じハンドラをここと内側のcanvas divの両方に付けても、ノード
+          // クリックを奪ってしまうことはない（バブリング時、targetは変わらず
+          // 内側divのままなので、外側のガードには一致せず二重発火しない）
+          onMouseDown={handleCanvasMouseDown}
+          style={{ position: 'relative', cursor: isPanning ? 'grabbing' : 'grab' }}
+        >
           {treeViewMode === 'list' ? (
             <ComboRankingList
               characterId={character.id}
@@ -849,7 +855,7 @@ export function ComboTreePage() {
             <div
               style={{
                 position: 'relative',
-                width: (activeForest.layout.width + CANVAS_PADDING * 2) * zoom,
+                width: (activeForest.layout.width + CANVAS_PADDING * 2 + DRAWER_WIDTH) * zoom,
                 height: (activeForest.layout.height + CANVAS_PADDING * 2 + tutorialClosingCtaExtraHeight) * zoom,
               }}
             >
@@ -859,7 +865,11 @@ export function ComboTreePage() {
                   position: 'absolute',
                   top: 0,
                   left: 0,
-                  width: activeForest.layout.width + CANVAS_PADDING * 2,
+                  // 右側だけ、サイドドロワーの幅ぶん常に余白を確保しておく。ドロワーが開くと
+                  // キャンバス自体の表示幅がドロワーの分だけ物理的に狭まるため、この余白が
+                  // 無いと右端付近のノードがドロワーの下に隠れたまま、スクロールしても
+                  // 追い切れなくなる（2026-09-30ユーザー指摘）
+                  width: activeForest.layout.width + CANVAS_PADDING * 2 + DRAWER_WIDTH,
                   height: activeForest.layout.height + CANVAS_PADDING * 2 + tutorialClosingCtaExtraHeight,
                   transform: `scale(${zoom})`,
                   transformOrigin: 'top left',
@@ -966,8 +976,14 @@ export function ComboTreePage() {
                           groupName={pillMeta.groupName}
                           memberCount={pillMeta.memberIds.length}
                           onExpand={() => toggleGroupExpanded(rootId)}
-                          parentId={null}
-                          dragIndex={0}
+                          onDragMouseDown={(event) =>
+                            startNodeDrag(
+                              character.id,
+                              { kind: 'node', id: rootId, parentId: null },
+                              event,
+                              pillMeta.groupName,
+                            )
+                          }
                           readOnly={isReadOnly}
                           isDisabledByOtherMode={copyModeAnchorId !== null || groupModeActive}
                         />
@@ -983,13 +999,7 @@ export function ComboTreePage() {
                             // 分岐しているノードだけ開閉ボタンを出す（2026-08-28ユーザー指定）
                             block.viewRoot.children.length > 1 ? () => toggleNodeExpanded(rootId) : undefined
                           }
-                          parentId={null}
-                          dragIndex={0}
                           readOnly={isReadOnly}
-                          onDrop={(draggedData: DraggedNodeData) => {
-                            if (draggedData.id === rootId) return;
-                            moveNode(character.id, block.tree.id, draggedData.id, rootId);
-                          }}
                           isCopyModeActive={copyModeAnchorId !== null}
                           isCopyAnchor={copyModeAnchorId === rootId}
                           isCopyCandidate={copyCandidateIds?.has(rootId) ?? false}
@@ -1006,7 +1016,6 @@ export function ComboTreePage() {
                                 }
                               : undefined
                           }
-                          onPasteDrop={() => pasteClipboard(character.id, block.tree.id, rootId)}
                         />
                       )}
                     </div>
@@ -1015,7 +1024,7 @@ export function ComboTreePage() {
 
                 {/* 各ノード */}
                 {forest.columns.flatMap((column) =>
-                  column.nodes.map((node, nodeIndex) => {
+                  column.nodes.map((node) => {
                     const pos = forest.layout.positions.get(node.id);
                     if (!pos) return null;
 
@@ -1049,8 +1058,14 @@ export function ComboTreePage() {
                                 setTutorialGuideStep('done');
                               }
                             }}
-                            parentId={column.parentId}
-                            dragIndex={nodeIndex}
+                            onDragMouseDown={(event) =>
+                              startNodeDrag(
+                                character.id,
+                                { kind: 'node', id: node.id, parentId: column.parentId },
+                                event,
+                                pillMeta.groupName,
+                              )
+                            }
                             readOnly={isReadOnly}
                             isDisabledByOtherMode={copyModeAnchorId !== null || groupModeActive}
                             isGuideTarget={
@@ -1067,13 +1082,15 @@ export function ComboTreePage() {
                             onToggleExpand={
                               node.children.length > 1 ? () => toggleNodeExpanded(node.id) : undefined
                             }
-                            parentId={column.parentId}
-                            dragIndex={nodeIndex}
+                            onDragMouseDown={(event) =>
+                              startNodeDrag(
+                                character.id,
+                                { kind: 'node', id: node.id, parentId: column.parentId },
+                                event,
+                                resolveDisplayLabel(node),
+                              )
+                            }
                             readOnly={isReadOnly}
-                            onDrop={(draggedData: DraggedNodeData) => {
-                              if (draggedData.id === node.id) return;
-                              moveNode(character.id, column.treeId, draggedData.id, node.id);
-                            }}
                             isCopyModeActive={copyModeAnchorId !== null}
                             isCopyAnchor={copyModeAnchorId === node.id}
                             isCopyCandidate={copyCandidateIds?.has(node.id) ?? false}
@@ -1090,7 +1107,6 @@ export function ComboTreePage() {
                                   }
                                 : undefined
                             }
-                            onPasteDrop={() => pasteClipboard(character.id, column.treeId, node.id)}
                             isGuideTarget={
                               tutorialGuideStep === 'clickDamageNode' &&
                               node.id === tutorialDamageTargetNodeId
@@ -1128,42 +1144,6 @@ export function ComboTreePage() {
                           isSelected={false}
                           onClick={() => {
                             // フェードアウト中は操作不可
-                          }}
-                          parentId={null}
-                          dragIndex={0}
-                          onDrop={() => {
-                            // フェードアウト中は操作不可
-                          }}
-                        />
-                      </div>
-                    );
-                  })}
-
-                {/* 兄弟間ドロップゾーン（閲覧専用モードでは並び替え不可のため出さない） */}
-                {!isReadOnly &&
-                  forest.layout.dropZones.map((dropZone) => {
-                    const tagged = dropZone as TaggedDropZone;
-                    return (
-                      <div
-                        key={tagged.key}
-                        style={{
-                          position: 'absolute',
-                          left: CANVAS_PADDING + tagged.x,
-                          top: CANVAS_PADDING + tagged.y,
-                          width: NODE_WIDTH,
-                          height: DROP_ZONE_HEIGHT,
-                        }}
-                      >
-                        <DropZone
-                          onDrop={(data) => {
-                            if (data.id === tagged.parentId) return;
-                            moveNode(
-                              character.id,
-                              tagged.treeId,
-                              data.id,
-                              tagged.parentId,
-                              tagged.insertIndex,
-                            );
                           }}
                         />
                       </div>
@@ -1407,6 +1387,8 @@ export function ComboTreePage() {
             </div>
           )}
       </div>
+
+      <NodeDragGhost />
     </div>
   );
 }
@@ -1598,8 +1580,10 @@ function TreeBlockHeader({
           <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)' }}>
             対象の始動技（改行/カンマ区切り。2技以上を経由する候補は「→」で繋ぐ。ある段に
             複数パターンがある場合は「強P/4強P/2強P」のように「/」で並べると自動展開される。
-            技名の後ろに「（C）」「（PC/R）」で条件を添えると「その条件で当たった時だけ
-            繋がる」を表現できる。C=カウンター、PC=パニッシュカウンター、R=ラッシュ）
+            技名の後ろに「（C）」「（持続/C/PC/R/R持続）」で条件を添えると「その条件で当たった
+            時だけ繋がる」を表現できる（持続=持続ヒット・通常補正、C=カウンター・ダメージ増、
+            PC=パニッシュカウンター・ダメージ増とDゲージ削り、R/R持続=ラッシュ攻撃・通常補正。
+            1つの括弧にまとめて書いても選択時は独立した候補に分かれる）
             <textarea
               className="input-field"
               autoFocus
@@ -1645,67 +1629,6 @@ function ReorderButton({
         {direction === 'up' ? <polyline points="18,15 12,9 6,15" /> : <polyline points="6,9 12,15 18,9" />}
       </svg>
     </button>
-  );
-}
-
-// ────────────────────────────────────────────────────────────
-// 兄弟間ドロップゾーン
-// ────────────────────────────────────────────────────────────
-
-function DropZone({ onDrop }: { onDrop: (data: DraggedNodeData) => void }) {
-  const [isOver, setIsOver] = useState(false);
-
-  return (
-    <div
-      onDragOver={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        event.dataTransfer.dropEffect = 'move';
-        setIsOver(true);
-      }}
-      onDragLeave={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        setIsOver(false);
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        setIsOver(false);
-
-        try {
-          const rawData = event.dataTransfer.getData('application/json');
-          const parsedData = JSON.parse(rawData) as Partial<DraggedNodeData>;
-
-          if (parsedData && typeof parsedData.id === 'string') {
-            onDrop({
-              id: parsedData.id,
-              parentId:
-                typeof parsedData.parentId === 'string' ? parsedData.parentId : null,
-              index: typeof parsedData.index === 'number' ? parsedData.index : 0,
-            });
-          }
-        } catch (error) {
-          console.error('Drop error', error);
-        }
-      }}
-      className="flex-shrink-0 flex items-center justify-center transition-all duration-150"
-      style={{
-        height: DROP_ZONE_HEIGHT,
-        width: '100%',
-        position: 'relative',
-        zIndex: 20,
-      }}
-    >
-      <div
-        className="w-full rounded-full transition-all duration-150 pointer-events-none"
-        style={{
-          height: isOver ? 4 : 0,
-          background: 'var(--accent)',
-          boxShadow: isOver ? '0 0 8px var(--accent)' : 'none',
-        }}
-      />
-    </div>
   );
 }
 
@@ -1954,12 +1877,7 @@ function GroupOverviewContent({
                 onToggleExpand={
                   block.viewRoot.children.length > 1 ? () => onToggleExpand(rootId) : undefined
                 }
-                parentId={null}
-                dragIndex={0}
                 readOnly
-                onDrop={() => {
-                  // グループ表示モードでは並び替え不可
-                }}
               />
             </div>
           </div>
@@ -1967,7 +1885,7 @@ function GroupOverviewContent({
       })}
 
       {groupForest.columns.flatMap((column) =>
-        column.nodes.map((node, nodeIndex) => {
+        column.nodes.map((node) => {
           const pos = groupForest.layout.positions.get(node.id);
           if (!pos) return null;
 
@@ -1989,12 +1907,7 @@ function GroupOverviewContent({
                 onClick={() => onSelectNode(node.id)}
                 isExpanded={isNodeExpanded(node, collapsedSet)}
                 onToggleExpand={node.children.length > 1 ? () => onToggleExpand(node.id) : undefined}
-                parentId={column.parentId}
-                dragIndex={nodeIndex}
                 readOnly
-                onDrop={() => {
-                  // グループ表示モードでは並び替え不可
-                }}
               />
             </div>
           );

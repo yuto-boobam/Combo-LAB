@@ -12,8 +12,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+5",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -34,8 +32,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "*1",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -56,8 +52,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -76,8 +70,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -98,8 +90,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "++4",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -120,8 +110,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -133,8 +121,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "SAすべて"
         }
       ],
@@ -155,8 +141,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -177,8 +161,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+6",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -199,8 +181,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -221,8 +201,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "*3",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -241,8 +219,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -263,8 +239,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+30",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -283,8 +257,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+7~9",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -303,8 +275,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+10~+11",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -325,8 +295,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+9~+15",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -345,8 +313,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+5~+10",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -365,8 +331,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+9~+13",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -385,8 +349,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+11~+15",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -405,8 +367,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -425,8 +385,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+38",
-          "airPlusFrame": "",
           "cancelType": "一部の必殺"
         }
       ],
@@ -445,8 +403,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "全般"
         },
         {
@@ -458,8 +414,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-3",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -480,8 +434,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -493,8 +445,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+44",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -513,8 +463,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         },
         {
@@ -526,8 +474,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -546,8 +492,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -559,8 +503,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -579,8 +521,6 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-2~+11",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -601,8 +541,6 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-2~+17",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -623,8 +561,6 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-1~+9",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -645,8 +581,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -665,8 +599,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+36",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -685,8 +617,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+38",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -705,8 +635,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -718,8 +646,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -731,8 +657,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -744,8 +668,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "一部の必殺"
         }
       ],
@@ -764,8 +686,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -777,8 +697,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -790,8 +708,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         },
         {
@@ -803,8 +719,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+40",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -825,8 +739,6 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+52",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -845,8 +757,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -865,8 +775,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -885,8 +793,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -905,8 +811,6 @@
           "dGaugeChipPunishCounter": -7200,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -925,8 +829,6 @@
           "dGaugeChipPunishCounter": -9600,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -945,8 +847,6 @@
           "dGaugeChipPunishCounter": -12000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -965,8 +865,6 @@
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -985,8 +883,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1005,8 +901,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1025,8 +919,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1045,8 +937,6 @@
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1065,8 +955,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1085,8 +973,6 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+23",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1105,8 +991,6 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+23",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1125,8 +1009,6 @@
           "dGaugeChipPunishCounter": -3500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+23",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1145,8 +1027,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1165,8 +1045,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+48",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1185,8 +1063,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+44",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1205,8 +1081,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "+12",
           "cancelType": null
         }
       ],
@@ -1225,8 +1099,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "+17",
           "cancelType": null
         }
       ],
@@ -1245,8 +1117,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "+20",
           "cancelType": null
         }
       ],
@@ -1265,8 +1135,6 @@
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "+30",
           "cancelType": null
         }
       ],
@@ -1285,8 +1153,6 @@
           "dGaugeChipPunishCounter": -7200,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1305,8 +1171,6 @@
           "dGaugeChipPunishCounter": -9600,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1325,8 +1189,6 @@
           "dGaugeChipPunishCounter": -12000,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1345,8 +1207,6 @@
           "dGaugeChipPunishCounter": -20000,
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "+30",
           "cancelType": null
         }
       ],
@@ -1365,8 +1225,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+45",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -1378,8 +1236,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+43",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1400,8 +1256,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1420,8 +1274,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -1440,8 +1292,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1460,8 +1310,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+47",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -1482,8 +1330,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+68",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -1504,8 +1350,6 @@
           "dGaugeChipPunishCounter": -9000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+76",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -1526,8 +1370,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1546,8 +1388,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1566,8 +1406,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1586,8 +1424,6 @@
           "dGaugeChipPunishCounter": -7500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1606,8 +1442,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+68",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -1628,8 +1462,6 @@
           "dGaugeChipPunishCounter": -9000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+76",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -1650,8 +1482,6 @@
           "dGaugeChipPunishCounter": -12000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+87",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -1672,8 +1502,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1692,8 +1520,6 @@
           "dGaugeChipPunishCounter": -7500,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1712,8 +1538,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1734,8 +1558,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1756,8 +1578,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+2",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1778,8 +1598,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+7",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1800,8 +1618,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1820,8 +1636,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1842,8 +1656,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+9",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1862,8 +1674,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1884,8 +1694,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1904,8 +1712,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+5",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1926,8 +1732,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1948,8 +1752,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -1970,8 +1772,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -1990,8 +1790,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -2010,8 +1808,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -2030,8 +1826,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -2052,8 +1846,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -2072,8 +1864,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -2092,8 +1882,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -2112,8 +1900,6 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+2",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2134,8 +1920,6 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "0",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2156,8 +1940,6 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "-2",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2178,8 +1960,6 @@
           "dGaugeChipPunishCounter": -3000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2200,8 +1980,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -2222,8 +2000,6 @@
           "dGaugeChipPunishCounter": -7000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -2244,8 +2020,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2266,8 +2040,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2288,8 +2060,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2310,8 +2080,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2330,8 +2098,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2350,8 +2116,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2370,8 +2134,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2390,8 +2152,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2410,8 +2170,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2430,8 +2188,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2450,8 +2206,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2472,8 +2226,6 @@
           "dGaugeChipPunishCounter": -7000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2494,8 +2246,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2516,8 +2266,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -2538,8 +2286,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+2",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2560,8 +2306,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+2",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2582,8 +2326,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2604,8 +2346,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA3のみ"
         }
       ],
@@ -2626,8 +2366,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -2648,8 +2386,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "SA2以上"
         }
       ],
@@ -2670,8 +2406,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "0",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2690,8 +2424,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2710,8 +2442,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": 30,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2730,8 +2460,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2750,8 +2478,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2770,8 +2496,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2790,8 +2514,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2810,8 +2532,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2830,8 +2550,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": 40,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2850,8 +2568,6 @@
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2870,8 +2586,6 @@
           "dGaugeChipPunishCounter": -20000,
           "minDamageGuaranteePercent": 50,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2890,8 +2604,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2910,8 +2622,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2930,8 +2640,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2950,8 +2658,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2970,8 +2676,6 @@
           "dGaugeChipPunishCounter": -15000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -2990,8 +2694,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -3010,8 +2712,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -3030,8 +2730,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -3050,8 +2748,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -3070,8 +2766,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -3090,8 +2784,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -3110,8 +2802,6 @@
           "dGaugeChipPunishCounter": 0,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": null
         }
       ],
@@ -3130,8 +2820,6 @@
           "dGaugeChipPunishCounter": -5000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+3",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -3150,8 +2838,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+6",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -3170,8 +2856,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -3192,8 +2876,6 @@
           "dGaugeChipPunishCounter": -6000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "0",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -3205,8 +2887,6 @@
           "dGaugeChipPunishCounter": null,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "0",
-          "airPlusFrame": "",
           "cancelType": "全般"
         }
       ],
@@ -3227,8 +2907,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+2",
-          "airPlusFrame": "",
           "cancelType": "一部の必殺"
         }
       ],
@@ -3247,8 +2925,6 @@
           "dGaugeChipPunishCounter": -8000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+4",
-          "airPlusFrame": "",
           "cancelType": "全般"
         },
         {
@@ -3260,8 +2936,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "一部の必殺"
         }
       ],
@@ -3282,8 +2956,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+7",
-          "airPlusFrame": "",
           "cancelType": "全般"
         },
         {
@@ -3295,8 +2967,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "不可"
         },
         {
@@ -3308,8 +2978,6 @@
           "dGaugeChipPunishCounter": -10000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "D",
-          "airPlusFrame": "",
           "cancelType": "一部の必殺"
         }
       ],
@@ -3330,8 +2998,6 @@
           "dGaugeChipPunishCounter": -4000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+7",
-          "airPlusFrame": "",
           "cancelType": "全般"
         },
         {
@@ -3343,8 +3009,6 @@
           "dGaugeChipPunishCounter": -2000,
           "minDamageGuaranteePercent": null,
           "dGaugeGainDuringRush": null,
-          "groundPlusFrame": "+1",
-          "airPlusFrame": "",
           "cancelType": "不可"
         }
       ],
@@ -3369,6 +3033,2289 @@
           "dGaugeGainDuringRush": null,
           "groundPlusFrame": "",
           "airPlusFrame": ""
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    }
+  },
+  "manon": {
+    "弱P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "弱K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 700,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SAすべて"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "2弱P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "2弱K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 250,
+          "saGaugeGain": 300,
+          "dGaugeChip": -500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "2中P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "2中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 600,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -6000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "2強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "2強K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "J弱P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "",
+          "dGaugeGain": 500,
+          "saGaugeGain": 300,
+          "dGaugeChip": -1500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "J弱K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 300,
+          "modifier": "",
+          "dGaugeGain": 500,
+          "saGaugeGain": 300,
+          "dGaugeChip": -1500,
+          "dGaugeChipPunishCounter": -2000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "J中P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 700,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "J中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "J強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "J強K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "レベランス": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "トモエ・デリエール": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 500,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ア・テール": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 2500,
+          "saGaugeGain": 700,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "アン・オー（1段目）": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 700,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "アン・オー（2段目）": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 700,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "タン・リエ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -7000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "アロンジェ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 4000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -7000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱マネージュ・ドレ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中マネージュ・ドレ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強マネージュ・ドレ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODマネージュ・ドレ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱ロン・ポワン": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 900,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1350,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中ロン・ポワン": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1350,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強ロン・ポワン": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 400,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 1350,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 400,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "ODロン・ポワン": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1350,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA2以上"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "弱デガジェ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中デガジェ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1200,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強デガジェ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1000,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODデガジェ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 800,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱ランヴェルセ": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 50,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中ランヴェルセ": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 100,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強ランヴェルセ": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "ODランヴェルセ": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 2150,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "グラン・フェッテ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "始動補正20%・即時補正10%",
+          "dGaugeGain": 2500,
+          "saGaugeGain": 1150,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "ODグラン・フェッテ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "即時補正10%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 1150,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -5000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA2以上"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "SA1": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": -10000,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": 30,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "SA2": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2800,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": -20000,
+          "dGaugeChip": -1000,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": 40,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "SA3": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 4000,
+          "modifier": "即時補正5%",
+          "dGaugeGain": 0,
+          "saGaugeGain": -30000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": 50,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "CA": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 4500,
+          "modifier": "即時補正5%",
+          "dGaugeGain": 0,
+          "saGaugeGain": -30000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": 50,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "オーウチガリ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1200,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ウチマタ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 1200,
+          "modifier": "即時補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "前ステップ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "バックステップ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "インパクト": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "始動補正20%",
+          "dGaugeGain": 800,
+          "saGaugeGain": 0,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -15000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "パリィ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "",
+          "dGaugeGain": -5000,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ジャストパリィ（打撃）": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "始動補正50%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ジャストパリィ（飛び道具）": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "始動補正50%",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ドライブリバーサル（ガード時）": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ドライブリバーサル（起き上がり時）": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "キャンセルラッシュ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "乗算補正15%",
+          "dGaugeGain": -30000,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "パリィドライブラッシュ": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 0,
+          "modifier": "乗算補正15%",
+          "dGaugeGain": 0,
+          "saGaugeGain": 0,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": 0,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強P->強P": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SAすべて"
+        },
+        {
+          "damage": 600,
+          "modifier": "コンボ補正20%",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -7000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "4中K->中K": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 700,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 1000,
+          "saGaugeGain": 700,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "4強P": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 800,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": null
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中P->中K": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 1500,
+          "saGaugeGain": 500,
+          "dGaugeChip": -3000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "全般"
+        },
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 2500,
+          "saGaugeGain": 700,
+          "dGaugeChip": -2500,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "2強P->2強P": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 3000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -6000,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 500,
+          "modifier": "",
+          "dGaugeGain": 4000,
+          "saGaugeGain": 1000,
+          "dGaugeChip": -5000,
+          "dGaugeChipPunishCounter": -7000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "4中K": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 600,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 700,
+          "dGaugeChip": -4000,
+          "dGaugeChipPunishCounter": -4000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱マネージュ・ドレ(メダルLv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱マネージュ・ドレ(メダルLv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱マネージュ・ドレ(メダルLv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱マネージュ・ドレ(メダルLv4)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱マネージュ・ドレ(メダルLv5)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3700,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 5000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中マネージュ・ドレ(メダルLv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中マネージュ・ドレ(メダルLv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中マネージュ・ドレ(メダルLv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中マネージュ・ドレ(メダルLv4)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "中マネージュ・ドレ(メダルLv5)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3700,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 5000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強マネージュ・ドレ(メダルLv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強マネージュ・ドレ(メダルLv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強マネージュ・ドレ(メダルLv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強マネージュ・ドレ(メダルLv4)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3000,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "強マネージュ・ドレ(メダルLv5)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3700,
+          "modifier": "",
+          "dGaugeGain": 5000,
+          "saGaugeGain": 5000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODマネージュ・ドレ(メダルLv1)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2000,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODマネージュ・ドレ(メダルLv2)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2300,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 3000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODマネージュ・ドレ(メダルLv3)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 2700,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODマネージュ・ドレ(メダルLv4)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3000,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 4000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODマネージュ・ドレ(メダルLv5)": {
+      "isMultiHit": false,
+      "hits": [
+        {
+          "damage": 3700,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 5000,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": -10000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "弱ランヴェルセ(メダルLv1)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 50,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8001,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "弱ランヴェルセ(メダルLv2)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 50,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1450,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "弱ランヴェルセ(メダルLv3)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 50,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1600,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "弱ランヴェルセ(メダルLv4)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 50,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1750,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "弱ランヴェルセ(メダルLv5)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 50,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1900,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 4150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中ランヴェルセ(メダルLv1)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 100,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中ランヴェルセ(メダルLv2)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 100,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1450,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中ランヴェルセ(メダルLv3)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 100,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1600,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中ランヴェルセ(メダルLv4)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 100,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1750,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "中ランヴェルセ(メダルLv5)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 100,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1900,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 4150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強ランヴェルセ(メダルLv1)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強ランヴェルセ(メダルLv2)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1450,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 2150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強ランヴェルセ(メダルLv3)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1600,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強ランヴェルセ(メダルLv4)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1750,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "強ランヴェルセ(メダルLv5)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "SA3のみ"
+        },
+        {
+          "damage": 1900,
+          "modifier": "",
+          "dGaugeGain": 2000,
+          "saGaugeGain": 4150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [
+        "SA3"
+      ],
+      "sharesModifierAcrossHits": false
+    },
+    "ODランヴェルセ(メダルLv1)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 1300,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 2150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODランヴェルセ(メダルLv2)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 1450,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 2150,
+          "dGaugeChip": 0,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODランヴェルセ(メダルLv3)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 1600,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODランヴェルセ(メダルLv4)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 1750,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 3150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        }
+      ],
+      "cancelableSuperArtNames": [],
+      "sharesModifierAcrossHits": false
+    },
+    "ODランヴェルセ(メダルLv5)": {
+      "isMultiHit": true,
+      "hits": [
+        {
+          "damage": 200,
+          "modifier": "",
+          "dGaugeGain": null,
+          "saGaugeGain": null,
+          "dGaugeChip": -2000,
+          "dGaugeChipPunishCounter": -8000,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
+        },
+        {
+          "damage": 1900,
+          "modifier": "",
+          "dGaugeGain": 0,
+          "saGaugeGain": 4150,
+          "dGaugeChip": null,
+          "dGaugeChipPunishCounter": null,
+          "minDamageGuaranteePercent": null,
+          "dGaugeGainDuringRush": null,
+          "cancelType": "不可"
         }
       ],
       "cancelableSuperArtNames": [],

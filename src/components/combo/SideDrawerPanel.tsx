@@ -15,16 +15,19 @@ import type {
   MoveNode,
   MoveStats,
   MoveStatsDatabase,
+  MoveStrength,
   NodeAttribute,
 } from '../../types';
 import { TUTORIAL_CHARACTER_ID } from '../../data/tutorialCharacter';
+import { DRAWER_WIDTH } from '../../pages/ComboTreePage.config';
 import { AttributeEditor } from './AttributeEditor';
 import { BranchStatsEditor } from './BranchStatsEditor';
 import { OdLevelToggle } from './OdLevelToggle';
 import { HitSelectionToggle } from './HitSelectionToggle';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
-import { parseStarterMoveOptionsText } from '../../utils/starterMoveOptions';
+import { parseStarterMoveOptionsText, parseStarterMoveToken } from '../../utils/starterMoveOptions';
 import {
+  calculateAllComboDamageSegments,
   calculateBranchDamage,
   calculateBranchDamageBreakdown,
   calculateBranchDGaugeBreakdown,
@@ -38,7 +41,9 @@ import {
   findOdRelevantNodesOnPath,
   lookupMoveName,
   resolveHitIndices,
+  type DamageBreakdown,
 } from '../../utils/comboGaugeCalc';
+import { IMPACT_MOVE_NAME } from '../../utils/nodeVisualStyle';
 import { MoveNamePicker } from './MoveNamePicker';
 import { ClipboardPreview } from './ClipboardPreview';
 import { ChainPreviewRow } from './ChainPreviewRow';
@@ -62,8 +67,6 @@ type Props = {
   highlightFormulaNodeId?: string | null;
   onFormulaOpened?: () => void;
 };
-
-const DRAWER_WIDTH = 400;
 
 export function SideDrawerPanel({
   characterId,
@@ -138,8 +141,10 @@ export function SideDrawerPanel({
           </p>
         )}
 
-        {!isReadOnly && <NewTreeSection characterId={characterId} />}
-        {!isReadOnly && clipboard && <ClipboardPreview />}
+        {!isReadOnly && (
+          <NewTreeSection characterId={characterId} startOpen={comboTrees.length === 0} />
+        )}
+        {!isReadOnly && clipboard && <ClipboardPreview characterId={characterId} />}
       </div>
       </aside>
     </div>
@@ -619,17 +624,43 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
   ].filter(Boolean).length;
 }
 
-// ノードがSA(superArt)で、特殊性能あり(hasSpecialVariant)なのにノード自体はまだ特殊性能を
-// 選ばず技名だけ（例:「SA1」）で置かれている場合だけ、「使用した特殊性能」選択UIの対象にする
-// （既に`SA1(Lv. 1)`のように特殊性能込みで確定しているノードは対象外）
+// 必殺技(special)の技名は`${強度接頭辞}${素の技名}`の形でノードに確定する
+// （MoveNamePicker.tsxのSPECIAL_MOVE_STRENGTHSと同じ並び。'none'/'normalOd'強度モードの
+// 技も含め、空文字接頭辞も一応候補に含めておく）
+const SPECIAL_MOVE_STRENGTH_PREFIXES: (MoveStrength | '')[] = ['弱', '中', '強', 'OD', ''];
+
+// ノードがSA(superArt)、または「常にコンボの締めで使う」（finishesComboOnSelect）設定の
+// 必殺技(special)で、特殊性能あり(hasSpecialVariant)なのにノード自体はまだ特殊性能を
+// 選ばず技名だけ（例:「SA1」「弱ランヴェルセ」）で置かれている場合だけ、「使用した特殊性能」
+// 選択UIの対象にする（既に`SA1(Lv. 1)`のように特殊性能込みで確定しているノードは対象外。
+// finishesComboOnSelectでない必殺技はノード名に焼き込み済みのため、後述のいずれの一致判定
+// にもかからず自然に対象外になる）。マネージュ・ドレのメダルLvのように、必殺技側でも
+// 同じ仕組みを使えるようにする（2026-09-30ユーザー要望：この選択UIがSAにしか出ていなかった
+// 不具合の修正）。必殺技は強度ごとに選択肢（specialVariantsByStrength）が異なりうるため、
+// SAのフラットなspecialVariantOptionsとは別に、一致した強度の選択肢を引く
 function findFinishingSuperArtMove(
   moveList: MoveDefinition[],
   moveName: string,
 ): { name: string; specialVariantOptions: string[] } | null {
-  const move = moveList.find(
-    (item) => item.category === 'superArt' && item.hasSpecialVariant && item.name === moveName,
-  );
-  return move ? { name: move.name, specialVariantOptions: move.specialVariantOptions ?? [] } : null;
+  for (const move of moveList) {
+    if (!move.hasSpecialVariant) continue;
+
+    if (move.category === 'superArt') {
+      if (move.name === moveName) {
+        return { name: move.name, specialVariantOptions: move.specialVariantOptions ?? [] };
+      }
+      continue;
+    }
+
+    if (move.category !== 'special') continue;
+    for (const prefix of SPECIAL_MOVE_STRENGTH_PREFIXES) {
+      if (`${prefix}${move.name}` !== moveName) continue;
+      const options =
+        (prefix ? move.specialVariantsByStrength?.[prefix] : undefined) ?? move.specialVariantOptions ?? [];
+      return { name: moveName, specialVariantOptions: options };
+    }
+  }
+  return null;
 }
 
 // 「SAで締める」の選択肢に出す、特殊性能なしの単純なSAの名前一覧。特殊性能ありのSAは
@@ -651,23 +682,31 @@ function findFinishingSuperArtOptions(
     .map((move) => move.name);
 }
 
-// このノードの技（OD版・特殊性能を含めた解決キーで技データを引く）に登録済みの
-// 有利フレームを、プラスフレーム欄の地上/空中トグルに渡す。複数ヒット技は、
-// node.hitIndicesが指定されていれば実際に当たった段のうち最後（それ以外は技全体の
-// 最終段）を使う＝「本当にヒットが終わった段」の状態を見るため
-function resolveNodePlusFrames(
+
+// 汎用コンボの始動技（この枝で選択済みのbranchStats.startingMoveNamesチェーンの最後の技、
+// ＝続きに直接つながる技）が複数ヒット技の場合に、「何段目でキャンセルしたか」を選ばせる
+// UIを表示するための情報を返す。技マスタ側でキャンセル種類（MoveHitStats.cancelType）が
+// 設定されている段だけを選択候補にする。単発技・未選択・キャンセル可能な段が無い場合はnull
+// （欄自体を出さない）
+function resolveStarterMoveCancelInfo(
   characterId: string,
   moveStatsDatabase: MoveStatsDatabase,
-  node: MoveNode,
-): { groundPlusFrame: string; airPlusFrame: string } {
-  const key = lookupMoveName(node, true);
-  const stats = moveStatsDatabase[characterId]?.[key];
-  const indices = stats ? resolveHitIndices(stats, node) : [];
-  const lastHit = stats ? stats.hits[indices[indices.length - 1] - 1] : undefined;
-  return {
-    groundPlusFrame: lastHit?.groundPlusFrame ?? '',
-    airPlusFrame: lastHit?.airPlusFrame ?? '',
-  };
+  selectedNode: MoveNode,
+): { cancelableHitIndices: number[] } | null {
+  const chain = selectedNode.branchStats?.startingMoveNames;
+  if (!chain || chain.length === 0) return null;
+
+  const { moveName } = parseStarterMoveToken(chain[chain.length - 1]);
+  if (!moveName) return null;
+
+  const stats = moveStatsDatabase[characterId]?.[moveName];
+  if (!stats?.isMultiHit || stats.hits.length <= 1) return null;
+
+  const cancelableHitIndices = stats.hits
+    .map((hit, index) => (hit.cancelType && hit.cancelType !== '不可' ? index + 1 : null))
+    .filter((value): value is number => value !== null);
+
+  return cancelableHitIndices.length > 0 ? { cancelableHitIndices } : null;
 }
 
 function ReadOnlyNodeView({
@@ -696,12 +735,20 @@ function ReadOnlyNodeView({
 
   const showStats =
     selectedNode.children.length === 0 ||
-    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff') ||
+    selectedNode.attributes.some(
+      (attribute) => attribute.type === 'guard' || attribute.type === 'whiff' || attribute.type === 'comboEnd',
+    ) ||
     (selectedNode.recordsBranchStats ?? false);
 
   const requiredStartHitCondition = root
     ? calculateRequiredStartHitCondition(root, selectedNode.id)
     : null;
+  const priorComboSegments =
+    root && showStats
+      ? (calculateAllComboDamageSegments(characterId, moveStatsDatabase, moveList, root, selectedNode.id) ?? [])
+          .slice(0, -1)
+          .filter((segment): segment is DamageBreakdown => segment !== null)
+      : [];
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
   const finishingSuperArtOptions = findFinishingSuperArtOptions(
     moveList,
@@ -711,10 +758,10 @@ function ReadOnlyNodeView({
   const effectiveUsesOD =
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
   const odNodesOnPath = root ? findOdRelevantNodesOnPath(root, selectedNode.id, moveList) : [];
-  const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
   const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
   const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
   const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
+  const starterMoveCancelInfo = resolveStarterMoveCancelInfo(characterId, moveStatsDatabase, selectedNode);
 
   return (
     <>
@@ -731,8 +778,7 @@ function ReadOnlyNodeView({
             onChange={() => {}}
             readOnly
             requiredStartHitCondition={requiredStartHitCondition}
-            groundPlusFrame={groundPlusFrame}
-            airPlusFrame={airPlusFrame}
+            priorComboSegments={priorComboSegments}
             finishingSuperArtMove={finishingSuperArtMove}
             finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
@@ -743,12 +789,18 @@ function ReadOnlyNodeView({
             }))}
             onChangeOdUsage={() => {}}
             starterMoveOptions={root?.startingMoveOptions ?? []}
+            starterMoveCancelInfo={starterMoveCancelInfo}
           />
         </AccordionSection>
       )}
 
       <AccordionSection
-        title={`選択中のノードについて：${selectedNode.moveName}`}
+        title={
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>選択中のノードについて：</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{selectedNode.displayName || selectedNode.moveName}</span>
+          </>
+        }
         icon="👁️"
         count={selectedNode.attributes.length}
         isOpen={isOpen}
@@ -762,6 +814,7 @@ function ReadOnlyNodeView({
             readOnly
             specialNote={selectedNode.specialNote}
             onSpecialNoteChange={() => {}}
+            isImpactMove={selectedNode.moveName === IMPACT_MOVE_NAME}
           />
 
           {odConstraint && (
@@ -782,14 +835,22 @@ function ReadOnlyNodeView({
   );
 }
 
-function NewTreeSection({ characterId }: { characterId: string }) {
+function NewTreeSection({
+  characterId,
+  startOpen = false,
+}: {
+  characterId: string;
+  // まだコンボの木が1つもない時は、必ずここから始動技を入力することになるため
+  // 最初から開いた状態にする（2026-09-15ユーザー指摘）
+  startOpen?: boolean;
+}) {
   const createComboTree = useAppStore((state) => state.createComboTree);
   const selectNode = useAppStore((state) => state.selectNode);
 
   const [newRootMoveName, setNewRootMoveName] = useState('');
   const [newRootDisplayName, setNewRootDisplayName] = useState<string | undefined>(undefined);
   const [newRootAttributes, setNewRootAttributes] = useState<NodeAttribute[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(startOpen);
 
   // 「汎用コンボ」: 複数の始動技(弱P/弱K等)から同じ続きに繋がるコンボを1本の木にまとめたい場合。
   // ONにすると始動技の技名選択(MoveNamePicker)の代わりに自由記入のラベル(例:「中攻撃」)と、
@@ -834,7 +895,7 @@ function NewTreeSection({ characterId }: { characterId: string }) {
             checked={isGeneric}
             onChange={(event) => setIsGeneric(event.target.checked)}
           />
-          汎用コンボにする（複数の始動技から同じ続きに繋がる場合）
+          汎用コンボ（複数の始動技から同じ続きに繋がる）
         </label>
 
         {isGeneric ? (
@@ -852,14 +913,16 @@ function NewTreeSection({ characterId }: { characterId: string }) {
               この続きに繋げられる始動技（改行/カンマ区切りで複数入力。ジャンプ攻撃始動のように
               2技以上を経由してから続きに入る場合は「→」で繋ぐ。ある段に複数パターンが
               ある場合は「強P/4強P/2強P」のように「/」で並べると自動展開される。技名の後ろに
-              「（C）」「（PC/R）」のように条件を添えると「その条件で当たった時だけ繋がる」を
-              表現できる（C=カウンター、PC=パニッシュカウンター、R=ラッシュ。技名を書かず
-              「PC」だけでも登録可）
+              「（C）」「（持続/C/PC/R/R持続）」のように条件を添えると「その条件で当たった時だけ
+              繋がる」を表現できる（持続=持続ヒット・通常補正、C=カウンター・ダメージ増、
+              PC=パニッシュカウンター・ダメージ増とDゲージ削り、R/R持続=ラッシュ攻撃・通常補正。
+              1つの括弧にまとめて書いても、選択時にはそれぞれ独立した候補に分かれる。
+              技名を書かず「PC」だけでも登録可）
               <textarea
                 className="input-field"
                 style={{ resize: 'vertical', fontFamily: 'inherit' }}
                 rows={3}
-                placeholder={'弱P\n弱K\n弱攻撃全般\nJ強K→強P/4強P/2強P\n強昇竜拳（PC/R）'}
+                placeholder={'弱P\n弱K\nJ強K→強P/4強P/2強P\n2中P（持続/C/PC/R/R持続）'}
                 value={genericStarterMovesText}
                 onChange={(event) => setGenericStarterMovesText(event.target.value)}
               />
@@ -880,7 +943,11 @@ function NewTreeSection({ characterId }: { characterId: string }) {
           />
         )}
 
-        <AttributeEditor value={newRootAttributes} onChange={setNewRootAttributes} />
+        <AttributeEditor
+          value={newRootAttributes}
+          onChange={setNewRootAttributes}
+          isImpactMove={newRootMoveName === IMPACT_MOVE_NAME}
+        />
 
         <button
           type="button"
@@ -957,11 +1024,13 @@ function NodeEditor({
   // こうしないと、閲覧のつもりでボタンを押しただけでノードが改名されてしまう。
   const [editedMoveName, setEditedMoveName] = useState(selectedNode.moveName);
   const [editedDisplayName, setEditedDisplayName] = useState(selectedNode.displayName);
-  // 「常にコンボの締めで使う」SAの特殊性能を選んだ時だけ渡ってくる。技名変更確定時に
-  // このノードのbranchStats.finishingSpecialVariantへ反映する
+  // 「技名に焼き込まず、末端ノードで切り替える」設定の技の特殊性能を選んだ時だけ渡ってくる。
+  // 技名変更確定時にこのノードのbranchStats.finishingSpecialVariantへ反映する。
+  // 既にこのノードへ設定済みの値があれば初期値として復元する（再度開いた時に今どれを
+  // 選んでいるか分かるように。2026-09-30ユーザー指摘：メダルLvを枝ごとに選び直したい）
   const [editedFinishingSpecialVariant, setEditedFinishingSpecialVariant] = useState<
     string | undefined
-  >(undefined);
+  >(selectedNode.branchStats?.finishingSpecialVariant ?? undefined);
 
   // 「コンボの情報」「選択中のノード」「新規ノード追加」はそれぞれ個別に開閉できる。
   // 「ノードを選ぶ→開きたいものだけ開く→操作する」という順序にするため、
@@ -976,7 +1045,9 @@ function NodeEditor({
   // 止めるケースを記録するための機能。詳細はtypes.tsのMoveNode.recordsBranchStats参照）
   const isNaturalStatsEndpoint =
     selectedNode.children.length === 0 ||
-    selectedNode.attributes.some((attribute) => attribute.type === 'guard' || attribute.type === 'whiff');
+    selectedNode.attributes.some(
+      (attribute) => attribute.type === 'guard' || attribute.type === 'whiff' || attribute.type === 'comboEnd',
+    );
   const showStatsEditor = isNaturalStatsEndpoint || (selectedNode.recordsBranchStats ?? false);
 
   const autoSaGaugeChange = calculateBranchSaGaugeChange(
@@ -1038,6 +1109,14 @@ function NodeEditor({
     root,
     selectedNode.id,
   );
+  // 「コンボ終了」で区切られた、このノードより前の区間（1本目・2本目…のコンボ）の
+  // ダメージ内訳。最後の区間（=damageBreakdown・autoDamageが表す「現在のコンボ」）は
+  // 含めない（BranchStatsEditor側で二重表示にならないよう除く）
+  const priorComboSegments = (
+    calculateAllComboDamageSegments(characterId, moveStatsDatabase, moveList, root, selectedNode.id) ?? []
+  )
+    .slice(0, -1)
+    .filter((segment): segment is DamageBreakdown => segment !== null);
   const requiredStartHitCondition = calculateRequiredStartHitCondition(root, selectedNode.id);
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
   const finishingSuperArtOptions = findFinishingSuperArtOptions(
@@ -1049,11 +1128,11 @@ function NodeEditor({
   // root〜選択中ノードの経路上にあるOD関連ノード（このノード自身が末端でなくても、経路の
   // 途中にビーム等があれば含まれる）。「コンボの情報」欄からまとめて確認・変更できるようにする
   const odNodesOnPath = findOdRelevantNodesOnPath(root, selectedNode.id, moveList);
-  const { groundPlusFrame, airPlusFrame } = resolveNodePlusFrames(characterId, moveStatsDatabase, selectedNode);
   // 複数ヒット技（技データ側でisMultiHit）なら、実際に何段目が当たったかを選べるようにする
   const selectedNodeStats = moveStatsDatabase[characterId]?.[lookupMoveName(selectedNode, true)];
   const selectedNodeHitTotal = selectedNodeStats?.isMultiHit ? selectedNodeStats.hits.length : 0;
   const selectedNodeHitIndices = selectedNodeStats ? resolveHitIndices(selectedNodeStats, selectedNode) : [];
+  const starterMoveCancelInfo = resolveStarterMoveCancelInfo(characterId, moveStatsDatabase, selectedNode);
 
   // 兄弟ノード（同じ親を持つ枝）内での自分の位置。分岐している時だけ「上/下の枝と入れ替え」
   // 操作を出す（2026-08-28ユーザー要望：枝同士の順序を入れ替えられるようにする）
@@ -1077,27 +1156,38 @@ function NodeEditor({
     });
   }, [odNodesOnPath, characterId, treeId, setNodeUsesOD]);
 
-  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加は、未入力（null）のまま自動計算値が
-  // 出ている間だけ、その値でそのまま欄を埋めておく（「この値を使う」ボタンは廃止。
-  // 埋めた後は普通の入力欄として自由に上書きできる＝間違っていたらそこで直接修正する
-  // 運用にする、というユーザー指定）。一度でも値が入れば(0を含む)対象から外れるため、
-  // 手動で0に修正した場合や、経路変更で自動計算がnullに戻った場合に上書きし続けることはない。
-  // 始動条件・SA締めのように「この枝の前提そのもの」が変わった時は、BranchStatsEditor.tsx側の
-  // 各ボタンが該当4フィールドを明示的にnullへ戻してから変更するため、ここへ戻ってきて
-  // 新しい自動計算値で再度埋まる（フィールド単体の値だけでは「自動のままか手で直したか」を
-  // 判別できないため、こちらでrefを使って追跡するより、変更の起点側でnullに戻す方が確実）
+  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加は、対応するisXAutoSynced（既定true）が
+  // trueの間、自動計算値に常に追従させる（技データを後から修正して計算結果が変わった時も
+  // 反映されるようにする。2026-09-29ユーザー指摘：以前は「未入力の間だけ埋める」仕様だった
+  // ため、一度埋まった値が技データの修正後も古いまま反映されなかった）。ユーザーが
+  // BranchStatsEditor.tsxの入力欄で直接値を書き換えると、その時点でisXAutoSyncedがfalseに
+  // なり以降は上書きされなくなる（「自動計算に戻す」ボタンでtrueに戻せる）。始動条件・SA締め
+  // のように「この枝の前提そのもの」が変わった時は、BranchStatsEditor.tsx側の各ボタンが
+  // 該当4フィールドをnull・isXAutoSyncedをtrueへ明示的に戻してから変更するため、ここへ
+  // 戻ってきて新しい自動計算値で再度埋まる
   useEffect(() => {
     if (!showStatsEditor) return;
     const current = selectedNode.branchStats;
     const patch: Partial<ComboBranchStats> = {};
-    if ((current?.damage ?? null) === null && autoDamage !== null) patch.damage = autoDamage;
-    if ((current?.opponentDGaugeChip ?? null) === null && autoOpponentDGaugeChip !== null) {
+    if ((current?.isDamageAutoSynced ?? true) && (current?.damage ?? null) !== autoDamage) {
+      patch.damage = autoDamage;
+    }
+    if (
+      (current?.isOpponentDGaugeChipAutoSynced ?? true) &&
+      (current?.opponentDGaugeChip ?? null) !== autoOpponentDGaugeChip
+    ) {
       patch.opponentDGaugeChip = autoOpponentDGaugeChip;
     }
-    if ((current?.dGaugeChange ?? null) === null && autoDGaugeChange !== null) {
+    if (
+      (current?.isDGaugeChangeAutoSynced ?? true) &&
+      (current?.dGaugeChange ?? null) !== autoDGaugeChange
+    ) {
       patch.dGaugeChange = autoDGaugeChange;
     }
-    if ((current?.saGaugeGain ?? null) === null && autoSaGaugeChange !== null) {
+    if (
+      (current?.isSaGaugeGainAutoSynced ?? true) &&
+      (current?.saGaugeGain ?? null) !== autoSaGaugeChange
+    ) {
       patch.saGaugeGain = autoSaGaugeChange;
     }
     if (Object.keys(patch).length === 0) return;
@@ -1163,6 +1253,7 @@ function NodeEditor({
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
             requiredStartHitCondition={requiredStartHitCondition}
             damageBreakdown={damageBreakdown}
+            priorComboSegments={priorComboSegments}
             dGaugeBreakdown={dGaugeBreakdown}
             dGaugeMinimumRequired={dGaugeMinimumRequired}
             saGaugeBreakdown={saGaugeBreakdown}
@@ -1174,8 +1265,6 @@ function NodeEditor({
             // 計算式を開いた時、チュートリアルキャラクターだけ計算の意味を一言添える
             // （2026-08-27ユーザー指定）
             showFormulaExplanation={characterId === TUTORIAL_CHARACTER_ID}
-            groundPlusFrame={groundPlusFrame}
-            airPlusFrame={airPlusFrame}
             finishingSuperArtMove={finishingSuperArtMove}
             finishingSuperArtOptions={finishingSuperArtOptions}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
@@ -1186,12 +1275,18 @@ function NodeEditor({
             }))}
             onChangeOdUsage={(nodeId, next) => setNodeUsesOD(characterId, treeId, nodeId, next)}
             starterMoveOptions={root.startingMoveOptions ?? []}
+            starterMoveCancelInfo={starterMoveCancelInfo}
           />
         </AccordionSection>
       )}
 
       <AccordionSection
-        title={`選択中のノードについて：${selectedNode.moveName}`}
+        title={
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>選択中のノードについて：</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{selectedNode.displayName || selectedNode.moveName}</span>
+          </>
+        }
         icon="✏️"
         count={selectedNode.attributes.length}
         isOpen={isEditorOpen}
@@ -1208,6 +1303,8 @@ function NodeEditor({
               setEditedDisplayName(displayName);
               setEditedFinishingSpecialVariant(finishingSpecialVariant);
             }}
+            precedingMoveName={parentNode?.moveName}
+            activeFinishingSpecialVariant={editedFinishingSpecialVariant}
           />
           <button
             type="button"
@@ -1248,6 +1345,7 @@ function NodeEditor({
                 ? (checked) => setNodeRecordsBranchStats(characterId, treeId, selectedNode.id, checked)
                 : undefined
             }
+            isImpactMove={selectedNode.moveName === IMPACT_MOVE_NAME}
           />
 
           {odConstraint && (
@@ -1377,7 +1475,16 @@ function NodeEditor({
       </AccordionSection>
 
       <AccordionSection
-        title={`「${selectedNode.moveName}」に繋げる技を選ぶ${newMoveName ? `： ${newMoveName}` : ''}`}
+        title={
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>
+              {`「${selectedNode.displayName || selectedNode.moveName}」に繋ぐ`}
+            </span>
+            {newMoveName && (
+              <span style={{ whiteSpace: 'nowrap' }}>{`： ${newDisplayName || newMoveName}`}</span>
+            )}
+          </>
+        }
         icon="➕"
         count={newAttributes.length}
         isOpen={isAddFormOpen}
@@ -1393,9 +1500,15 @@ function NodeEditor({
               setNewDisplayName(displayName);
               setNewFinishingSpecialVariant(finishingSpecialVariant);
             }}
+            precedingMoveName={selectedNode.moveName}
+            activeFinishingSpecialVariant={newFinishingSpecialVariant}
           />
 
-          <AttributeEditor value={newAttributes} onChange={setNewAttributes} />
+          <AttributeEditor
+            value={newAttributes}
+            onChange={setNewAttributes}
+            isImpactMove={newMoveName === IMPACT_MOVE_NAME}
+          />
 
           <button
             type="button"

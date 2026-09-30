@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  calculateAllComboDamageSegments,
   calculateBranchDGaugeBreakdown,
   calculateBranchDGaugeChange,
   calculateBranchDGaugeMinimumRequired,
   calculateBranchDamage,
+  calculateBranchDamageBreakdown,
   calculateBranchOpponentDGaugeChip,
   calculateBranchSaGaugeChange,
   calculateOdLevelConstraint,
@@ -26,6 +28,10 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     dGaugeChange: null,
     opponentDGaugeChip: null,
     saGaugeGain: null,
+    isDamageAutoSynced: true,
+    isOpponentDGaugeChipAutoSynced: true,
+    isDGaugeChangeAutoSynced: true,
+    isSaGaugeGainAutoSynced: true,
     damageRating: null,
     dGaugeRating: null,
     saGaugeRating: null,
@@ -34,7 +40,6 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     difficultyRating: null,
     overallRating: null,
     plusFrame: null,
-    plusFrameHitType: null,
     isThrowRange: false,
     canOkizeme: false,
     isFavorite: false,
@@ -45,6 +50,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     finishingSpecialVariant: null,
     finishingSuperArtName: null,
     startingMoveNames: null,
+    startingMoveCancelHitIndex: null,
     ...overrides,
   };
 }
@@ -73,8 +79,6 @@ function makeHit(overrides: Partial<MoveHitStats> = {}): MoveHitStats {
     dGaugeChipPunishCounter: null,
     minDamageGuaranteePercent: null,
     dGaugeGainDuringRush: null,
-    groundPlusFrame: '',
-    airPlusFrame: '',
     cancelType: null,
     ...overrides,
   };
@@ -156,6 +160,23 @@ describe('calculateBranchSaGaugeChange', () => {
     const a = makeNode('a', '弱P');
     expect(calculateBranchSaGaugeChange('ryu', {}, a, '存在しないid')).toBeNull();
   });
+
+  it('空振り属性のノードは、技データにSAゲージ回収量が登録されていても加算しない（派生技に派生する前に止めた技等）', () => {
+    const derived = makeNode('derived', 'グラン・フェッテ');
+    const cancelled = makeNode('cancelled', 'ランヴェルセ', {
+      attributes: [{ type: 'whiff' }],
+      children: [derived],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      manon: {
+        'ランヴェルセ': makeStats([makeHit({ saGaugeGain: 1000 })]),
+        'グラン・フェッテ': makeStats([makeHit({ saGaugeGain: 500 })]),
+      },
+    };
+
+    expect(calculateBranchSaGaugeChange('manon', moveStatsDatabase, cancelled, 'derived')).toBe(500);
+  });
 });
 
 describe('calculateBranchOpponentDGaugeChip', () => {
@@ -190,6 +211,42 @@ describe('calculateBranchOpponentDGaugeChip', () => {
     expect(
       calculateBranchOpponentDGaugeChip('ingrid', moveStatsDatabase, moveList, starter, 'sa'),
     ).toBe(1000);
+  });
+
+  it('空振り属性のSAノードは、技データにdGaugeChipPunishCounterが登録されていても加算しない', () => {
+    const sa = makeNode('sa', 'コズミックレイ', { attributes: [{ type: 'whiff' }] });
+    const starter = makeNode('starter', '強P', { children: [sa] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ingrid: { 'コズミックレイ': makeStats([makeHit({ dGaugeChipPunishCounter: 2000 })]) },
+    };
+    const moveList = [makeMove('コズミックレイ', 'superArt')];
+
+    expect(calculateBranchOpponentDGaugeChip('ingrid', moveStatsDatabase, moveList, starter, 'sa')).toBeNull();
+  });
+
+  it('SA以外でもpunishCounter属性が付いたノードはdGaugeChipPunishCounterを加算する（始動技候補「PC」条件選択時の想定）', () => {
+    const starter = makeNode('starter', '2中P', { attributes: [{ type: 'punishCounter' }] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      manon: { '2中P': makeStats([makeHit({ dGaugeChipPunishCounter: 1500 })]) },
+    };
+
+    expect(
+      calculateBranchOpponentDGaugeChip('manon', moveStatsDatabase, [], starter, 'starter'),
+    ).toBe(1500);
+  });
+
+  it('punishCounter属性が無い通常のノードは、SAでなければ寄与0のまま（従来通り）', () => {
+    const starter = makeNode('starter', '2中P', { attributes: [{ type: 'rush' }] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      manon: { '2中P': makeStats([makeHit({ dGaugeChipPunishCounter: 1500 })]) },
+    };
+
+    expect(
+      calculateBranchOpponentDGaugeChip('manon', moveStatsDatabase, [], starter, 'starter'),
+    ).toBeNull();
   });
 
   it('技データが1件も登録されていない経路ではnullを返す', () => {
@@ -916,6 +973,66 @@ describe('startingMoveOptions（複数の始動技から同じ続きに繋がる
     expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1800);
   });
 
+  it('始動技（複数ヒット技）を途中の段でキャンセルした場合、branchStats.startingMoveCancelHitIndexで指定した段までしかダメージに含まれない', () => {
+    const leaf = makeNode('leaf', '強昇竜拳', {
+      branchStats: makeBranchStats({
+        startingMoveNames: ['3段技'],
+        startingMoveCancelHitIndex: 2,
+      }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['3段技']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '3段技': makeStats(
+          [
+            makeHit({ damage: 100, cancelType: '不可' }),
+            makeHit({ damage: 200, cancelType: '全般' }),
+            makeHit({ damage: 300, cancelType: '不可' }),
+          ],
+          true,
+        ),
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 3段技は2段目でキャンセルしたので1・2段目だけが加算され、3段目(300)は含まれない。
+    // 1段目(100, テーブル1段目=100%)+2段目(200, テーブル2段目=100%)=300。
+    // 続く強昇竜拳はテーブル3段目(80%)を消費: 1000*0.8=800。合計 300+800=1100
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1100);
+  });
+
+  it('startingMoveCancelHitIndexが未設定（キャンセルしていない）なら、始動技の複数ヒット技は全段がダメージに含まれる', () => {
+    const leaf = makeNode('leaf', '強昇竜拳', {
+      branchStats: makeBranchStats({ startingMoveNames: ['3段技'] }),
+    });
+    const genericRoot = makeNode('root', '中攻撃', {
+      startingMoveOptions: [['3段技']],
+      children: [leaf],
+    });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '3段技': makeStats(
+          [
+            makeHit({ damage: 100, cancelType: '不可' }),
+            makeHit({ damage: 200, cancelType: '全般' }),
+            makeHit({ damage: 300, cancelType: '不可' }),
+          ],
+          true,
+        ),
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 全段(1〜3段目)ヒットしたので100+200+240(300*テーブル3段目80%)=540。
+    // 続く強昇竜拳はテーブル4段目(70%)を消費: 1000*0.7=700。合計 540+700=1240
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], genericRoot, 'leaf')).toBe(1240);
+  });
+
   it('候補の技名に括弧で条件（例:「強昇竜拳（C）」）が付いていれば、その条件がダメージ計算・始動条件判定に反映される', () => {
     const leaf = makeNode('leaf', '中P', {
       branchStats: makeBranchStats({ startingMoveNames: ['強昇竜拳（C）'] }),
@@ -1291,6 +1408,19 @@ describe('node.hitIndices（複数ヒット技のうち実際に何段目が当�
     expect(fullDamage!).toBeGreaterThan(partialDamage!);
   });
 
+  it('calculateBranchDamageBreakdown: hitIndicesに2だけ指定した場合、内訳のhitLabelは絶対段番号「(2/2段目)」になる（絞り込み後の相対位置で「(1/2段目)」と誤表示していた不具合の修正。2026-09-29ユーザー指摘）', () => {
+    const twoHit = makeStats([makeHit({ damage: 50 }), makeHit({ damage: 1300 })], true);
+    const moveStatsDatabase: MoveStatsDatabase = { char: { 強K: twoHit } };
+
+    const onlySecond = makeNode('n', '強K', { hitIndices: [2] });
+
+    const breakdown = calculateBranchDamageBreakdown('char', moveStatsDatabase, moveList, onlySecond, 'n');
+
+    expect(breakdown?.entries).toHaveLength(1);
+    expect(breakdown?.entries[0].hitLabel).toBe('強K(2/2段目)');
+    expect(breakdown?.entries[0].damage).toBe(1300);
+  });
+
   it('calculateBranchSaGaugeChange: hitIndicesに2だけ指定すると、2段目のSAゲージ増加だけを合計する（2段技のうち2段目しか当たらないケース）', () => {
     const twoHit = makeStats([makeHit({ saGaugeGain: 300 }), makeHit({ saGaugeGain: 200 })], true);
     const moveStatsDatabase: MoveStatsDatabase = { char: { 強K: twoHit } };
@@ -1349,5 +1479,122 @@ describe('node.hitIndices（複数ヒット技のうち実際に何段目が当�
     expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, allSelected, 'n')).toBe(500);
     expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, outOfRange, 'n')).toBe(500);
     expect(calculateBranchSaGaugeChange('char', moveStatsDatabase, unset, 'n')).toBe(500);
+  });
+});
+
+describe('「コンボ終了」属性によるダメージ計算の区間分割', () => {
+  it('comboEndが1つも無い経路は、従来通りroot〜対象ノードの全体が1つの区間として計算される（後方互換）', () => {
+    const c = makeNode('c', '強P');
+    const b = makeNode('b', '中P', { children: [c] });
+    const a = makeNode('a', '弱P', { children: [b] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '強P': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    const damage = calculateBranchDamage('ryu', moveStatsDatabase, [], a, 'c');
+    const segments = calculateAllComboDamageSegments('ryu', moveStatsDatabase, [], a, 'c');
+
+    expect(segments).toHaveLength(1);
+    expect(segments?.[0]?.total).toBe(damage);
+    // 弱P:300(100%) + 中P:1000(テーブル2段目=100%) + 強P:1000(テーブル3段目=80%) = 2100
+    expect(damage).toBe(2100);
+  });
+
+  it('comboEndが付いたノードを選択すると、そこまでの経路がちょうど1区間として計算される（1本目のコンボ自身の末端として扱われる）', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', { attributes: [{ type: 'comboEnd' }], children: [leaf] });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    // 弱P:300(100%) + 中P:1000(テーブル2段目=100%) = 1300（弱Kは経路に含まれない）
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'kd')).toBe(1300);
+  });
+
+  it('comboEndより後のノードを選択すると、comboEndノードの次〜対象ノードだけの区間で独立して計算される（1本目の補正を引き継がない）', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', { attributes: [{ type: 'comboEnd' }], children: [leaf] });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    // comboEndを無視した場合は弱Kがテーブル3段目(80%)=400になるはずだが、区間が
+    // 独立しているため弱K単体が新しい起点(100%)として計算され500になる
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'leaf')).toBe(500);
+  });
+
+  it('calculateAllComboDamageSegmentsは、区間ごとの内訳を古い順の配列で返す（末端は最後の要素、それより前がpriorComboSegments用）', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', { attributes: [{ type: 'comboEnd' }], children: [leaf] });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    const segments = calculateAllComboDamageSegments('ryu', moveStatsDatabase, [], starter, 'leaf');
+
+    expect(segments).toHaveLength(2);
+    expect(segments?.[0]?.total).toBe(1300); // 1本目: 弱P→中P(comboEnd)
+    expect(segments?.[1]?.total).toBe(500); // 2本目: 弱Kのみ、独立した起点
+  });
+
+  it('始動条件の必須判定(calculateRequiredStartHitCondition)も対象区間だけを見る。1本目にあるパニカン属性は2本目には影響しない', () => {
+    const leaf = makeNode('leaf', '弱K');
+    const knockdown = makeNode('kd', '中P', {
+      attributes: [{ type: 'comboEnd' }, { type: 'punishCounter' }],
+      children: [leaf],
+    });
+    const starter = makeNode('starter', '弱P', { children: [knockdown] });
+
+    // 1本目の末端(kd自身)を対象にすると、kd自身のpunishCounter属性が経路内にあるためパニカン必須
+    expect(calculateRequiredStartHitCondition(starter, 'kd')).toBe('パニカン');
+    // 2本目の末端(leaf)を対象にすると、kdは別区間（1本目）に属するため制約を引き継がない
+    expect(calculateRequiredStartHitCondition(starter, 'leaf')).toBeNull();
+  });
+
+  it('3本以上に分割された場合も、区間の数だけ配列が並び、それぞれ独立して計算される', () => {
+    const leaf3 = makeNode('leaf3', '弱K');
+    const end2 = makeNode('end2', '中K', { attributes: [{ type: 'comboEnd' }], children: [leaf3] });
+    const end1 = makeNode('end1', '中P', { attributes: [{ type: 'comboEnd' }], children: [end2] });
+    const starter = makeNode('starter', '弱P', { children: [end1] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '弱P': makeStats([makeHit({ damage: 300 })]),
+        '中P': makeStats([makeHit({ damage: 1000 })]),
+        '中K': makeStats([makeHit({ damage: 800 })]),
+        '弱K': makeStats([makeHit({ damage: 500 })]),
+      },
+    };
+
+    const segments = calculateAllComboDamageSegments('ryu', moveStatsDatabase, [], starter, 'leaf3');
+
+    expect(segments).toHaveLength(3);
+    expect(segments?.[0]?.total).toBe(1300); // 弱P→中P(comboEnd)
+    expect(segments?.[1]?.total).toBe(800); // 中K(comboEnd)単体、独立した起点
+    expect(segments?.[2]?.total).toBe(500); // 弱K単体、独立した起点
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'leaf3')).toBe(500);
   });
 });

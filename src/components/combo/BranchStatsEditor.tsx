@@ -5,10 +5,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
-import type { DamageBreakdown, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
+import type { DamageBreakdown, DamageBreakdownEntry, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
 import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
-import { parsePlusFrameRange } from '../../utils/plusFrameRange';
-import { expandStarterMoveOptions } from '../../utils/starterMoveOptions';
+import {
+  expandStarterMoveOptions,
+  parseStarterMoveChain,
+  serializeStarterMoveOptions,
+} from '../../utils/starterMoveOptions';
 import { OdLevelToggle } from './OdLevelToggle';
 
 export type OdUsageOnPath = {
@@ -29,6 +32,11 @@ type Props = {
   // ダメージ計算式の内訳。「計算式」ボタンを押した時だけ展開して見せる
   // （普段は閉じておく。2026-08-26ユーザー指定：計算根拠を見せる正式な機能として採用）
   damageBreakdown?: DamageBreakdown | null;
+  // このノードより前に「コンボ終了」で区切られた区間（1本目のコンボ等）の内訳。
+  // 古い順に並ぶ。空配列（デフォルト）＝このノードの経路にコンボ終了が無い＝今まで通り
+  // 「ダメージ」欄1つだけの見た目のまま（2026-09-30ユーザー要望：起き攻めセットアップ後の
+  // 2本目のコンボを別計算にしたうえで、末端ノードでは両方のダメージ・計算式を見たい）
+  priorComboSegments?: DamageBreakdown[];
   // 誘導ガイド（チュートリアル用）: trueの間、「ダメージ・計算式」欄をスポットライトで
   // 光らせ、「計算式」を開くよう誘導する（このコンポーネント自身はチュートリアルの
   // 手順を知らず、呼び出し側が段階を判断してここへ渡すだけ。highlightComboInfoと同じ考え方）
@@ -68,11 +76,6 @@ type Props = {
   // 画面から直接調整できるようにしてほしい、というユーザー要望）
   odUsagesOnPath?: OdUsageOnPath[];
   onChangeOdUsage?: (nodeId: string, next: boolean) => void;
-  // このノードの技（複数ヒット技は最終段）に登録済みの有利フレーム（自由記述）。
-  // プラスフレーム欄の「地上/空中」トグルで参照・選択できるようにする。未登録/技データ
-  // 未参照の場合は空文字または未指定
-  groundPlusFrame?: string;
-  airPlusFrame?: string;
   // trueの間、未入力（null/false/未選択）の項目は表示自体を省く。実際の編集画面では
   // 「空の入力欄が編集入り口になる」ため常にfalseで使うが、チュートリアルキャラクターの
   // 「コンボの情報」欄は初見の情報量を減らす目的で使う（呼び出し側のSideDrawerPanel.tsxが
@@ -82,6 +85,9 @@ type Props = {
   // 候補一覧。渡された場合、この枝で実際に使った始動技を選ばせるUIを表示する
   // （選ぶまではダメージ・ゲージの自動計算が行われない。src/utils/comboGaugeCalc.ts参照）
   starterMoveOptions?: string[][];
+  // 選択済みの始動技（startingMoveNamesの最後の技）が複数ヒット技で、かつキャンセル可能な
+  // 段がある場合にのみ渡される。渡された場合、「何段目でキャンセルしたか」を選ばせるUIを表示する
+  starterMoveCancelInfo?: { cancelableHitIndices: number[] } | null;
 };
 
 // 「通常」ボタンは出さない（カウンター/パニカンをどちらもオフにすれば同じ状態に戻せるため）。
@@ -100,12 +106,40 @@ const START_HIT_CONDITION_RANK: Record<BranchStartHitCondition, number> = {
   パニカン: 2,
 };
 
+/**
+ * 計算式の内訳（「計算式」ボタンの中身）で、各段の技名の後ろに添える注記を組み立てる。
+ * 以前は`modifier="${entry.modifierText || 'なし'}"`のように、補正が無い段にも
+ * 毎回`modifier=""`という表記が付き、専用の補正が無いことを示すためだけの「なし」も
+ * 機械的な印象で読みにくいとの指摘があった（2026-09-30ユーザー指摘）。
+ * `modifier=`という接頭辞は外して補正名だけを表示し、補正が何も無い段（modifierTextが
+ * 空でラッシュ後でもない）は注記自体を出さないようにする
+ */
+export function formatDamageEntryNote(entry: DamageBreakdownEntry): string {
+  if (entry.isSystemAction) return '敵にヒットしない行動のため補正対象外';
+
+  const parts: string[] = [];
+  if (entry.modifierText) parts.push(entry.modifierText);
+  if (entry.isRush) parts.push('ラッシュ後');
+  const base = parts.join('／');
+
+  if (entry.isSuperArt && entry.minDamageGuaranteePercent !== null) {
+    if (entry.percent === entry.minDamageGuaranteePercent) {
+      return `SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`;
+    }
+    const guaranteeNote = `（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`;
+    return base ? `${base}${guaranteeNote}` : guaranteeNote;
+  }
+
+  return base;
+}
+
 export function BranchStatsEditor({
   value,
   onChange,
   readOnly = false,
   requiredStartHitCondition = null,
   damageBreakdown = null,
+  priorComboSegments = [],
   highlightDamageFormula = false,
   onFormulaOpened,
   showFormulaExplanation = false,
@@ -116,10 +150,9 @@ export function BranchStatsEditor({
   finishingSuperArtOptions = [],
   odUsagesOnPath = [],
   onChangeOdUsage,
-  groundPlusFrame = '',
-  airPlusFrame = '',
   hideEmptyFields = false,
   starterMoveOptions = [],
+  starterMoveCancelInfo = null,
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
   // 計算式の内訳は普段は閉じておき、興味を持った人がボタンを押した時だけ見せる
@@ -129,6 +162,15 @@ export function BranchStatsEditor({
   const [isDGaugeBreakdownMode, setIsDGaugeBreakdownMode] = useState(false);
   const [isSaGaugeBreakdownMode, setIsSaGaugeBreakdownMode] = useState(false);
 
+  // 「この枝の始動技」の自由記入欄（一覧に無い経由技をその場で入力するため）の下書き。
+  // 確定前の入力途中の文字列（例:「強P→」）をそのまま保持したいので、値そのもの
+  // （stats.startingMoveNames）とは別にローカルで持ち、blur時にだけ反映する
+  // （矢印を打った直後に即座に反映すると、末尾の空トークンが消えて表示が巻き戻ってしまうため）。
+  // プリセットボタンを押した時もこの下書きを合わせて更新する（onClick内でsetCustomStarterDraftも呼ぶ）
+  const [customStarterDraft, setCustomStarterDraft] = useState(() =>
+    serializeStarterMoveOptions(stats.startingMoveNames ? [stats.startingMoveNames] : []),
+  );
+
   // starterMoveOptionsは見出し表示用にコンパクトな「強P/4強P」表記のまま保持されているため、
   // 実際に1つ選ばせるこのピッカーでだけ具体的な組み合わせへ展開する（expandStarterMoveOptions参照）
   const expandedStarterMoveOptions = useMemo(
@@ -136,17 +178,19 @@ export function BranchStatsEditor({
     [starterMoveOptions],
   );
 
+  // 旧データ（startingMoveCancelHitIndex追加前に保存されたbranchStats）はundefinedのままのため、
+  // nullと同じ「キャンセルしていない」扱いに正規化する
+  const starterMoveCancelHitIndex = stats.startingMoveCancelHitIndex ?? null;
+
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
   };
 
   // 始動条件・SA締めのように、この枝のダメージ・ゲージ計算の前提そのものを変える変更は、
-  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加の4欄も明示的に未入力（null）へ戻す。
-  // これらの欄は「未入力の間だけ自動計算値で埋まる」仕様（SideDrawerPanel.tsx参照）なので、
-  // ここでnullに戻すことで新しい前提での自動計算値が改めて反映される。すでに手動で入力
-  // していた値もここでリセット対象になる点は、前提が変わった以上その値自体の根拠も
-  // 変わっているため妥当（2026-08-28ユーザー報告：カウンター/SA締めを変えてもダメージ欄が
-  // 追従しない不具合の修正）
+  // ダメージ/Dゲージ削り量/Dゲージ増減/SAゲージ増加の4欄も明示的に未入力（null）へ戻し、
+  // 自動追従（isXAutoSynced）を再度trueにする。すでに手動で固定していた値もここでリセット
+  // 対象になる点は、前提が変わった以上その値自体の根拠も変わっているため妥当
+  // （2026-08-28ユーザー報告：カウンター/SA締めを変えてもダメージ欄が追従しない不具合の修正）
   const updateAndResetAutoFields = (patch: Partial<ComboBranchStats>) => {
     onChange({
       ...stats,
@@ -155,6 +199,10 @@ export function BranchStatsEditor({
       opponentDGaugeChip: null,
       dGaugeChange: null,
       saGaugeGain: null,
+      isDamageAutoSynced: true,
+      isOpponentDGaugeChipAutoSynced: true,
+      isDGaugeChangeAutoSynced: true,
+      isSaGaugeGainAutoSynced: true,
     });
   };
 
@@ -195,10 +243,7 @@ export function BranchStatsEditor({
   // hideEmptyFields時、各セクションを「未入力なら畳む」判定。実際の編集画面では
   // 常にfalse相当（空欄も編集の入り口として必要）なので通常は全て表示される
   const showPlusFrameSection =
-    !hideEmptyFields ||
-    stats.plusFrame !== null ||
-    stats.opponentDGaugeChip !== null ||
-    stats.plusFrameHitType !== null;
+    !hideEmptyFields || stats.plusFrame !== null || stats.opponentDGaugeChip !== null;
   const showRatingGrid =
     !hideEmptyFields ||
     [
@@ -238,6 +283,23 @@ export function BranchStatsEditor({
         {stats.isFavorite ? '★ お気に入り登録済み' : '☆ お気に入りに登録'}
       </button>
 
+      {/* 「コンボ終了」で区切られた、このノードより前の区間（1本目・2本目…のコンボ）の
+          ダメージと計算式。区間が無い（＝コンボ終了を使っていない従来通りのコンボ）場合は
+          何も表示しない（2026-09-30ユーザー要望） */}
+      {priorComboSegments.length > 0 && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {priorComboSegments.map((segment, index) => (
+            <PriorComboSegmentBlock
+              key={index}
+              label={`コンボ${index + 1}`}
+              breakdown={segment}
+              showFormulaExplanation={showFormulaExplanation}
+            />
+          ))}
+          <div style={styles.sectionDivider} />
+        </div>
+      )}
+
       {/* ダメージ・計算式を囲んで誘導する。ドロワーは overflow:hidden/auto な祖先を
           複数持つため、画面全体を暗くする.tutorial-spotlight（box-shadowの9999px拡散）は
           ドロワーの外まで届かずクリップされてしまう。代わりに、①②③のステップで実績のある
@@ -248,10 +310,14 @@ export function BranchStatsEditor({
         style={{ display: 'grid', gap: 10, borderRadius: 10 }}
       >
         <NumberField
-          label="ダメージ"
+          // コンボ終了で区切られた区間がある時だけ「コンボ2（現在）」のように何本目かを
+          // 添える。区間が無い（従来通りの1本のコンボ）時は今まで通り「ダメージ」のまま
+          label={priorComboSegments.length > 0 ? `ダメージ（コンボ${priorComboSegments.length + 1}・現在）` : 'ダメージ'}
           value={stats.damage}
-          onChange={(next) => update({ damage: next })}
+          onChange={(next) => update({ damage: next, isDamageAutoSynced: false })}
           readOnly={readOnly}
+          isAutoSynced={stats.isDamageAutoSynced}
+          onResetToAuto={() => update({ isDamageAutoSynced: true })}
         />
 
         {/* 経路上に技データが1件も無く計算対象が無い場合はボタン自体を出さない
@@ -282,49 +348,7 @@ export function BranchStatsEditor({
             </button>
 
             {isFormulaOpen && (
-              <div style={styles.debugBreakdown}>
-                {showFormulaExplanation && (
-                  <div style={styles.formulaExplanation}>
-                    ただの足し算ではなく、ストリートファイター6と同じ補正計算をしたうえで算出しています
-                  </div>
-                )}
-                <div style={styles.debugBreakdownHeader}>
-                  起点基準値{damageBreakdown.startBase}%
-                  {damageBreakdown.rushTriggerPosition !== null &&
-                    `／ラッシュ発生位置${damageBreakdown.rushTriggerPosition}発目〜`}
-                </div>
-                {damageBreakdown.entries.map((entry) => (
-                  <div key={entry.position} style={styles.debugBreakdownRow}>
-                    {entry.position}発目 {entry.hitLabel}
-                    {entry.isSystemAction
-                      ? ' : 敵にヒットしない行動のため補正対象外'
-                      : entry.isSuperArt && entry.minDamageGuaranteePercent !== null
-                        ? entry.percent === entry.minDamageGuaranteePercent
-                          ? ` : SA最低保証${entry.minDamageGuaranteePercent}%が適用（自然計算が下回った）`
-                          : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}（SA最低保証${entry.minDamageGuaranteePercent}%は未到達）`
-                        : ` : modifier="${entry.modifierText || 'なし'}"${entry.isRush ? '／ラッシュ後' : ''}`}
-                    {' → '}
-                    {entry.isSystemAction ? (
-                      'ダメージ0（位置のみ消費）'
-                    ) : (
-                      <>
-                        <span style={showFormulaExplanation ? styles.formulaEmphasis : undefined}>
-                          {entry.damage}
-                        </span>
-                        {' × '}
-                        <span
-                          className={showFormulaExplanation ? 'tutorial-formula-blink' : undefined}
-                          style={showFormulaExplanation ? styles.formulaEmphasisPercent : undefined}
-                        >
-                          {entry.percent}%
-                        </span>
-                        {` = ${Math.round(entry.contribution)}`}
-                      </>
-                    )}
-                  </div>
-                ))}
-                <div style={styles.debugBreakdownRow}>合計：{damageBreakdown.total}</div>
-              </div>
+              <DamageFormulaBreakdown breakdown={damageBreakdown} showFormulaExplanation={showFormulaExplanation} />
             )}
           </div>
         )}
@@ -333,63 +357,35 @@ export function BranchStatsEditor({
       {damageBreakdown && <div style={styles.sectionDivider} />}
 
       {showPlusFrameSection && (
-        <>
-          <div style={styles.twoColRow}>
-            <NumberField
-              label="プラスフレーム"
-              value={stats.plusFrame}
-              onChange={(next) => update({ plusFrame: next })}
-              readOnly={readOnly}
-            />
+        <div style={styles.twoColRow}>
+          <NumberField
+            label="プラスフレーム"
+            value={stats.plusFrame}
+            onChange={(next) => update({ plusFrame: next })}
+            readOnly={readOnly}
+          />
 
-            <NumberField
-              label="Dゲージ削り量"
-              value={stats.opponentDGaugeChip}
-              onChange={(next) => update({ opponentDGaugeChip: next })}
-              readOnly={readOnly}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: 4, marginTop: -4 }}>
-            {(['ground', 'air'] as const).map((hitType) => {
-              const active = stats.plusFrameHitType === hitType;
-              return (
-                <button
-                  key={hitType}
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => update({ plusFrameHitType: active ? null : hitType })}
-                  style={{
-                    ...styles.conditionButton,
-                    borderColor: active ? 'var(--accent)' : 'var(--border)',
-                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
-                    color: active ? '#fff' : 'var(--text-secondary)',
-                    cursor: readOnly ? 'default' : 'pointer',
-                  }}
-                >
-                  {hitType === 'ground' ? '地上ヒット' : '空中ヒット'}
-                </button>
-              );
-            })}
-          </div>
-          {stats.plusFrameHitType && (
-            <PlusFrameRangePicker
-              text={stats.plusFrameHitType === 'ground' ? groundPlusFrame : airPlusFrame}
-              readOnly={readOnly}
-              onPick={(next) => update({ plusFrame: next })}
-            />
-          )}
-        </>
+          <NumberField
+            label="Dゲージ削り量"
+            value={stats.opponentDGaugeChip}
+            onChange={(next) => update({ opponentDGaugeChip: next, isOpponentDGaugeChipAutoSynced: false })}
+            readOnly={readOnly}
+            isAutoSynced={stats.isOpponentDGaugeChipAutoSynced}
+            onResetToAuto={() => update({ isOpponentDGaugeChipAutoSynced: true })}
+          />
+        </div>
       )}
 
       <GaugeChangeField
         label="Dゲージ増減"
         value={stats.dGaugeChange}
-        onChange={(next) => update({ dGaugeChange: next })}
+        onChange={(next) => update({ dGaugeChange: next, isDGaugeChangeAutoSynced: false })}
         readOnly={readOnly}
         breakdown={dGaugeBreakdown}
         isBreakdownMode={isDGaugeBreakdownMode}
         onToggleBreakdownMode={() => setIsDGaugeBreakdownMode((open) => !open)}
+        isAutoSynced={stats.isDGaugeChangeAutoSynced}
+        onResetToAuto={() => update({ isDGaugeChangeAutoSynced: true })}
       />
 
       {/* SF6は「ゲージが0でなければ消費行動を発動できる」仕様（名目コストを満額持っている
@@ -406,11 +402,13 @@ export function BranchStatsEditor({
       <GaugeChangeField
         label="SAゲージ増加"
         value={stats.saGaugeGain}
-        onChange={(next) => update({ saGaugeGain: next })}
+        onChange={(next) => update({ saGaugeGain: next, isSaGaugeGainAutoSynced: false })}
         readOnly={readOnly}
         breakdown={saGaugeBreakdown}
         isBreakdownMode={isSaGaugeBreakdownMode}
         onToggleBreakdownMode={() => setIsSaGaugeBreakdownMode((open) => !open)}
+        isAutoSynced={stats.isSaGaugeGainAutoSynced}
+        onResetToAuto={() => update({ isSaGaugeGainAutoSynced: true })}
       />
 
       {showRatingGrid && (
@@ -514,9 +512,15 @@ export function BranchStatsEditor({
                 <button
                   key={chainLabel}
                   type="button"
-                  onClick={() =>
-                    updateAndResetAutoFields({ startingMoveNames: active ? null : chain })
-                  }
+                  onClick={() => {
+                    updateAndResetAutoFields({
+                      startingMoveNames: active ? null : chain,
+                      // 始動技を変えると何段目でキャンセルしたかの前提も変わるため、
+                      // 選び直しのたびに一旦リセットする
+                      startingMoveCancelHitIndex: null,
+                    });
+                    setCustomStarterDraft(active ? '' : serializeStarterMoveOptions([chain]));
+                  }}
                   disabled={readOnly}
                   style={{
                     ...styles.conditionButton,
@@ -527,6 +531,80 @@ export function BranchStatsEditor({
                   }}
                 >
                   {chainLabel}
+                </button>
+              );
+            })}
+          </div>
+
+          <label style={{ ...styles.fieldLabel, marginTop: 6 }}>
+            または自由記入（一覧に無い、経由技を挟んだ入り方をした場合。矢印は→か-&gt;で繋ぐ）
+            <input
+              type="text"
+              className="input-field"
+              value={customStarterDraft}
+              disabled={readOnly}
+              placeholder="例: 強P→2中P"
+              onChange={(event) => setCustomStarterDraft(event.target.value)}
+              onBlur={() => {
+                const chain = parseStarterMoveChain(customStarterDraft);
+                const nextChain = chain.length > 0 ? chain : null;
+                const currentSerialized = serializeStarterMoveOptions(
+                  stats.startingMoveNames ? [stats.startingMoveNames] : [],
+                );
+                const nextSerialized = serializeStarterMoveOptions(nextChain ? [nextChain] : []);
+                // 何も変えずにフォーカスを外しただけの場合、ダメージ等の自動計算欄を
+                // 無駄にリセットしないようにする
+                if (nextSerialized === currentSerialized) return;
+                updateAndResetAutoFields({
+                  startingMoveNames: nextChain,
+                  startingMoveCancelHitIndex: null,
+                });
+              }}
+            />
+          </label>
+        </div>
+      )}
+
+      {starterMoveCancelInfo && stats.startingMoveNames && (
+        <div style={styles.fieldLabel}>
+          始動技の何段目でキャンセルしたか
+          <div style={styles.threeColRow}>
+            <button
+              type="button"
+              onClick={() => updateAndResetAutoFields({ startingMoveCancelHitIndex: null })}
+              disabled={readOnly}
+              style={{
+                ...styles.conditionButton,
+                borderColor: starterMoveCancelHitIndex === null ? 'var(--accent)' : 'var(--border)',
+                background: starterMoveCancelHitIndex === null ? 'var(--accent)' : 'var(--bg-elevated)',
+                color: starterMoveCancelHitIndex === null ? '#fff' : 'var(--text-secondary)',
+                cursor: readOnly ? 'default' : 'pointer',
+              }}
+            >
+              キャンセルしていない
+            </button>
+
+            {starterMoveCancelInfo.cancelableHitIndices.map((hitIndex) => {
+              const active = starterMoveCancelHitIndex === hitIndex;
+              return (
+                <button
+                  key={hitIndex}
+                  type="button"
+                  onClick={() =>
+                    updateAndResetAutoFields({
+                      startingMoveCancelHitIndex: active ? null : hitIndex,
+                    })
+                  }
+                  disabled={readOnly}
+                  style={{
+                    ...styles.conditionButton,
+                    borderColor: active ? 'var(--accent)' : 'var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: active ? '#fff' : 'var(--text-secondary)',
+                    cursor: readOnly ? 'default' : 'pointer',
+                  }}
+                >
+                  {hitIndex}段目でキャンセル
                 </button>
               );
             })}
@@ -686,44 +764,86 @@ export function BranchStatsEditor({
   );
 }
 
-/** プラスフレーム欄の「地上/空中」トグルの下に出す、技データの登録内容から選ぶUI。
- * 範囲としてパースできればチップボタン、できなければ生テキストの参考表示、
- * 空ならその旨のヒントを出す */
-function PlusFrameRangePicker({
-  text,
-  readOnly,
-  onPick,
+// 「計算式」ボタンを開いた時の中身（起点基準値・各段の内訳・合計）。現在の区間の
+// ダメージ（NumberField直下）と、このノードより前の区間（PriorComboSegmentBlock）の
+// 両方から共通で使う（2026-09-30ユーザー要望：コンボ終了で区切った各区間の計算式を
+// それぞれ見られるようにする）
+function DamageFormulaBreakdown({
+  breakdown,
+  showFormulaExplanation,
 }: {
-  text: string;
-  readOnly: boolean;
-  onPick: (next: number) => void;
+  breakdown: DamageBreakdown;
+  showFormulaExplanation: boolean;
 }) {
-  if (!text) {
-    return <p style={styles.plusFrameHint}>（このヒット方向の有利フレームは未登録です）</p>;
-  }
+  return (
+    <div style={styles.debugBreakdown}>
+      {showFormulaExplanation && (
+        <div style={styles.formulaExplanation}>
+          ただの足し算ではなく、ストリートファイター6と同じ補正計算をしたうえで算出しています
+        </div>
+      )}
+      <div style={styles.debugBreakdownHeader}>
+        起点基準値{breakdown.startBase}%
+        {breakdown.rushTriggerPosition !== null &&
+          `／ラッシュ発生位置${breakdown.rushTriggerPosition}発目〜`}
+      </div>
+      {breakdown.entries.map((entry) => {
+        const note = formatDamageEntryNote(entry);
+        return (
+          <div key={entry.position} style={styles.debugBreakdownRow}>
+            {entry.position}発目 {entry.hitLabel}
+            {note && ` : ${note}`}
+            {' → '}
+            {entry.isSystemAction ? (
+              'ダメージ0（位置のみ消費）'
+            ) : (
+              <>
+                <span style={styles.formulaEmphasis}>{entry.damage}</span>
+                {' × '}
+                <span
+                  className={showFormulaExplanation ? 'tutorial-formula-blink' : undefined}
+                  style={styles.formulaEmphasisPercent}
+                >
+                  {entry.percent}%
+                </span>
+                {' = '}
+                <span style={styles.formulaEmphasis}>{Math.round(entry.contribution)}</span>
+              </>
+            )}
+          </div>
+        );
+      })}
+      <div style={styles.debugBreakdownRow}>合計：{breakdown.total}</div>
+    </div>
+  );
+}
 
-  const values = parsePlusFrameRange(text);
-  if (!values) {
-    return <p style={styles.plusFrameHint}>登録内容：{text}</p>;
-  }
+// 「コンボ終了」で区切られた、末端ノードより前の1区間ぶんの読み取り専用ブロック
+// （ラベル＋合計ダメージ＋開閉式の「計算式」。中身はDamageFormulaBreakdownを再利用）。
+// 現在の区間のダメージ欄（NumberField）と違い編集はできない
+// （その区間自身のノードを選べば、そちらの「コンボの情報」欄から編集できるため）
+function PriorComboSegmentBlock({
+  label,
+  breakdown,
+  showFormulaExplanation,
+}: {
+  label: string;
+  breakdown: DamageBreakdown;
+  showFormulaExplanation: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-      {values.map((value) => (
-        <button
-          key={value}
-          type="button"
-          disabled={readOnly}
-          onClick={() => onPick(value)}
-          style={{
-            ...styles.conditionButton,
-            padding: '2px 8px',
-            cursor: readOnly ? 'default' : 'pointer',
-          }}
-        >
-          {value >= 0 ? `+${value}` : value}
-        </button>
-      ))}
+    <div style={{ display: 'grid', gap: 6 }}>
+      <div style={styles.priorComboHeader}>
+        <span>{label}</span>
+        <span style={styles.priorComboDamage}>{breakdown.total}</span>
+      </div>
+      <button type="button" className="btn-ghost" style={styles.formulaToggle} onClick={() => setIsOpen((open) => !open)}>
+        <span>計算式</span>
+        <span style={{ ...styles.formulaToggleChevron, transform: isOpen ? 'rotate(180deg)' : 'none' }}>⌄</span>
+      </button>
+      {isOpen && <DamageFormulaBreakdown breakdown={breakdown} showFormulaExplanation={showFormulaExplanation} />}
     </div>
   );
 }
@@ -743,6 +863,8 @@ function GaugeChangeField({
   breakdown,
   isBreakdownMode,
   onToggleBreakdownMode,
+  isAutoSynced = true,
+  onResetToAuto,
 }: {
   label: string;
   value: number | null;
@@ -751,6 +873,10 @@ function GaugeChangeField({
   breakdown?: { steps: GaugeStep[]; total: number; totalExcludingEarlyRecovery?: number } | null;
   isBreakdownMode: boolean;
   onToggleBreakdownMode: () => void;
+  // falseの間（ユーザーが手で書き換えて固定した状態）だけ「自動計算に戻す」ボタンを出す。
+  // 詳細はtypes.tsのComboBranchStats.isDamageAutoSynced等のコメント参照
+  isAutoSynced?: boolean;
+  onResetToAuto?: () => void;
 }) {
   const hasEarlyRecoveryNote =
     breakdown?.totalExcludingEarlyRecovery !== undefined &&
@@ -760,18 +886,25 @@ function GaugeChangeField({
     <div style={styles.fieldLabel}>
       <div style={styles.fieldLabelRow}>
         <span>{label}</span>
-        {/* 「合計(-19600)」⇄「内訳(+200→+200→-20000)」をワンボタンで切り替える。
-            内訳が無い（技データ未登録等）場合はボタン自体を出さない */}
-        {breakdown && breakdown.steps.length > 0 && (
-          <button
-            type="button"
-            className="btn-ghost"
-            style={styles.autoCalcButton}
-            onClick={onToggleBreakdownMode}
-          >
-            {isBreakdownMode ? '合計で見る' : '内訳で見る'}
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {!readOnly && !isAutoSynced && onResetToAuto && (
+            <button type="button" className="btn-ghost" style={styles.autoCalcButton} onClick={onResetToAuto}>
+              自動計算に戻す
+            </button>
+          )}
+          {/* 「合計(-19600)」⇄「内訳(+200→+200→-20000)」をワンボタンで切り替える。
+              内訳が無い（技データ未登録等）場合はボタン自体を出さない */}
+          {breakdown && breakdown.steps.length > 0 && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={styles.autoCalcButton}
+              onClick={onToggleBreakdownMode}
+            >
+              {isBreakdownMode ? '合計で見る' : '内訳で見る'}
+            </button>
+          )}
+        </div>
       </div>
 
       {isBreakdownMode && breakdown ? (
@@ -811,15 +944,28 @@ function NumberField({
   value,
   onChange,
   readOnly = false,
+  isAutoSynced = true,
+  onResetToAuto,
 }: {
   label: string;
   value: number | null;
   onChange: (next: number | null) => void;
   readOnly?: boolean;
+  // falseの間（ユーザーが手で書き換えて固定した状態）だけ「自動計算に戻す」ボタンを出す。
+  // 詳細はtypes.tsのComboBranchStats.isDamageAutoSynced等のコメント参照
+  isAutoSynced?: boolean;
+  onResetToAuto?: () => void;
 }) {
   return (
     <div style={styles.fieldLabel}>
-      <span>{label}</span>
+      <div style={styles.fieldLabelRow}>
+        <span>{label}</span>
+        {!readOnly && !isAutoSynced && onResetToAuto && (
+          <button type="button" className="btn-ghost" style={styles.autoCalcButton} onClick={onResetToAuto}>
+            自動計算に戻す
+          </button>
+        )}
+      </div>
       <input
         type="number"
         className="input-field"
@@ -945,12 +1091,6 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
     color: 'var(--text-muted)',
   },
-  plusFrameHint: {
-    margin: 0,
-    marginTop: -4,
-    fontSize: 11,
-    color: 'var(--text-muted)',
-  },
   formulaToggle: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -975,6 +1115,20 @@ const styles: Record<string, CSSProperties> = {
     margin: '2px 0',
     // 通常のvar(--border)よりも一段明るい区切り線用の色（見出し無しでも区切りが目立つように）
     background: 'var(--border-hover)',
+  },
+  // コンボ終了で区切られた、末端ノードより前の区間（PriorComboSegmentBlock）のラベル行
+  priorComboHeader: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--text-secondary)',
+  },
+  priorComboDamage: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: 'var(--text-primary)',
   },
   // 計算式の内訳表示（元は調査用のデバッグ表示だったが、計算根拠を見せる機能として
   // 「計算式」ボタンの開閉式に変更した。2026-08-26ユーザー指定）。当初の赤枠・赤文字は
@@ -1009,17 +1163,19 @@ const styles: Record<string, CSSProperties> = {
   debugBreakdownRow: {
     lineHeight: 1.5,
   },
-  // チュートリアルキャラクター限定、各段の「技のダメージ×補正%」を目立たせて、
-  // 単純な足し算ではなく補正計算をしていることを数値そのもので実感させる
-  // （2026-08-30ユーザー要望）。太字だけでは目立たないとの指摘を受け、補正%側は
-  // 下線も加えて「ここが補正されている数値」だとより分かるようにした（2026-08-31）
+  // 各段の「技のダメージ×補正% = 段ダメージ」のうち、実際に計算に使っている数値だけを
+  // 緑色にして目立たせる。技名や注記など数値以外の説明文に埋もれて、どこが計算箇所か
+  // 分かりにくいとの指摘を受けた（2026-09-30ユーザー指摘）。当初はチュートリアル
+  // キャラクター限定の強調だったが、この見やすさは全キャラクター共通で欲しい内容の
+  // ため常時オンにした。太字だけでは目立たないとの指摘を受け、補正%側は下線も加えて
+  // 「ここが補正されている数値」だとより分かるようにした（2026-08-31）
   formulaEmphasis: {
     fontWeight: 800,
-    color: 'var(--accent-blue-text)',
+    color: 'var(--accent-green-text)',
   },
   formulaEmphasisPercent: {
     fontWeight: 800,
-    color: 'var(--accent-blue-text)',
+    color: 'var(--accent-green-text)',
     textDecoration: 'underline',
   },
   // ダメージ評価/Dゲージ評価/SAゲージ評価/運び評価を2×2で並べるためのグリッド。

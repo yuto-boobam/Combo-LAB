@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { PatchNote, PatchNoteType } from '../../types/patchNote';
+import { resolvePatchNoteImageUrl } from '../../utils/resolvePatchNoteImageUrl';
 
 interface PatchNoteCardProps {
   note: PatchNote;
@@ -108,6 +109,7 @@ export default function PatchNoteCard({ note, showDate = false }: PatchNoteCardP
 
 function ImageCard({ label, src, title }: { label: string; src: string; title: string }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const resolvedSrc = resolvePatchNoteImageUrl(src);
 
   useEffect(() => {
     if (!isLightboxOpen) {
@@ -128,7 +130,7 @@ function ImageCard({ label, src, title }: { label: string; src: string; title: s
     <figure style={styles.imageCard}>
       <figcaption style={styles.imageLabel}>{label}</figcaption>
       <img
-        src={src}
+        src={resolvedSrc}
         alt={`${title} - ${label}`}
         style={styles.image}
         loading="lazy"
@@ -154,7 +156,7 @@ function ImageCard({ label, src, title }: { label: string; src: string; title: s
           </button>
 
           <img
-            src={src}
+            src={resolvedSrc}
             alt={`${title} - ${label}`}
             style={styles.lightboxImage}
             onMouseDown={(event) => event.stopPropagation()}

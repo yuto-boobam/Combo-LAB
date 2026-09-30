@@ -89,14 +89,45 @@ const VALID_SPECIAL_MOVE_STRENGTH_MODES: SpecialMoveStrengthMode[] = ['none', 'n
 /**
  * 2026-08-30に`startingMoveName: string | null`を`startingMoveNames: string[] | null`へ
  * 変更した際の移行措置。旧フィールドのまま保存されたデータ(このセッション中に作成された
- * ものを含む)を読み込んでも、選択済みの始動技が消えて見えないようにする
+ * ものを含む)を読み込んでも、選択済みの始動技が消えて見えないようにする。
+ *
+ * 2026-09-29に追加したisDamageAutoSynced等（damage/opponentDGaugeChip/dGaugeChange/
+ * saGaugeGainが自動計算値に追従したままかどうか）の移行措置も兼ねる。この4フィールドを
+ * 持たない旧データは、既に値が入っている（null以外）欄はこれまで通り「固定（手動入力済み
+ * かもしれない値）」として扱いfalseに、未入力（null）の欄はtrueにする。true一括にすると、
+ * 既に手で補正済みだった値が次回開いた時にまとめて自動計算値へ上書きされてしまうため
+ * （このケースの判別が付かない以上、安全側＝従来通り上書きしない、に倒す）
  */
 function migrateComboBranchStats(stats: ComboBranchStats): ComboBranchStats {
-  const legacy = stats as ComboBranchStats & { startingMoveName?: string | null };
-  if (Array.isArray(legacy.startingMoveNames)) return stats;
+  const legacy = stats as ComboBranchStats & {
+    startingMoveName?: string | null;
+    isDamageAutoSynced?: boolean;
+    isOpponentDGaugeChipAutoSynced?: boolean;
+    isDGaugeChangeAutoSynced?: boolean;
+    isSaGaugeGainAutoSynced?: boolean;
+  };
+  const startingMoveNames = Array.isArray(legacy.startingMoveNames)
+    ? stats.startingMoveNames
+    : legacy.startingMoveName
+      ? [legacy.startingMoveName]
+      : null;
   return {
     ...stats,
-    startingMoveNames: legacy.startingMoveName ? [legacy.startingMoveName] : null,
+    startingMoveNames,
+    isDamageAutoSynced:
+      typeof legacy.isDamageAutoSynced === 'boolean' ? legacy.isDamageAutoSynced : stats.damage === null,
+    isOpponentDGaugeChipAutoSynced:
+      typeof legacy.isOpponentDGaugeChipAutoSynced === 'boolean'
+        ? legacy.isOpponentDGaugeChipAutoSynced
+        : stats.opponentDGaugeChip === null,
+    isDGaugeChangeAutoSynced:
+      typeof legacy.isDGaugeChangeAutoSynced === 'boolean'
+        ? legacy.isDGaugeChangeAutoSynced
+        : stats.dGaugeChange === null,
+    isSaGaugeGainAutoSynced:
+      typeof legacy.isSaGaugeGainAutoSynced === 'boolean'
+        ? legacy.isSaGaugeGainAutoSynced
+        : stats.saGaugeGain === null,
   };
 }
 
@@ -216,8 +247,6 @@ function normalizeMoveHitStats(value: unknown): MoveHitStats {
     dGaugeChipPunishCounter: toNullableNumber(s.dGaugeChipPunishCounter),
     minDamageGuaranteePercent: toNullableNumber(s.minDamageGuaranteePercent),
     dGaugeGainDuringRush: toNullableNumber(s.dGaugeGainDuringRush),
-    groundPlusFrame: typeof s.groundPlusFrame === 'string' ? s.groundPlusFrame : '',
-    airPlusFrame: typeof s.airPlusFrame === 'string' ? s.airPlusFrame : '',
     cancelType: CANCEL_TYPES.includes(s.cancelType as CancelType) ? (s.cancelType as CancelType) : null,
   };
 }
@@ -489,6 +518,16 @@ export type AppState = {
     characterId: string,
     moveId: string,
     strengthMode: SpecialMoveStrengthMode | undefined,
+  ) => void;
+  /**
+   * 必殺技が「特定の技の直後にしか出せない派生技」かどうかの基点となる技名を編集する
+   * （追加入力による追撃など、補正が別に乗るぶんを別ノードとして繋ぐための制約。
+   * types.tsのMoveDefinition.requiredPrecedingMoveName参照）。空文字/undefinedで制約なしに戻す
+   */
+  setMoveDefinitionRequiredPrecedingMoveName: (
+    characterId: string,
+    moveId: string,
+    requiredPrecedingMoveName: string | undefined,
   ) => void;
 
   // コンボ木（1キャラにつき複数持てる。始動技ごとに1本）
@@ -1003,6 +1042,24 @@ export const useAppStore = create<AppState>()(
                   ...character,
                   moveList: character.moveList.map((move) =>
                     move.id === moveId ? { ...move, strengthMode } : move,
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+              : character,
+          ),
+        }));
+      },
+
+      setMoveDefinitionRequiredPrecedingMoveName: (characterId, moveId, requiredPrecedingMoveName) => {
+        set((state) => ({
+          characters: state.characters.map((character) =>
+            character.id === characterId
+              ? {
+                  ...character,
+                  moveList: character.moveList.map((move) =>
+                    move.id === moveId
+                      ? { ...move, requiredPrecedingMoveName: requiredPrecedingMoveName || undefined }
+                      : move,
                   ),
                   updatedAt: new Date().toISOString(),
                 }
@@ -2122,6 +2179,13 @@ export const useAppStore = create<AppState>()(
         // 更新せずsessionStorage側だけを更新するため）なので、そのまま含めても
         // 別アカウントのログイン時に誤って「見た扱い」が漏れ出す心配はない
         hasSeenTutorialIntro: state.hasSeenTutorialIntro,
+        // ブラウザが別タブを開いた際にバックグラウンドのタブを破棄し、タブへ
+        // 戻ってきた時にページを再読み込みすることがある（Chromeのメモリ節約機能等）。
+        // これらの画面遷移状態を永続化しないと、そのたびにキャラ選択画面（ホーム）へ
+        // 戻されてしまう不具合になっていたため、永続化対象に含める
+        // （2026-09-14ユーザー指摘：別タブを見て戻るとホーム画面に戻ってしまう不具合）
+        selectedCharacterId: state.selectedCharacterId,
+        moveStatsCharacterId: state.moveStatsCharacterId,
       }),
 
       merge: (persistedState, currentState) => {
@@ -2161,10 +2225,13 @@ export const useAppStore = create<AppState>()(
           isPatchNotesModalOpen: false,
           selectedPatchNoteDate: null,
           selectedNodeId: null,
-          // 開き直すたびに前回開いていたコンボ画面へ直行せず、必ずキャラ一覧画面から
-          // 始まるようにする（自動ログイン時も同様。以前のpartializeに残っていた
-          // 古い永続化データを持つユーザーのぶんも、ここで明示的にnullへ戻す）
-          selectedCharacterId: null,
+          // selectedCharacterId・moveStatsCharacterIdはpartializeで永続化しているため、
+          // ここで上書きせず`...persisted`（上記でスプレッド済み）の値をそのまま使う。
+          // 以前は開き直すたびにキャラ選択画面へ強制的に戻していたが、別タブを見て
+          // 戻ってきただけでブラウザがページを再読み込みすることがあり、そのたびに
+          // 手前の画面へ戻されてしまう不具合になっていたため、この画面遷移状態も
+          // 保持するよう仕様変更した
+          // （2026-09-14ユーザー指摘：別タブを見て戻るとホーム画面に戻ってしまう不具合）
         };
       },
     },

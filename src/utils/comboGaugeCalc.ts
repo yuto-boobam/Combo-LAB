@@ -50,6 +50,31 @@ function requiredStartHitConditionFromPath(path: MoveNode[]): BranchStartHitCond
   return required;
 }
 
+/**
+ * resolvePath後の経路を「コンボ終了」属性(comboEnd)の位置で複数の区間に分割する。
+ * comboEndが付いたノードをその区間の最後として区切り、次のノードから新しい区間を始める
+ * （＝そのノードで1本目のコンボが終わり、続く区間が起き攻めセットアップ等、別のコンボの
+ * 始まりとして扱われる）。comboEndが1つも無ければ、経路全体がそのまま1区間になる
+ * （＝従来通りの単一コンボとして扱われ、後方互換）。
+ * ダメージ計算（calculateBranchDamage/calculateBranchDamageBreakdown）と、始動条件の
+ * 必須判定（calculateRequiredStartHitCondition）は、常に「対象ノードが属する区間
+ * （＝配列の最後の要素）」だけを使う。D-ゲージ・SAゲージは中断を挟んでも持ち越される
+ * 資源のため区間分割の対象外（各計算関数で経路全体をそのまま使い続ける）。
+ */
+function splitPathIntoComboSegments(path: MoveNode[]): MoveNode[][] {
+  const segments: MoveNode[][] = [];
+  let current: MoveNode[] = [];
+  for (const node of path) {
+    current.push(node);
+    if (node.attributes.some((attribute) => attribute.type === 'comboEnd')) {
+      segments.push(current);
+      current = [];
+    }
+  }
+  if (current.length > 0) segments.push(current);
+  return segments;
+}
+
 export function calculateRequiredStartHitCondition(
   root: MoveNode,
   targetNodeId: string,
@@ -61,7 +86,8 @@ export function calculateRequiredStartHitCondition(
   const rawPath = findPathToNode(root, targetNodeId);
   const path = resolvePath(rawPath);
   if (!path) return null;
-  return requiredStartHitConditionFromPath(path);
+  const segments = splitPathIntoComboSegments(path);
+  return requiredStartHitConditionFromPath(segments[segments.length - 1]);
 }
 
 /**
@@ -125,7 +151,13 @@ function withFinishingSuperArt(path: MoveNode[]): MoveNode[] {
  * まだ選ばれていない場合はnullを返し、この枝のダメージ・ゲージ計算全体を打ち切る
  * （＝該当欄は自動計算されず未入力のままになる。ユーザー指定：「その技を選択するまでの
  * 間は、その分のダメージやゲージの欄は空欄にしておく」）。
- * 通常の木（startingMoveOptions未設定）はそのまま何もしない
+ * 通常の木（startingMoveOptions未設定）はそのまま何もしない。
+ *
+ * 最後の合成ノード（続きに直接つながる技）が複数ヒット技で、branchStats.startingMoveCancelHitIndex
+ * （実際に何段目でキャンセルしたか）が設定されている場合は、そのノードのhitIndicesを
+ * 1段目からその段までに絞り込む。ダメージ・Dゲージ・SAゲージの各計算は各ノードのhitIndices
+ * だけを合計に使うため、これだけで「キャンセルして途中の段までしか当たっていない」を
+ * 反映できる（2026-09-16ユーザー要望）
  */
 function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
   const root = path[0];
@@ -134,6 +166,9 @@ function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
   const targetNode = path[path.length - 1];
   const startingMoveNames = targetNode.branchStats?.startingMoveNames;
   if (!startingMoveNames || startingMoveNames.length === 0) return null;
+
+  const cancelHitIndex = targetNode.branchStats?.startingMoveCancelHitIndex ?? null;
+  const lastStepIndex = startingMoveNames.length - 1;
 
   const resolvedNodes: MoveNode[] = startingMoveNames.map((rawToken, index) => {
     const { moveName, attributes } = parseStarterMoveToken(rawToken);
@@ -144,6 +179,10 @@ function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
       displayName: undefined,
       startingMoveOptions: undefined,
       attributes: index === 0 ? [...root.attributes, ...attributes] : attributes,
+      hitIndices:
+        index === lastStepIndex && cancelHitIndex !== null
+          ? Array.from({ length: cancelHitIndex }, (_, i) => i + 1)
+          : undefined,
     };
   });
 
@@ -351,6 +390,17 @@ function buildSaGaugeSteps(
   let hasAnyData = false;
 
   path.forEach((node, index) => {
+    // 空振り/ガードは実際にヒットしていないため、technique側にSAゲージ回収量が
+    // 登録されていても加算しない（damage側のbuildFlatDamageHits・Dゲージ側の
+    // buildDGaugeContributionsと同じ扱い。2026-09-29ユーザー指摘：派生技に派生する前に
+    // 空振り扱いで止めた技のSAゲージが誤加算されていた）
+    if (
+      node.attributes.some((attribute) => attribute.type === 'whiff' || attribute.type === 'guard')
+    ) {
+      steps.push({ label: node.moveName, value: 0 });
+      return;
+    }
+
     const isTargetNode = index === path.length - 1;
     const stats = characterStats[lookupMoveName(node, isTargetNode)];
     if (!stats) {
@@ -403,8 +453,12 @@ export function calculateBranchSaGaugeBreakdown(
 /**
  * root〜targetNodeId（両端含む）の経路上にあるSA（スーパーアーツ）のヒットで、相手の
  * Dゲージを削った量の合計を求める。`MoveHitStats.dGaugeChipPunishCounter`はSAに限り
- * 「ヒット時」の削り量として扱う仕様（MoveStatsPage参照）。通常技のガード時チップ
- * （`dGaugeChip`/`dGaugeChipPunishCounter`）はこの自動計算のスコープ外（未実装）。
+ * 「ヒット時」の削り量として扱う仕様（MoveStatsPage参照）。SA以外のノードでも、
+ * `punishCounter`属性（汎用コンボの始動技候補で「PC」条件を選んだ場合等）が付いていれば
+ * 同じ`dGaugeChipPunishCounter`の値を「パニッシュカウンターでヒットした時の削り量」として
+ * 加算する（2026-09-28ユーザー要望：始動技がパニッシュカウンターで繋がった場合、ダメージ
+ * アップに加えてDゲージ削りの能力も持たせたい）。それ以外の通常技のガード時チップ
+ * （`dGaugeChip`）はこの自動計算のスコープ外（未実装）。
  *
  * 末端ノードのbranchStats.isJustParryStartがtrue（常にパニッシュカウンター扱い）の場合、
  * 合計を半分にする（実機確認済み。攻撃側自身のDゲージ増減=calculateBranchDGaugeChangeとは独立）。
@@ -428,10 +482,15 @@ export function calculateBranchOpponentDGaugeChip(
   let hasAnyData = false;
 
   path.forEach((node, index) => {
+    // 空振り/ガードは実際にヒットしていないため対象外（damage側のbuildFlatDamageHits・
+    // SAゲージ側のbuildSaGaugeStepsと同じ扱い）
+    if (node.attributes.some((attribute) => attribute.type === 'whiff' || attribute.type === 'guard')) return;
+
     const isSuperArt = moveList.some(
       (move) => move.name === baseMoveName(node.moveName) && move.category === 'superArt',
     );
-    if (!isSuperArt) return;
+    const isPunishCounterNode = node.attributes.some((attribute) => attribute.type === 'punishCounter');
+    if (!isSuperArt && !isPunishCounterNode) return;
 
     const isTargetNode = index === path.length - 1;
     const stats = characterStats[lookupMoveName(node, isTargetNode)];
@@ -759,7 +818,12 @@ function buildFlatDamageHits(
 
     if (stats) {
       hasAnyData = true;
-      effectiveHits(stats, node).forEach((hit, hitIndex) => {
+      // node.hitIndicesで一部の段だけに絞り込んでいる場合（例: 2段技のうち2段目だけ選択）、
+      // 絞り込み後の配列内での位置（0始まり）をそのまま「何段目か」の表示に使うと、
+      // 実際は2段目のみでも「(1/2段目)」のように1段目扱いの表記になってしまっていた
+      // （2026-09-29ユーザー指摘）。resolveHitIndicesが返す絶対段番号をラベルに使う
+      resolveHitIndices(stats, node).forEach((absoluteHitNumber, hitIndex) => {
+        const hit = stats.hits[absoluteHitNumber - 1];
         flatHits.push({
           damage: hit.damage ?? 0,
           modifierText: hit.modifier,
@@ -767,10 +831,14 @@ function buildFlatDamageHits(
           minDamageGuaranteePercent: hit.minDamageGuaranteePercent,
           isSystemAction: isRushMove || hit.damage === 0,
           // 同じ技の複数ヒット(強Kの2段目等)は、登録時にsharesModifierAcrossHitsが立って
-          // いれば1段目とテーブルの段を共有する（詳細はdamageModifierCalc.ts参照）
+          // いれば1段目とテーブルの段を共有する（詳細はdamageModifierCalc.ts参照）。
+          // ここは「選択済みの段の中で何番目か」で判定するのが正しい（絞り込みで1段目が
+          // 除外されていれば、残った段は共有すべき前段が無いため段を進める側になる）
           sharesTableStepWithPrevious: stats.sharesModifierAcrossHits && hitIndex > 0,
           moveName: node.moveName,
-          hitLabel: stats.isMultiHit ? `${node.moveName}(${hitIndex + 1}/${stats.hits.length}段目)` : node.moveName,
+          hitLabel: stats.isMultiHit
+            ? `${node.moveName}(${absoluteHitNumber}/${stats.hits.length}段目)`
+            : node.moveName,
         });
       });
     } else {
@@ -797,41 +865,6 @@ function buildFlatDamageHits(
   return { flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale };
 }
 
-/**
- * root〜targetNodeId（両端含む）の経路上にある各ヒットのダメージを、実機確認済みの補正
- * （標準コンボ補正テーブル・ラッシュ攻撃の0.85倍・カウンター/パニカン始動・SAの最低保証）を
- * 適用して合計する。詳細な計算式は src/utils/damageModifierCalc.ts を参照。
- *
- * - 対象ノード（末端）のbranchStats（startHitCondition/isJustParryStart）から起点の基準値を決める
- * - 空振り・ガード属性のノードはダメージ0（位置も消費しない）
- * - 「キャンセルラッシュ」「生ラッシュ」のどちらも、以降のヒットにダメージ0.85倍を発生させる
- *   （Dゲージの回復抑制とは違い、生ラッシュも対象。始動技自体がラッシュ攻撃の時は発生しない）
- * - 技データが未登録のノードもダメージ0として位置だけは消費する（後続ヒットの段数がずれないように）
- * - 技データが1件も登録されていない経路ではnullを返す（未入力と「合計0」を区別するため）
- */
-export function calculateBranchDamage(
-  characterId: string,
-  moveStatsDatabase: MoveStatsDatabase,
-  moveList: MoveDefinition[],
-  root: MoveNode,
-  targetNodeId: string,
-): number | null {
-  const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
-  if (!path) return null;
-
-  const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
-  if (!built) return null;
-
-  const { flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale } = built;
-  const percents = calculateDamageScalingPath(flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale);
-  // システム動作(isSystemAction)はpercentがnull(補正対象外)。damageが常に0のためどちらにせよ
-  // 寄与は0だが、念のため明示的に0扱いする
-  const total = flatHits.reduce((sum, hit, index) => sum + (hit.damage * (percents[index] ?? 0)) / 100, 0);
-
-  return Math.round(total);
-}
-
 export type DamageBreakdownEntry = {
   position: number;
   hitLabel: string;
@@ -855,22 +888,27 @@ export type DamageBreakdown = {
 };
 
 /**
- * calculateBranchDamageと同じ計算を、1ヒットずつの内訳付きで返す。
- * BranchStatsEditor.tsxの「計算式」ボタンから、普段は閉じた状態で見せる
- * （計算根拠を見たい人向けの正式な機能。デバッグ調査用の一時的なものではない）。
+ * 1区間ぶんの経路（root〜1本のコンボの末端。comboEndで区切られた1つのsegment）の
+ * ダメージを、実機確認済みの補正（標準コンボ補正テーブル・ラッシュ攻撃の0.85倍・
+ * カウンター/パニカン始動・SAの最低保証）を適用して1ヒットずつの内訳付きで計算する。
+ * 詳細な計算式は src/utils/damageModifierCalc.ts を参照。
+ *
+ * - 区間の最後のノードのbranchStats（startHitCondition/isJustParryStart）から
+ *   その区間の起点の基準値を決める（区間の途中ノードにcounter/punishCounter属性が
+ *   あれば、それも必須条件として反映される。requiredStartHitConditionFromPath参照）
+ * - 空振り・ガード属性のノードはダメージ0（位置も消費しない）
+ * - 「キャンセルラッシュ」「生ラッシュ」のどちらも、以降のヒットにダメージ0.85倍を発生させる
+ *   （Dゲージの回復抑制とは違い、生ラッシュも対象。始動技自体がラッシュ攻撃の時は発生しない）
+ * - 技データが未登録のノードもダメージ0として位置だけは消費する（後続ヒットの段数がずれないように）
+ * - 技データが1件も登録されていない区間ではnullを返す（未入力と「合計0」を区別するため）
  */
-export function calculateBranchDamageBreakdown(
+function computeDamageBreakdownForSegment(
   characterId: string,
   moveStatsDatabase: MoveStatsDatabase,
   moveList: MoveDefinition[],
-  root: MoveNode,
-  targetNodeId: string,
+  segmentPath: MoveNode[],
 ): DamageBreakdown | null {
-  const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
-  if (!path) return null;
-
-  const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, path);
+  const built = buildFlatDamageHits(characterId, moveStatsDatabase, moveList, segmentPath);
   if (!built) return null;
 
   const { flatHits, rushTriggerPosition, startBase, scalingBase, floorScale, naturalStepScale } = built;
@@ -896,4 +934,72 @@ export function calculateBranchDamageBreakdown(
   const total = Math.round(entries.reduce((sum, entry) => sum + entry.contribution, 0));
 
   return { startBase, rushTriggerPosition, entries, total };
+}
+
+/**
+ * root〜targetNodeIdの経路のうち、targetNodeIdが属する区間（＝直前の「コンボ終了」
+ * ノードの次〜targetNodeId。コンボ終了が経路上に無ければroot〜targetNodeIdの全体）
+ * だけを対象に、1ヒットずつの内訳付きでダメージを計算する。
+ * BranchStatsEditor.tsxの「計算式」ボタンから、普段は閉じた状態で見せる
+ * （計算根拠を見たい人向けの正式な機能。デバッグ調査用の一時的なものではない）。
+ * このノードより前の区間（1本目のコンボ等）も含めた全区間を見たい場合は
+ * calculateAllComboDamageSegmentsを使う。
+ */
+export function calculateBranchDamageBreakdown(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): DamageBreakdown | null {
+  const rawPath = findPathToNode(root, targetNodeId);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
+
+  const segments = splitPathIntoComboSegments(path);
+  return computeDamageBreakdownForSegment(
+    characterId,
+    moveStatsDatabase,
+    moveList,
+    segments[segments.length - 1],
+  );
+}
+
+/** calculateBranchDamageBreakdownと同じ区間・同じ計算で、合計ダメージだけを返す */
+export function calculateBranchDamage(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): number | null {
+  return (
+    calculateBranchDamageBreakdown(characterId, moveStatsDatabase, moveList, root, targetNodeId)
+      ?.total ?? null
+  );
+}
+
+/**
+ * root〜targetNodeIdの経路を「コンボ終了」で区切った、全区間ぶんのダメージ内訳を
+ * 配列で返す（区間の順番どおり。最後の要素がcalculateBranchDamageBreakdownと同じ、
+ * targetNodeId自身が属する区間）。末端ノードで「1本目のコンボ」「2本目のコンボ」…を
+ * まとめて見せるためのもの（BranchStatsEditor.tsxのpriorComboSegments参照）。
+ * 各区間に技データが1件も無ければ、その区間はnullになる（配列自体の長さは区間数のまま）。
+ * 汎用コンボの始動技が未選択など、経路自体が解決できない場合はnullを返す。
+ */
+export function calculateAllComboDamageSegments(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+): (DamageBreakdown | null)[] | null {
+  const rawPath = findPathToNode(root, targetNodeId);
+  const path = resolvePath(rawPath);
+  if (!path) return null;
+
+  const segments = splitPathIntoComboSegments(path);
+  return segments.map((segmentPath) =>
+    computeDamageBreakdownForSegment(characterId, moveStatsDatabase, moveList, segmentPath),
+  );
 }
