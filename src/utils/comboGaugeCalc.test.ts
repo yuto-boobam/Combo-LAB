@@ -39,6 +39,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     okizemeRating: null,
     difficultyRating: null,
     overallRating: null,
+    isOverallRatingAutoSynced: true,
     plusFrame: null,
     isThrowRange: false,
     canOkizeme: false,
@@ -48,7 +49,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     isRushStart: false,
     usesCA: false,
     finishingSpecialVariant: null,
-    finishingSuperArtName: null,
+    finishingMoveOptions: [],
     startingMoveNames: null,
     startingMoveCancelHitIndex: null,
     ...overrides,
@@ -1100,10 +1101,10 @@ describe('startingMoveOptions（複数の始動技から同じ続きに繋がる
   });
 });
 
-describe('finishingSuperArtName（末端の直後、木にノードを追加せずSAで締める）', () => {
-  it('末端ノードがfinishingSuperArtNameを持つ場合、ダメージ計算にそのSAぶんが合成される', () => {
+describe('finishingMoveOptions（末端の直後、木にノードを追加せず「この後に繋ぐこともある技」を複数登録する）', () => {
+  it('finishingMoveを明示的に指定すると、ダメージ計算にその技ぶんが合成される', () => {
     const after = makeNode('after', '強P', {
-      branchStats: makeBranchStats({ finishingSuperArtName: 'SA3' }),
+      branchStats: makeBranchStats({ finishingMoveOptions: [{ name: 'SA3', specialVariant: null }] }),
     });
     const starter = makeNode('starter', '中K', { children: [after] });
 
@@ -1118,11 +1119,18 @@ describe('finishingSuperArtName（末端の直後、木にノードを追加せ�
 
     // 中K:500(100%) + 強P:700(2発目=100%) + SA3:3発目=80%、自然計算80%は保証50%を上回るため
     // そのまま採用 → 4000*0.8=3200 → 合計 500+700+3200=4400
-    expect(calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(4400);
+    expect(
+      calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after', {
+        name: 'SA3',
+        specialVariant: null,
+      }),
+    ).toBe(4400);
   });
 
-  it('finishingSuperArtNameが未設定(null)なら、これまで通り末端ノードだけで計算する', () => {
-    const after = makeNode('after', '強P', { branchStats: makeBranchStats() });
+  it('finishingMoveを指定しない（省略・null）場合は、このノード自身で終わる基準で計算する（finishingMoveOptionsが登録されていても自動では合成しない）', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({ finishingMoveOptions: [{ name: 'SA3', specialVariant: null }] }),
+    });
     const starter = makeNode('starter', '中K', { children: [after] });
 
     const moveStatsDatabase: MoveStatsDatabase = {
@@ -1137,9 +1145,48 @@ describe('finishingSuperArtName（末端の直後、木にノードを追加せ�
     expect(calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(1200);
   });
 
+  it('複数登録した場合、それぞれを個別に指定して計算できる（A→Bで終わる／A→B→C／A→B→SAをそれぞれ独立に求められる）', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({
+        finishingMoveOptions: [
+          { name: '強昇竜拳', specialVariant: null },
+          { name: 'SA3', specialVariant: null },
+        ],
+      }),
+    });
+    const starter = makeNode('starter', '中K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中K': makeStats([makeHit({ damage: 500 })]),
+        '強P': makeStats([makeHit({ damage: 700 })]),
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+        SA3: makeStats([makeHit({ damage: 4000, minDamageGuaranteePercent: 50 })]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('SA3', 'superArt')];
+
+    // A→Bで終わる（何も追加しない）: 中K:500 + 強P:700(2発目=100%) = 1200
+    expect(calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(1200);
+    // A→B→強昇竜拳: 500 + 700 + 強昇竜拳:1000(3発目=80%)=800 → 2000
+    expect(
+      calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after', {
+        name: '強昇竜拳',
+        specialVariant: null,
+      }),
+    ).toBe(2000);
+    // A→B→SA3: 500 + 700 + SA3:3発目=80%、保証50%を上回るため採用 → 4000*0.8=3200 → 4400
+    expect(
+      calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after', {
+        name: 'SA3',
+        specialVariant: null,
+      }),
+    ).toBe(4400);
+  });
+
   it('SAゲージ計算にも合成したSAの消費量(負の値)が反映される', () => {
     const after = makeNode('after', '強P', {
-      branchStats: makeBranchStats({ finishingSuperArtName: 'SA3' }),
+      branchStats: makeBranchStats({ finishingMoveOptions: [{ name: 'SA3', specialVariant: null }] }),
     });
     const starter = makeNode('starter', '中K', { children: [after] });
 
@@ -1151,12 +1198,17 @@ describe('finishingSuperArtName（末端の直後、木にノードを追加せ�
       },
     };
 
-    expect(calculateBranchSaGaugeChange('ryu', moveStatsDatabase, starter, 'after')).toBe(-5500);
+    expect(
+      calculateBranchSaGaugeChange('ryu', moveStatsDatabase, starter, 'after', {
+        name: 'SA3',
+        specialVariant: null,
+      }),
+    ).toBe(-5500);
   });
 
   it('Dゲージ計算は、木にノードを追加していない合成後のSAまで含めて経路全体を合計する', () => {
     const after = makeNode('after', '強P', {
-      branchStats: makeBranchStats({ finishingSuperArtName: 'SA3' }),
+      branchStats: makeBranchStats({ finishingMoveOptions: [{ name: 'SA3', specialVariant: null }] }),
     });
     const rush = makeNode('rush', 'キャンセルラッシュ', { children: [after] });
     const starter = makeNode('starter', '中K', { children: [rush] });
@@ -1172,12 +1224,17 @@ describe('finishingSuperArtName（末端の直後、木にノードを追加せ�
     const moveList: MoveDefinition[] = [makeMove('SA3', 'superArt')];
 
     // 中K:999 + キャンセルラッシュ:-3000 + 強P:0(ラッシュ中の通常技) + SA3:400(dGaugeGainDuringRush)
-    expect(calculateBranchDGaugeChange('ryu', moveStatsDatabase, moveList, starter, 'after')).toBe(-1601);
+    expect(
+      calculateBranchDGaugeChange('ryu', moveStatsDatabase, moveList, starter, 'after', {
+        name: 'SA3',
+        specialVariant: null,
+      }),
+    ).toBe(-1601);
   });
 
   it('合成したSAの技データが未登録でも、他のノードの合計は保たれる', () => {
     const after = makeNode('after', '強P', {
-      branchStats: makeBranchStats({ finishingSuperArtName: '未登録SA' }),
+      branchStats: makeBranchStats({ finishingMoveOptions: [{ name: '未登録SA', specialVariant: null }] }),
     });
 
     const moveStatsDatabase: MoveStatsDatabase = {
@@ -1186,7 +1243,66 @@ describe('finishingSuperArtName（末端の直後、木にノードを追加せ�
       },
     };
 
-    expect(calculateBranchDamage('ryu', moveStatsDatabase, [], after, 'after')).toBe(700);
+    expect(
+      calculateBranchDamage('ryu', moveStatsDatabase, [], after, 'after', {
+        name: '未登録SA',
+        specialVariant: null,
+      }),
+    ).toBe(700);
+  });
+
+  it('SA以外（通常技・必殺技）も「この後に繋ぐこともある技」として登録できる（2026-10-02ユーザー要望：SA専用だった仕様を一般化）', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({ finishingMoveOptions: [{ name: '強昇竜拳', specialVariant: null }] }),
+    });
+    const starter = makeNode('starter', '中K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中K': makeStats([makeHit({ damage: 500 })]),
+        '強P': makeStats([makeHit({ damage: 700 })]),
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+      },
+    };
+
+    // 中K:500(100%) + 強P:700(2発目=100%) + 強昇竜拳:1000(3発目=80%) = 500+700+800=2000
+    expect(
+      calculateBranchDamage('ryu', moveStatsDatabase, [], starter, 'after', {
+        name: '強昇竜拳',
+        specialVariant: null,
+      }),
+    ).toBe(2000);
+  });
+
+  it('繋ぐ技が特殊性能ありの場合、指定したspecialVariantの変化形のデータを参照する（末端ノード自身のfinishingSpecialVariantとは独立）', () => {
+    const after = makeNode('after', '強P', {
+      branchStats: makeBranchStats({
+        finishingMoveOptions: [{ name: 'SA1', specialVariant: 'Lv. 2' }],
+        // 末端ノード自身は特殊性能を持つ技ではないが、仮にfinishingSpecialVariantが
+        // 誤って混ざっていないことを確認するため、別の値をあえて入れておく
+        finishingSpecialVariant: '末端ノード自身の値(誤って参照されてはいけない)',
+      }),
+    });
+    const starter = makeNode('starter', '中K', { children: [after] });
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      ryu: {
+        '中K': makeStats([makeHit({ damage: 500 })]),
+        '強P': makeStats([makeHit({ damage: 700 })]),
+        'SA1(Lv. 2)': makeStats([makeHit({ damage: 5000, minDamageGuaranteePercent: 50 })]),
+      },
+    };
+    const moveList: MoveDefinition[] = [makeMove('SA1', 'superArt')];
+
+    // 中K:500 + 強P:700 + SA1(Lv. 2):3発目=80%、保証50%を上回るため自然計算採用 → 5000*0.8=4000
+    // 合計 500+700+4000=5200（"SA1"キーだけでは技データが無いため、変化形のキーが
+    // 正しく参照されていないと合計が変わってしまう）
+    expect(
+      calculateBranchDamage('ryu', moveStatsDatabase, moveList, starter, 'after', {
+        name: 'SA1',
+        specialVariant: 'Lv. 2',
+      }),
+    ).toBe(5200);
   });
 });
 

@@ -160,6 +160,36 @@ export type NodeAttribute =
  * どのカテゴリの技に効くかは技によって異なるため、ここでは条件の記録のみ行う */
 export type BranchStartHitCondition = '通常' | 'カウンター' | 'パニカン';
 
+/** ComboBranchStats.finishingMoveOptionsの1件ぶん（任意の技＋その技自身の特殊性能） */
+export type FinishingMoveOption = {
+  name: string;
+  // nameの技がhasSpecialVariant（特殊性能あり）の場合に、実際に使った特殊性能（例:「Lv. 1」）。
+  // 無ければnull。このノード自身の特殊性能を表すComboBranchStats.finishingSpecialVariantとは
+  // 別物（どちらも同時に関係しうるため、例えばこのノード自身もLv違いのSAで、かつ
+  // その後に続く技も別のLv違いの技、というケースを区別できるように分けている）
+  specialVariant: string | null;
+
+  /**
+   * この技で締めた場合専用の評価・記録項目（このノード自身のComboBranchStatsの対応フィールド
+   * とは独立。2026-10-03ユーザー要望：どの技で締めたかによって評価や終わり際の状況
+   * （フレーム・投げ間合い・起き攻め可否）も変わるため、技ごとに個別登録できるようにする）。
+   * 省略可能なのは、登録技自体（name/specialVariant）だけを持つ旧形式データとの後方互換のため
+   * （読み取り側は??でデフォルト値を補う。src/utils/branchStatsDefaults.tsの
+   * createDefaultFinishingMoveOption参照）
+   */
+  damageRating?: Rating5 | null;
+  dGaugeRating?: Rating5 | null;
+  saGaugeRating?: Rating5 | null;
+  carryRating?: Rating5 | null;
+  okizemeRating?: Rating5 | null;
+  difficultyRating?: Rating5 | null;
+  overallRating?: Rating5 | null;
+  isOverallRatingAutoSynced?: boolean;
+  plusFrame?: number | null;
+  isThrowRange?: boolean;
+  canOkizeme?: boolean;
+};
+
 export type ComboBranchStats = {
   damage: number | null;
   dGaugeChange: number | null; // 回収+ / 消費-
@@ -196,9 +226,19 @@ export type ComboBranchStats = {
   carryRating: Rating5 | null;
   /** この枝(コンボ)の後に続く起き攻めの内容の評価（2026-08-30ユーザー要望で追加） */
   okizemeRating: Rating5 | null;
-  /** この枝(コンボ)の難易度の評価（2026-08-30ユーザー要望で追加） */
+  /** この枝(コンボ)の難易度の評価（2026-08-30ユーザー要望で追加。5＝簡単、1＝難しい。
+   * 他の評価項目と同じ「5が良い」向きで統一されているため、総合評価の加重平均に
+   * そのまま（向きを反転せずに）含められる） */
   difficultyRating: Rating5 | null;
   overallRating: Rating5 | null;
+  /**
+   * overallRatingが、他の6項目（ダメージ/Dゲージ/SAゲージ/運び/起き攻め内容/難易度）
+   * からの加重平均に追従したままか（true）、ユーザーが手で選んで固定されたか（false）。
+   * isDamageAutoSynced等と同じ考え方（src/utils/overallRating.ts参照）。
+   * 重み付けはダメージ・起き攻め内容・Dゲージ＞運び＞SAゲージ・難易度
+   * （2026-10-02ユーザー指定）。未入力の項目は無視し、入力済みの項目だけで加重平均する
+   */
+  isOverallRatingAutoSynced: boolean;
 
   // 具体的なフレーム数（例: +3）。ケースバイケースで変わりやすいため、技データ側の
   // プリセットは持たずコンボの枝ごとに都度手入力する（2026-09-29ユーザー要望で
@@ -236,15 +276,20 @@ export type ComboBranchStats = {
   finishingSpecialVariant: string | null;
 
   /**
-   * この末端ノードの直後にSA(superArt)へ繋いで締める場合、その技名（例:「SA3」）。
-   * null = SAに繋がない（このノード自身で終わる）。末端ノード自身はSAではないが、
-   * 実際にはSAの直前の技でコンボを終えることも多いため、木にSAのノードを追加しなくても
-   * ダメージ・SAゲージ・Dゲージの自動計算にそのSAぶんを合成して反映できるようにする
-   * （ユーザー要望。詳細はcomboGaugeCalc.tsのwithFinishingSuperArt参照）。対象は
-   * 特殊性能なし(hasSpecialVariantが立っていない)の単純なSAのみ。特殊性能ありのSAで
-   * 終わる場合はfinishesComboOnSelect/finishingSpecialVariantの仕組みを使う
+   * この末端ノードの直後に繋いで終えることもある技を、複数登録できる（例:「SA2」「強昇竜拳」）。
+   * 空配列 = 何も繋がない（このノード自身で終わる）パターンのみ。あえて使わないことも多い技
+   * （SA締めを確定させず残しておきたい場合等）や、「B→C」「B→SA」のように同じノードBから
+   * 複数の終わり方がありうる場合に、木を分岐させずそれぞれ記録できるようにする
+   * （2026-10-03ユーザー要望：以前は1つしか登録できず、分岐しうる終わり方を同時に
+   * 記録できなかった。このノード自身で終わるパターンを含め、登録した技の数だけ
+   * ダメージ等を個別に確認できる。詳細はsrc/utils/comboGaugeCalc.tsのwithFinishingMove、
+   * 一覧表示はsrc/utils/comboRanking.ts参照）。
+   * ダメージ・SAゲージ・Dゲージの自動計算（このノード自身の値。damage欄等）は、何も追加しない
+   * 状態（このノード自身で終わる場合）を基準に行う。各登録技を追加した場合の値は、呼び出し側が
+   * 個別にwithFinishingMove経由で計算し、この配列には保存しない（木構造を変えずに済む代わりに、
+   * 技データが変わった時も常に最新の値を再計算で表示するため）
    */
-  finishingSuperArtName: string | null;
+  finishingMoveOptions: FinishingMoveOption[];
 
   /**
    * root（始動技）がstartingMoveOptionsを持つ「汎用コンボ」の場合に、この枝で実際に
@@ -407,7 +452,7 @@ export type MoveStats = {
    * 「コンボの情報」欄にある「SAで締める」選択肢は、このノードで実際に使っている技が
    * 対象のSAへキャンセル可能な場合だけ選べるようにする（実機の技によって当然キャンセル
    * 先が異なるため。技表を見ながらここで技ごとに登録する）。対象は特殊性能なしの単純な
-   * SAのみ（finishingSuperArtNameと同じ制約。詳細はcomboGaugeCalc.tsとMoveStatsPage.tsx参照）
+   * SAのみ（finishingMoveOptionsと同じ制約。詳細はcomboGaugeCalc.tsとMoveStatsPage.tsx参照）
    */
   cancelableSuperArtNames: string[];
   /**

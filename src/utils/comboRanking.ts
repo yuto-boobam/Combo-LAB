@@ -10,7 +10,14 @@
 // 「どの始動技なら何ダメージなのか」を無視して1行にまとめてしまうと、始動技ごとの
 // 比較ができなくなるため）。実データは一切書き換えず、この一覧の表示専用の計算。
 
-import type { ComboBranchStats, ComboTree, MoveDefinition, MoveNode, MoveStatsDatabase } from '../types';
+import type {
+  ComboBranchStats,
+  ComboTree,
+  FinishingMoveOption,
+  MoveDefinition,
+  MoveNode,
+  MoveStatsDatabase,
+} from '../types';
 import { DEFAULT_BRANCH_STATS } from './branchStatsDefaults';
 import {
   calculateBranchDamage,
@@ -57,6 +64,33 @@ function labelOf(node: MoveNode): string {
   return node.displayName ?? node.moveName;
 }
 
+function finishingMoveLabel(option: FinishingMoveOption): string {
+  // 表示用ラベルは全角括弧を使う（BranchStatsEditor.tsxの表示と合わせる。技データベースの
+  // 参照キーに使う半角括弧の`${name}(${variant})`形式とは別物）
+  return option.specialVariant ? `${option.name}（${option.specialVariant}）` : option.name;
+}
+
+/**
+ * この技で締めた場合専用の評価・記録項目を一覧の行へ反映する。ノード自身（何も追加しない
+ * ベース行）の評価とは独立のため、baseBranchStatsからは引き継がず、未入力の項目は
+ * 「このendingの評価」として素直にnull/falseのまま表示する（2026-10-03ユーザー要望：
+ * SA2で締めた場合とSA3で締めた場合で、評価や終わり際のプラスフレーム等を分けて確認したい）
+ */
+function finishingMoveOptionOverrides(option: FinishingMoveOption) {
+  return {
+    damageRating: option.damageRating ?? null,
+    dGaugeRating: option.dGaugeRating ?? null,
+    saGaugeRating: option.saGaugeRating ?? null,
+    carryRating: option.carryRating ?? null,
+    okizemeRating: option.okizemeRating ?? null,
+    difficultyRating: option.difficultyRating ?? null,
+    overallRating: option.overallRating ?? null,
+    plusFrame: option.plusFrame ?? null,
+    isThrowRange: option.isThrowRange ?? false,
+    canOkizeme: option.canOkizeme ?? false,
+  };
+}
+
 /** rootの中でnodeIdに一致するノードだけbranchStatsを差し替えた木を返す（実データには手を付けない） */
 function withOverriddenBranchStats(root: MoveNode, nodeId: string, branchStats: ComboBranchStats): MoveNode {
   if (root.id === nodeId) return { ...root, branchStats };
@@ -85,24 +119,77 @@ export function collectComboEndingSummaries(
 
       if (isComboEndpoint(node)) {
         const pathLabel = nextPath.slice(1).map(labelOf).join(' → ');
-        const endingLabel = labelOf(node);
+        const baseEndingLabel = labelOf(node);
         const selectedStarter = node.branchStats?.startingMoveNames ?? null;
+        // このノードに登録された「この後に繋ぐこともある技」（複数登録可）。何も追加しない
+        // パターン（このノード自身で終わる。従来通りの行）に加え、登録した技の数だけ
+        // 追加の行を展開する（2026-10-03ユーザー要望：A→Bで終わる／A→B→C／A→B→SAのように
+        // 分岐しうる終わり方を、木を分けずにそれぞれダメージ等を確認できるようにしたい）
+        const finishingMoveOptions = node.branchStats?.finishingMoveOptions ?? [];
 
         if (!isGeneric) {
+          // ベース行（何も追加しない＝このノード自身で終わる）は、従来通り実データを
+          // そのまま使う（再計算しない。damage等は既にノード側で自動計算・保存済み）
           summaries.push({
             key: node.id,
             nodeId: node.id,
             treeId: tree.id,
             starterLabel: tree.label,
             pathLabel,
-            endingLabel,
+            endingLabel: baseEndingLabel,
             branchStats: node.branchStats,
             isSelectedStarter: true,
           });
+
+          const baseBranchStats = node.branchStats ?? DEFAULT_BRANCH_STATS;
+          finishingMoveOptions.forEach((option, optionIndex) => {
+            const damage = calculateBranchDamage(characterId, moveStatsDatabase, moveList, tree.root, node.id, option);
+            const dGaugeChange = calculateBranchDGaugeChange(
+              characterId,
+              moveStatsDatabase,
+              moveList,
+              tree.root,
+              node.id,
+              option,
+            );
+            const opponentDGaugeChip = calculateBranchOpponentDGaugeChip(
+              characterId,
+              moveStatsDatabase,
+              moveList,
+              tree.root,
+              node.id,
+              option,
+            );
+            const saGaugeGain = calculateBranchSaGaugeChange(
+              characterId,
+              moveStatsDatabase,
+              tree.root,
+              node.id,
+              option,
+            );
+
+            summaries.push({
+              key: `${node.id}::finishing::${optionIndex}`,
+              nodeId: node.id,
+              treeId: tree.id,
+              starterLabel: tree.label,
+              pathLabel,
+              endingLabel: `${baseEndingLabel} → ${finishingMoveLabel(option)}`,
+              isSelectedStarter: true,
+              branchStats: {
+                ...baseBranchStats,
+                damage,
+                dGaugeChange,
+                opponentDGaugeChip,
+                saGaugeGain,
+                ...finishingMoveOptionOverrides(option),
+              },
+            });
+          });
         } else {
-          // 計算の入力には常に実データ(branchStats)を使う（finishingSuperArtName等の
-          // 「このendingがどう終わるか」を表す設定は、どの始動技で辿り着いたかに関わらず
-          // 共通して当てはまるため）。startingMoveNamesだけを候補ごとに差し替える
+          // 計算の入力には常に実データ(branchStats)を使う（評価等の「このendingがどう
+          // 終わるか」を表す設定は、どの始動技で辿り着いたかに関わらず共通して当てはまる
+          // ため）。startingMoveNamesだけを候補ごとに差し替える
           const baseBranchStats = node.branchStats ?? DEFAULT_BRANCH_STATS;
 
           starterCandidates.forEach((candidate, index) => {
@@ -136,7 +223,7 @@ export function collectComboEndingSummaries(
               treeId: tree.id,
               starterLabel: candidate.join(' → '),
               pathLabel,
-              endingLabel,
+              endingLabel: baseEndingLabel,
               isSelectedStarter: isSelected,
               branchStats: {
                 // 評価・お気に入り等の手入力項目は、実際に選ばれている始動技の行にのみ残す
@@ -148,6 +235,59 @@ export function collectComboEndingSummaries(
                 opponentDGaugeChip,
                 saGaugeGain,
               },
+            });
+
+            finishingMoveOptions.forEach((option, optionIndex) => {
+              const optionDamage = calculateBranchDamage(
+                characterId,
+                moveStatsDatabase,
+                moveList,
+                whatIfRoot,
+                node.id,
+                option,
+              );
+              const optionDGaugeChange = calculateBranchDGaugeChange(
+                characterId,
+                moveStatsDatabase,
+                moveList,
+                whatIfRoot,
+                node.id,
+                option,
+              );
+              const optionOpponentDGaugeChip = calculateBranchOpponentDGaugeChip(
+                characterId,
+                moveStatsDatabase,
+                moveList,
+                whatIfRoot,
+                node.id,
+                option,
+              );
+              const optionSaGaugeGain = calculateBranchSaGaugeChange(
+                characterId,
+                moveStatsDatabase,
+                whatIfRoot,
+                node.id,
+                option,
+              );
+
+              summaries.push({
+                key: `${node.id}::${index}::finishing::${optionIndex}`,
+                nodeId: node.id,
+                treeId: tree.id,
+                starterLabel: candidate.join(' → '),
+                pathLabel,
+                endingLabel: `${baseEndingLabel} → ${finishingMoveLabel(option)}`,
+                isSelectedStarter: isSelected,
+                branchStats: {
+                  ...(isSelected ? baseBranchStats : DEFAULT_BRANCH_STATS),
+                  startingMoveNames: candidate,
+                  damage: optionDamage,
+                  dGaugeChange: optionDGaugeChange,
+                  opponentDGaugeChip: optionOpponentDGaugeChip,
+                  saGaugeGain: optionSaGaugeGain,
+                  ...finishingMoveOptionOverrides(option),
+                },
+              });
             });
           });
         }

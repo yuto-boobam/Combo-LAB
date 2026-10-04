@@ -4,15 +4,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { BranchStartHitCondition, ComboBranchStats, Rating5 } from '../../types';
+import type { BranchStartHitCondition, ComboBranchStats, FinishingMoveOption, Rating5 } from '../../types';
 import type { DamageBreakdown, DamageBreakdownEntry, GaugeStep, OdLevelConstraint } from '../../utils/comboGaugeCalc';
-import { DEFAULT_BRANCH_STATS } from '../../utils/branchStatsDefaults';
+import { DEFAULT_BRANCH_STATS, createDefaultFinishingMoveOption } from '../../utils/branchStatsDefaults';
+import { calculateWeightedOverallRating } from '../../utils/overallRating';
 import {
   expandStarterMoveOptions,
   parseStarterMoveChain,
   serializeStarterMoveOptions,
 } from '../../utils/starterMoveOptions';
 import { OdLevelToggle } from './OdLevelToggle';
+import { MoveNamePicker } from './MoveNamePicker';
+import AccordionSection from '../AccordionSection';
 
 export type OdUsageOnPath = {
   nodeId: string;
@@ -25,6 +28,12 @@ type Props = {
   value: ComboBranchStats | null;
   onChange: (next: ComboBranchStats | null) => void;
   readOnly?: boolean;
+  // 「この後に繋ぐこともある技」欄（MoveNamePicker）で使う。readOnlyの間は未指定でもよい
+  // （ピッカー自体を表示しないため）
+  characterId?: string;
+  // 選択中ノード自身の技名。「この後に繋ぐこともある技」ピッカーのprecedingMoveName
+  // （派生技の直前技チェック）に渡す。readOnlyの間は未指定でもよい
+  ownMoveName?: string;
   // root〜このノードの経路上にある「カウンター」「パニッシュカウンター」属性から求まる、
   // この枝が繋がるために最低限必要な始動条件（例:「カウンター以上でないと繋がらない」
   // ノードが経路上にあれば'カウンター'）。null = 制約なし
@@ -65,11 +74,12 @@ type Props = {
   // で置かれている場合のみ渡される。渡された場合、このコンポーネントは「使用した特殊性能」を
   // 選ばせるUIを表示し、finishingSpecialVariantに保存する（呼び出し側の判定はSideDrawerPanel参照）
   finishingSuperArtMove?: { name: string; specialVariantOptions: string[] } | null;
-  // このキャラに登録済みの、特殊性能なしの単純なSAの名前一覧。1件以上あれば「このノードの
-  // 直後にSAへ繋いで終わる」場合の選択肢として表示する（木にSAのノードを追加しなくても
-  // ダメージ・ゲージ計算に反映できるようにする機能。finishingSuperArtMoveと同時には
-  // 出さない：このノード自身が既にSAである場合は対象外のため）
-  finishingSuperArtOptions?: string[];
+  // value.finishingMoveOptions（登録済みの「この後に繋ぐこともある技」）それぞれについて、
+  // その技を追加した場合のダメージを計算済みの状態で渡す（配列のインデックスが
+  // finishingMoveOptionsと対応する）。呼び出し側（SideDrawerPanel.tsx）が
+  // comboGaugeCalc.tsのcalculateBranchDamage経由で計算する（このコンポーネント自身は
+  // 技データベースを持たないため計算できない）。未指定の間は各技の横にダメージを表示しない
+  finishingMoveOptionPreviews?: { option: FinishingMoveOption; damage: number | null }[];
   // root〜このノードの経路上にある「OD版はレベル+1相当の性能になる」技（ビーム等）の一覧。
   // 末端ノードの「コンボの情報」欄から、経路の途中にあるノードのOD使用もまとめて確認・
   // 変更できるようにする（選択中のノードを1つずつ辿らなくても、最終的なゲージを見ている
@@ -137,6 +147,8 @@ export function BranchStatsEditor({
   value,
   onChange,
   readOnly = false,
+  characterId,
+  ownMoveName,
   requiredStartHitCondition = null,
   damageBreakdown = null,
   priorComboSegments = [],
@@ -147,7 +159,7 @@ export function BranchStatsEditor({
   saGaugeBreakdown = null,
   dGaugeMinimumRequired = null,
   finishingSuperArtMove = null,
-  finishingSuperArtOptions = [],
+  finishingMoveOptionPreviews = [],
   odUsagesOnPath = [],
   onChangeOdUsage,
   hideEmptyFields = false,
@@ -155,12 +167,26 @@ export function BranchStatsEditor({
   starterMoveCancelInfo = null,
 }: Props) {
   const stats = value ?? DEFAULT_BRANCH_STATS;
+  // ショーケース（ゲスト向け）データ等、finishingMoveOptions追加前の形式のまま保存されている
+  // branchStatsはこのフィールドを持たない(undefined)ことがあるため、他の旧フィールドと同じく
+  // ここで安全に初期化する（stats.finishingMoveOptionsを直接参照しない）
+  const finishingMoveOptions = stats.finishingMoveOptions ?? [];
   // 計算式の内訳は普段は閉じておき、興味を持った人がボタンを押した時だけ見せる
   const [isFormulaOpen, setIsFormulaOpen] = useState(false);
   // Dゲージ増減／SAゲージ増加欄の表示モード。falseは合計（従来通りの編集可能な数値入力）、
   // trueは1ノードずつの内訳（読み取り専用のテキスト表示に切り替わる）
   const [isDGaugeBreakdownMode, setIsDGaugeBreakdownMode] = useState(false);
   const [isSaGaugeBreakdownMode, setIsSaGaugeBreakdownMode] = useState(false);
+  // 「この後に繋ぐこともある技」を新しく1件追加するための下書き。null＝追加中でない
+  // （「+ 技を追加」を押すとnameが空文字の下書きを作る）。MoveNamePickerは「技を選ぶ→
+  // 特殊性能を選ぶ」のように複数回onChangeが呼ばれることがあるため（例: Lv.違いのSA）、
+  // 選ぶたびに即配列へ確定させず、ここで保持してから「追加する」ボタンで初めて配列へ積む
+  // （そうしないと1回目のonChangeで即座にピッカーを閉じてしまい、特殊性能を選ぶ前に
+  // 確定してしまう）
+  const [draftFinishingMove, setDraftFinishingMove] = useState<FinishingMoveOption | null>(null);
+  // 「この後に繋ぐこともある技」欄全体の開閉。普段は畳んでおき、他のアコーディオンと
+  // 同じく必要な時だけ開く（2026-10-04ユーザー要望：この欄自体も開閉できるようにしたい）
+  const [isFinishingMoveSectionOpen, setIsFinishingMoveSectionOpen] = useState(false);
 
   // 「この枝の始動技」の自由記入欄（一覧に無い経由技をその場で入力するため）の下書き。
   // 確定前の入力途中の文字列（例:「強P→」）をそのまま保持したいので、値そのもの
@@ -184,6 +210,16 @@ export function BranchStatsEditor({
 
   const update = (patch: Partial<ComboBranchStats>) => {
     onChange({ ...stats, ...patch });
+  };
+
+  // finishingMoveOptionsのうち1件（登録済みの「この後に繋ぐこともある技」）だけを更新する。
+  // 技ごとの評価・プラスフレーム等はこの技専用の項目であり、ノード自身の評価には影響しない
+  const updateFinishingMoveOption = (index: number, patch: Partial<FinishingMoveOption>) => {
+    update({
+      finishingMoveOptions: finishingMoveOptions.map((option, i) =>
+        i === index ? { ...option, ...patch } : option,
+      ),
+    });
   };
 
   // 始動条件・SA締めのように、この枝のダメージ・ゲージ計算の前提そのものを変える変更は、
@@ -239,6 +275,21 @@ export function BranchStatsEditor({
     updateAndResetAutoFields({ startHitCondition: effectiveRequiredCondition });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, satisfiesRequirement, effectiveRequiredCondition]);
+
+  // 総合評価は、他の6項目（ダメージ/Dゲージ/SAゲージ/運び/起き攻め内容/難易度）からの
+  // 加重平均（src/utils/overallRating.ts）に、isOverallRatingAutoSynced（既定true）が
+  // trueの間、常に追従させる（damage等の4欄と同じ考え方。2026-10-02ユーザー要望：
+  // 総合評価を他の評価と独立に毎回手入力するのではなく、既定値として自動計算したい）。
+  // ユーザーが総合評価を直接選ぶと、その時点でisOverallRatingAutoSyncedがfalseになり
+  // 以降は上書きされなくなる（「自動計算に戻す」ボタンでtrueに戻せる）
+  const autoOverallRating = calculateWeightedOverallRating(stats);
+  useEffect(() => {
+    if (readOnly) return;
+    if (!(stats.isOverallRatingAutoSynced ?? true)) return;
+    if (stats.overallRating === autoOverallRating) return;
+    update({ overallRating: autoOverallRating });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, stats.isOverallRatingAutoSynced, stats.overallRating, autoOverallRating]);
 
   // hideEmptyFields時、各セクションを「未入力なら畳む」判定。実際の編集画面では
   // 常にfalse相当（空欄も編集の入り口として必要）なので通常は全て表示される
@@ -319,6 +370,105 @@ export function BranchStatsEditor({
           isAutoSynced={stats.isDamageAutoSynced}
           onResetToAuto={() => update({ isDamageAutoSynced: true })}
         />
+
+        {/* この技の直後に繋ぐこともある技を、木にノードを追加せず複数登録できる。あえて
+            使わないことも多い技（SA締め等）や、同じノードから「何もしない／技Cを追加／SAを
+            追加」のように複数の終わり方がありうる場合に、枝を分岐させずそれぞれ記録して
+            おきたいというユーザー要望（2026-10-03）。登録した技ごとに専用の評価・
+            プラスフレーム・投げ間合い・起き攻め可能を個別登録できる（締め技によって評価や
+            終わり際の状況が変わるため、ノード自身の評価とは独立に持たせたい、という
+            2026-10-03ユーザー要望）。各技は技のように開閉できるアコーディオンにし、
+            普段は畳んでおく。この欄自体も他のアコーディオンと同じく開閉できるようにし、
+            普段は畳んでおく（2026-10-04ユーザー要望）。ダメージ欄のすぐ下・計算式ボタンの
+            上に置くことで、「ダメージを見る→この後に繋ぐこともある技を確認する→裏付けとして
+            計算式を見る」という自然な導線にする（2026-10-03ユーザー指定の配置）。このノード
+            自身が特殊性能の選択待ちの技（finishingSuperArtMove）の場合は、混同を避けるため
+            この欄自体を出さない（従来からの仕様） */}
+        {!finishingSuperArtMove && (
+          <AccordionSection
+            title="この後に繋ぐこともある技"
+            icon="🔀"
+            count={finishingMoveOptions.length}
+            isOpen={isFinishingMoveSectionOpen}
+            onToggle={() => setIsFinishingMoveSectionOpen((open) => !open)}
+          >
+            <div style={{ display: 'grid', gap: 10 }}>
+              <span style={styles.requiredHint}>
+                あえて使わないこともある技を、複数登録しておけます。技ごとに開いて、追加した
+                場合のダメージと、この技で締めた場合専用の評価・プラスフレーム・投げ間合い・
+                起き攻め可能を個別に登録できます
+              </span>
+
+              {finishingMoveOptions.length > 0 && (
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {finishingMoveOptions.map((option, index) => (
+                    <FinishingMoveOptionAccordion
+                      key={`${option.name}::${option.specialVariant ?? ''}::${index}`}
+                      option={option}
+                      preview={finishingMoveOptionPreviews[index]}
+                      readOnly={readOnly}
+                      onChange={(patch) => updateFinishingMoveOption(index, patch)}
+                      onRemove={() =>
+                        update({ finishingMoveOptions: finishingMoveOptions.filter((_, i) => i !== index) })
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+
+              {!readOnly &&
+                (draftFinishingMove ? (
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    <MoveNamePicker
+                      characterId={characterId ?? ''}
+                      value={draftFinishingMove.name}
+                      onChange={(name, _displayName, finishingSpecialVariant) =>
+                        setDraftFinishingMove({ name, specialVariant: finishingSpecialVariant ?? null })
+                      }
+                      precedingMoveName={ownMoveName}
+                      activeFinishingSpecialVariant={draftFinishingMove.specialVariant ?? undefined}
+                    />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        style={styles.autoCalcButton}
+                        disabled={!draftFinishingMove.name}
+                        onClick={() => {
+                          update({
+                            finishingMoveOptions: [
+                              ...finishingMoveOptions,
+                              createDefaultFinishingMoveOption(draftFinishingMove.name, draftFinishingMove.specialVariant),
+                            ],
+                          });
+                          setDraftFinishingMove(null);
+                        }}
+                      >
+                        この技を追加する
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost"
+                        style={styles.autoCalcButton}
+                        onClick={() => setDraftFinishingMove(null)}
+                      >
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={styles.formulaToggle}
+                    onClick={() => setDraftFinishingMove({ name: '', specialVariant: null })}
+                  >
+                    + 技を追加
+                  </button>
+                ))}
+            </div>
+          </AccordionSection>
+        )}
 
         {/* 経路上に技データが1件も無く計算対象が無い場合はボタン自体を出さない
             （手動でダメージ欄を確定しているかどうかは問わない） */}
@@ -464,8 +614,10 @@ export function BranchStatsEditor({
         <RatingField
           label="総合評価"
           value={stats.overallRating}
-          onChange={(next) => update({ overallRating: next })}
+          onChange={(next) => update({ overallRating: next, isOverallRatingAutoSynced: false })}
           disabled={readOnly}
+          isAutoSynced={stats.isOverallRatingAutoSynced}
+          onResetToAuto={() => update({ isOverallRatingAutoSynced: true })}
         />
       )}
 
@@ -667,52 +819,6 @@ export function BranchStatsEditor({
             >
               ジャストパリィ
             </button>
-          </div>
-        </div>
-      )}
-
-      {!finishingSuperArtMove && finishingSuperArtOptions.length > 0 && (
-        <div style={styles.fieldLabel}>
-          SAで締める
-          <span style={styles.requiredHint}>
-            この技の直後にSAへ繋いで終える場合に選びます。木にSAのノードを追加しなくても、
-            ダメージ・ゲージの自動計算に反映されます
-          </span>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => updateAndResetAutoFields({ finishingSuperArtName: null })}
-              disabled={readOnly}
-              style={{
-                ...styles.conditionButton,
-                borderColor: stats.finishingSuperArtName === null ? 'var(--accent)' : 'var(--border)',
-                background: stats.finishingSuperArtName === null ? 'var(--accent)' : 'var(--bg-elevated)',
-                color: stats.finishingSuperArtName === null ? '#fff' : 'var(--text-secondary)',
-                cursor: readOnly ? 'default' : 'pointer',
-              }}
-            >
-              使わない
-            </button>
-            {finishingSuperArtOptions.map((name) => {
-              const active = stats.finishingSuperArtName === name;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => updateAndResetAutoFields({ finishingSuperArtName: active ? null : name })}
-                  disabled={readOnly}
-                  style={{
-                    ...styles.conditionButton,
-                    borderColor: active ? 'var(--accent)' : 'var(--border)',
-                    background: active ? 'var(--accent)' : 'var(--bg-elevated)',
-                    color: active ? '#fff' : 'var(--text-secondary)',
-                    cursor: readOnly ? 'default' : 'pointer',
-                  }}
-                >
-                  {name}
-                </button>
-              );
-            })}
           </div>
         </div>
       )}
@@ -988,16 +1094,30 @@ function RatingField({
   // trueの時、総合評価より小さいボタンサイズを使う（ratingButtonCompact参照）。
   // 総合評価だけを目立たせるため、縮めるのは他の評価側という方針
   compact = false,
+  // falseの間（ユーザーが選んで固定した状態）だけ「自動計算に戻す」ボタンを出す。
+  // NumberFieldのisAutoSynced/onResetToAutoと同じ考え方（総合評価だけが対象。
+  // 他の6項目はそもそも自動計算を持たないため常にundefinedのまま渡される）
+  isAutoSynced,
+  onResetToAuto,
 }: {
   label: string;
   value: Rating5 | null;
   onChange: (next: Rating5 | null) => void;
   disabled?: boolean;
   compact?: boolean;
+  isAutoSynced?: boolean;
+  onResetToAuto?: () => void;
 }) {
   return (
     <label style={styles.fieldLabel}>
-      {label}
+      <div style={styles.fieldLabelRow}>
+        <span>{label}</span>
+        {!disabled && isAutoSynced === false && onResetToAuto && (
+          <button type="button" className="btn-ghost" style={styles.autoCalcButton} onClick={onResetToAuto}>
+            自動計算に戻す
+          </button>
+        )}
+      </div>
       <div style={{ display: 'flex', gap: 4 }}>
         {([1, 2, 3, 4, 5] as Rating5[]).map((n) => (
           <button
@@ -1018,6 +1138,160 @@ function RatingField({
         ))}
       </div>
     </label>
+  );
+}
+
+/**
+ * 「この後に繋ぐこともある技」1件ぶんの編集UI。技のように開閉できるアコーディオンにし、
+ * 開くとこの技で締めた場合専用の評価・プラスフレーム・投げ間合い・起き攻め可能を編集できる
+ * （2026-10-03ユーザー要望：締め技によって評価や終わり際の状況が変わるため、ノード自身の
+ * 評価とは独立に持たせたい。それまでは技を複数登録しても評価は1つしか持てず、どの技で
+ * 締めたかで評価を切り替えられなかった）。総合評価は、ノード本体と同じく他の6項目からの
+ * 加重平均にisOverallRatingAutoSynced（既定true）の間だけ自動追従する
+ */
+function FinishingMoveOptionAccordion({
+  option,
+  preview,
+  readOnly,
+  onChange,
+  onRemove,
+}: {
+  option: FinishingMoveOption;
+  preview?: { option: FinishingMoveOption; damage: number | null };
+  readOnly: boolean;
+  onChange: (patch: Partial<FinishingMoveOption>) => void;
+  onRemove: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const autoOverallRating = calculateWeightedOverallRating(option);
+  useEffect(() => {
+    if (readOnly) return;
+    if (!(option.isOverallRatingAutoSynced ?? true)) return;
+    if ((option.overallRating ?? null) === autoOverallRating) return;
+    onChange({ overallRating: autoOverallRating });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, option.isOverallRatingAutoSynced, option.overallRating, autoOverallRating]);
+
+  const label = option.specialVariant ? `${option.name}（${option.specialVariant}）` : option.name;
+  const filledCount =
+    [
+      option.damageRating,
+      option.dGaugeRating,
+      option.saGaugeRating,
+      option.carryRating,
+      option.okizemeRating,
+      option.difficultyRating,
+      option.overallRating,
+      option.plusFrame,
+    ].filter((value) => value !== null && value !== undefined).length +
+    [option.isThrowRange, option.canOkizeme].filter(Boolean).length;
+
+  return (
+    <AccordionSection
+      title={label}
+      icon="🔗"
+      count={filledCount}
+      isOpen={isOpen}
+      onToggle={() => setIsOpen((open) => !open)}
+      // 下の「+ 技を追加」から開くMoveNamePickerが示す技カテゴリの一覧（通常技/必殺技/SA/
+      // 共通システム）と見た目が同じだと、どちらが「既に登録済みの技」か紛らわしいとの指摘
+      // （2026-10-04ユーザー指摘）。teal系の配色にして区別する
+      accented
+    >
+      <div style={{ display: 'grid', gap: 10 }}>
+        {preview && preview.damage !== null && (
+          <p style={styles.finishingMoveRowDamage}>ダメージ: {preview.damage}</p>
+        )}
+
+        <NumberField
+          label="プラスフレーム"
+          value={option.plusFrame ?? null}
+          onChange={(next) => onChange({ plusFrame: next })}
+          readOnly={readOnly}
+        />
+
+        <label style={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={option.isThrowRange ?? false}
+            disabled={readOnly}
+            onChange={(event) => onChange({ isThrowRange: event.target.checked })}
+          />
+          投げ間合い
+        </label>
+
+        <label style={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={option.canOkizeme ?? false}
+            disabled={readOnly}
+            onChange={(event) => onChange({ canOkizeme: event.target.checked })}
+          />
+          起き攻め可能
+        </label>
+
+        <div style={styles.ratingGrid}>
+          <RatingField
+            label="ダメージ評価"
+            value={option.damageRating ?? null}
+            onChange={(next) => onChange({ damageRating: next })}
+            disabled={readOnly}
+            compact
+          />
+          <RatingField
+            label="Dゲージ評価"
+            value={option.dGaugeRating ?? null}
+            onChange={(next) => onChange({ dGaugeRating: next })}
+            disabled={readOnly}
+            compact
+          />
+          <RatingField
+            label="SAゲージ評価"
+            value={option.saGaugeRating ?? null}
+            onChange={(next) => onChange({ saGaugeRating: next })}
+            disabled={readOnly}
+            compact
+          />
+          <RatingField
+            label="運び評価"
+            value={option.carryRating ?? null}
+            onChange={(next) => onChange({ carryRating: next })}
+            disabled={readOnly}
+            compact
+          />
+          <RatingField
+            label="起き攻め内容"
+            value={option.okizemeRating ?? null}
+            onChange={(next) => onChange({ okizemeRating: next })}
+            disabled={readOnly}
+            compact
+          />
+          <RatingField
+            label="難易度"
+            value={option.difficultyRating ?? null}
+            onChange={(next) => onChange({ difficultyRating: next })}
+            disabled={readOnly}
+            compact
+          />
+        </div>
+
+        <RatingField
+          label="総合評価"
+          value={option.overallRating ?? null}
+          onChange={(next) => onChange({ overallRating: next, isOverallRatingAutoSynced: false })}
+          disabled={readOnly}
+          isAutoSynced={option.isOverallRatingAutoSynced ?? true}
+          onResetToAuto={() => onChange({ isOverallRatingAutoSynced: true })}
+        />
+
+        {!readOnly && (
+          <button type="button" className="btn-ghost" style={styles.autoCalcButton} onClick={onRemove}>
+            登録を解除する
+          </button>
+        )}
+      </div>
+    </AccordionSection>
   );
 }
 
@@ -1216,6 +1490,12 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 10.5,
     fontWeight: 400,
     color: 'var(--text-muted)',
+  },
+  // 「この後に繋ぐこともある技」のアコーディオンを開いた時に表示する、追加した場合のダメージ
+  finishingMoveRowDamage: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--accent-green-text)',
   },
   checkboxRow: {
     display: 'flex',

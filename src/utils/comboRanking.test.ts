@@ -23,6 +23,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     okizemeRating: null,
     difficultyRating: null,
     overallRating: null,
+    isOverallRatingAutoSynced: true,
     plusFrame: null,
     isThrowRange: false,
     canOkizeme: false,
@@ -32,7 +33,7 @@ function makeBranchStats(overrides: Partial<ComboBranchStats> = {}): ComboBranch
     isRushStart: false,
     usesCA: false,
     finishingSpecialVariant: null,
-    finishingSuperArtName: null,
+    finishingMoveOptions: [],
     startingMoveNames: null,
     startingMoveCancelHitIndex: null,
     ...overrides,
@@ -99,6 +100,105 @@ describe('collectComboEndingSummaries（通常の木）', () => {
     expect(summaries[0].branchStats?.damage).toBe(2500);
   });
 
+  it('finishingMoveOptionsを複数登録すると、「何も追加しない」「技Cを追加」「技SAを追加」がそれぞれ別の行としてダメージ付きで一覧に並ぶ（2026-10-03ユーザー要望）', () => {
+    const b = makeNode('b', '強P', {
+      // damage: 1200は「このノード自身で終わる」場合の自動計算値が既に保存されている状態を
+      // 模している（実際のアプリではSideDrawerPanel.tsxのuseEffectが自動で反映する。
+      // collectComboEndingSummariesはベース行を再計算せず実データをそのまま使うため）
+      branchStats: makeBranchStats({
+        damage: 1200,
+        finishingMoveOptions: [
+          { name: '強昇竜拳', specialVariant: null },
+          { name: 'SA3', specialVariant: null },
+        ],
+      }),
+    });
+    const a = makeNode('a', '中K', { children: [b] });
+    const trees = [makeTree('t1', '中K', a)];
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      [CHARACTER_ID]: {
+        '中K': makeStats([makeHit({ damage: 500 })]),
+        '強P': makeStats([makeHit({ damage: 700 })]),
+        '強昇竜拳': makeStats([makeHit({ damage: 1000 })]),
+        SA3: makeStats([makeHit({ damage: 4000, minDamageGuaranteePercent: 50 })]),
+      },
+    };
+
+    const summaries = collectComboEndingSummaries(trees, CHARACTER_ID, moveStatsDatabase, []);
+
+    // A→Bで終わる（ベース行）・A→B→強昇竜拳・A→B→SA3の3行に展開される
+    expect(summaries).toHaveLength(3);
+    expect(summaries.map((s) => s.endingLabel).sort()).toEqual(['強P', '強P → SA3', '強P → 強昇竜拳']);
+
+    const base = summaries.find((s) => s.endingLabel === '強P')!;
+    const withNormalMove = summaries.find((s) => s.endingLabel === '強P → 強昇竜拳')!;
+    const withSA = summaries.find((s) => s.endingLabel === '強P → SA3')!;
+
+    // いずれも同じ実ノード(b)を指す（ジャンプ先は共通）
+    expect([base, withNormalMove, withSA].every((s) => s.nodeId === 'b')).toBe(true);
+    // 3行とも一意なkeyを持つ
+    expect(new Set([base.key, withNormalMove.key, withSA.key]).size).toBe(3);
+
+    expect(base.branchStats?.damage).toBe(1200); // 中K:500 + 強P:700(2発目=100%)
+    expect(withNormalMove.branchStats?.damage).toBe(2000); // + 強昇竜拳:1000(3発目=80%)=800
+    expect(withSA.branchStats?.damage).toBe(4400); // + SA3:4000*0.8(保証50%以上なので自然計算)=3200
+  });
+
+  it('登録した技ごとの評価・プラスフレーム等は、ノード自身の評価とは独立して一覧に反映される（2026-10-03ユーザー要望：SA2で締めた時とSA3で締めた時で評価を切り替えたい）', () => {
+    const b = makeNode('b', '強P', {
+      branchStats: makeBranchStats({
+        damage: 1200,
+        overallRating: 2, // ノード自身（何も追加しない場合）の評価
+        plusFrame: -2,
+        isThrowRange: false,
+        finishingMoveOptions: [
+          {
+            name: 'SA3',
+            specialVariant: null,
+            damageRating: null,
+            dGaugeRating: null,
+            saGaugeRating: null,
+            carryRating: null,
+            okizemeRating: null,
+            difficultyRating: null,
+            overallRating: 5, // SA3で締めた場合専用の評価
+            isOverallRatingAutoSynced: false,
+            plusFrame: 10,
+            isThrowRange: true,
+            canOkizeme: true,
+          },
+        ],
+      }),
+    });
+    const a = makeNode('a', '中K', { children: [b] });
+    const trees = [makeTree('t1', '中K', a)];
+
+    const moveStatsDatabase: MoveStatsDatabase = {
+      [CHARACTER_ID]: {
+        '中K': makeStats([makeHit({ damage: 500 })]),
+        '強P': makeStats([makeHit({ damage: 700 })]),
+        SA3: makeStats([makeHit({ damage: 4000 })]),
+      },
+    };
+
+    const summaries = collectComboEndingSummaries(trees, CHARACTER_ID, moveStatsDatabase, []);
+    const base = summaries.find((s) => s.endingLabel === '強P')!;
+    const withSA = summaries.find((s) => s.endingLabel === '強P → SA3')!;
+
+    // ベース行（何も追加しない）はノード自身の評価のまま
+    expect(base.branchStats?.overallRating).toBe(2);
+    expect(base.branchStats?.plusFrame).toBe(-2);
+    expect(base.branchStats?.isThrowRange).toBe(false);
+
+    // SA3を追加した行は、SA3専用に登録した評価・プラスフレーム・投げ間合い・起き攻め可能が
+    // 反映され、ノード自身の値を引き継がない
+    expect(withSA.branchStats?.overallRating).toBe(5);
+    expect(withSA.branchStats?.plusFrame).toBe(10);
+    expect(withSA.branchStats?.isThrowRange).toBe(true);
+    expect(withSA.branchStats?.canOkizeme).toBe(true);
+  });
+
   it('分岐している場合は分岐ごとに別の終端として拾う', () => {
     const leafA = makeNode('leafA', '強昇竜拳');
     const leafB = makeNode('leafB', '地上強波掌');
@@ -131,6 +231,19 @@ describe('collectComboEndingSummaries（通常の木）', () => {
     expect(summaries).toEqual([
       expect.objectContaining({ nodeId: 'root', starterLabel: '2中K', pathLabel: '' }),
     ]);
+  });
+
+  it('finishingMoveOptions追加前の形式のまま保存されたbranchStats（ショーケース/旧データ、フィールド自体が存在しない）でもクラッシュせず、ベース行だけを返す', () => {
+    const { finishingMoveOptions: _omit, ...legacyBranchStatsFields } = { ...makeBranchStats(), damage: 1000 };
+    const legacyBranchStats = legacyBranchStatsFields as ComboBranchStats;
+    const leaf = makeNode('leaf', '強昇竜拳', { branchStats: legacyBranchStats });
+    const root = makeNode('root', '2中K', { children: [leaf] });
+    const trees = [makeTree('t1', '2中K', root)];
+
+    const summaries = collectComboEndingSummaries(trees, CHARACTER_ID, EMPTY_STATS_DATABASE, []);
+
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].branchStats?.damage).toBe(1000);
   });
 });
 
@@ -203,9 +316,12 @@ describe('collectComboEndingSummaries（汎用コンボ: rootがstartingMoveOpti
     expect(weakP.branchStats?.isFavorite).toBe(false);
   });
 
-  it('finishingSuperArtNameのような「このendingがどう終わるか」の設定は、選ばれていない候補の行の計算にも反映される', () => {
+  it('finishingMoveOptionsを登録すると、始動技候補ごとに「その技を追加した場合」の行が別途展開される（選ばれていない候補でも計算される）', () => {
     const leaf = makeNode('leaf', '中P', {
-      branchStats: makeBranchStats({ startingMoveNames: ['弱K'], finishingSuperArtName: 'SA3' }),
+      branchStats: makeBranchStats({
+        startingMoveNames: ['弱K'],
+        finishingMoveOptions: [{ name: 'SA3', specialVariant: null }],
+      }),
     });
     const genericRoot = makeNode('root', '中攻撃', {
       startingMoveOptions: [['弱P'], ['弱K']],
@@ -223,11 +339,17 @@ describe('collectComboEndingSummaries（汎用コンボ: rootがstartingMoveOpti
     };
 
     const summaries = collectComboEndingSummaries(trees, CHARACTER_ID, moveStatsDatabase, []);
-    const weakP = summaries.find((s) => s.starterLabel === '弱P')!;
 
-    // 選ばれていない「弱P」側の行でも、SA3で締める分のダメージが計算に含まれている
-    // （finishingSuperArtNameは「このendingの終わり方」であり、始動技には依存しないため）
-    expect(weakP.branchStats?.damage).toBeGreaterThan(1300); // SA3抜きなら1300のはず
+    // ベース行（何も追加しない＝このノード自身で終わる）は、SA3を含まないダメージのまま
+    const weakPBase = summaries.find((s) => s.starterLabel === '弱P' && s.endingLabel === '中P')!;
+    expect(weakPBase.branchStats?.damage).toBe(1300);
+
+    // SA3を追加した行は別途展開され、選ばれていない始動技候補（弱P）でも計算される
+    // （登録した技は「このendingの終わり方」であり、始動技には依存しないため）
+    const weakPWithSA3 = summaries.find((s) => s.starterLabel === '弱P' && s.endingLabel === '中P → SA3')!;
+    expect(weakPWithSA3.branchStats?.damage).toBeGreaterThan(1300);
+    const weakKWithSA3 = summaries.find((s) => s.starterLabel === '弱K' && s.endingLabel === '中P → SA3')!;
+    expect(weakKWithSA3.branchStats?.damage).toBeGreaterThan(1350);
   });
 
   it('まだ始動技が選ばれていなくても、候補それぞれの行が計算済みで表示される（未選択でも参考値が見える）', () => {

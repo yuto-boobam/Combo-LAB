@@ -11,9 +11,9 @@ import { buildParentMap, findNode } from '../../lib/tree';
 import type {
   ComboBranchStats,
   ComboTree,
+  FinishingMoveOption,
   MoveDefinition,
   MoveNode,
-  MoveStats,
   MoveStatsDatabase,
   MoveStrength,
   NodeAttribute,
@@ -620,8 +620,29 @@ function countFilledBranchStats(stats: ComboBranchStats | null): number {
     stats.isRushStart,
     stats.usesCA,
     stats.finishingSpecialVariant !== null,
-    stats.finishingSuperArtName !== null,
+    (stats.finishingMoveOptions?.length ?? 0) > 0,
   ].filter(Boolean).length;
+}
+
+/**
+ * ノードのbranchStats.finishingMoveOptions（登録済みの「この後に繋ぐこともある技」）
+ * それぞれについて、その技を追加した場合のダメージを計算して返す。BranchStatsEditor.tsxが
+ * 登録済みの技の横に「ダメージ: N」を表示するために使う（2026-10-03ユーザー要望：
+ * A→Bで終わる／A→B→C／A→B→SAのように分岐しうる終わり方それぞれのダメージを
+ * 確認できるようにしたい）
+ */
+function buildFinishingMoveOptionPreviews(
+  characterId: string,
+  moveStatsDatabase: MoveStatsDatabase,
+  moveList: MoveDefinition[],
+  root: MoveNode,
+  targetNodeId: string,
+  options: FinishingMoveOption[],
+): { option: FinishingMoveOption; damage: number | null }[] {
+  return options.map((option) => ({
+    option,
+    damage: calculateBranchDamage(characterId, moveStatsDatabase, moveList, root, targetNodeId, option),
+  }));
 }
 
 // 必殺技(special)の技名は`${強度接頭辞}${素の技名}`の形でノードに確定する
@@ -662,26 +683,6 @@ function findFinishingSuperArtMove(
   }
   return null;
 }
-
-// 「SAで締める」の選択肢に出す、特殊性能なしの単純なSAの名前一覧。特殊性能ありのSAは
-// findFinishingSuperArtMove側の仕組み（このノード自身がそのSAである場合）で扱うため対象外。
-// さらに、このノードで実際に使っている技（moveStats、MoveStatsPage側で登録）が
-// cancelableSuperArtNamesで許可しているSAだけに絞り込む（技によってキャンセル先は異なるため）
-function findFinishingSuperArtOptions(
-  moveList: MoveDefinition[],
-  moveStats: MoveStats | undefined,
-): string[] {
-  const cancelable = new Set(moveStats?.cancelableSuperArtNames ?? []);
-  // CA（クリティカルアーツ）はSA3と同じ技のキャンセル可否になるため、技データ登録画面では
-  // SA3用のボタン1つだけで済ませている（cancelableSuperArtOptionsからCAを除外済み。
-  // MoveStatsPage.tsx参照）。ここでSA3が対象ならCAも対象に加えて補う
-  if (cancelable.has('SA3')) cancelable.add('CA');
-
-  return moveList
-    .filter((move) => move.category === 'superArt' && !move.hasSpecialVariant && cancelable.has(move.name))
-    .map((move) => move.name);
-}
-
 
 // 汎用コンボの始動技（この枝で選択済みのbranchStats.startingMoveNamesチェーンの最後の技、
 // ＝続きに直接つながる技）が複数ヒット技の場合に、「何段目でキャンセルしたか」を選ばせる
@@ -750,10 +751,17 @@ function ReadOnlyNodeView({
           .filter((segment): segment is DamageBreakdown => segment !== null)
       : [];
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
-  const finishingSuperArtOptions = findFinishingSuperArtOptions(
-    moveList,
-    moveStatsDatabase[characterId]?.[selectedNode.moveName],
-  );
+  const finishingMoveOptionPreviews =
+    root && showStats
+      ? buildFinishingMoveOptionPreviews(
+          characterId,
+          moveStatsDatabase,
+          moveList,
+          root,
+          selectedNode.id,
+          selectedNode.branchStats?.finishingMoveOptions ?? [],
+        )
+      : [];
   const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
   const effectiveUsesOD =
     odConstraint === 'odOnly' ? true : odConstraint === 'normalOnly' ? false : (selectedNode.usesOD ?? false);
@@ -777,10 +785,12 @@ function ReadOnlyNodeView({
             value={selectedNode.branchStats}
             onChange={() => {}}
             readOnly
+            characterId={characterId}
+            ownMoveName={selectedNode.moveName}
             requiredStartHitCondition={requiredStartHitCondition}
             priorComboSegments={priorComboSegments}
             finishingSuperArtMove={finishingSuperArtMove}
-            finishingSuperArtOptions={finishingSuperArtOptions}
+            finishingMoveOptionPreviews={finishingMoveOptionPreviews}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
               nodeId: node.id,
               label: node.displayName ?? node.moveName,
@@ -1119,9 +1129,13 @@ function NodeEditor({
     .filter((segment): segment is DamageBreakdown => segment !== null);
   const requiredStartHitCondition = calculateRequiredStartHitCondition(root, selectedNode.id);
   const finishingSuperArtMove = findFinishingSuperArtMove(moveList, selectedNode.moveName);
-  const finishingSuperArtOptions = findFinishingSuperArtOptions(
+  const finishingMoveOptionPreviews = buildFinishingMoveOptionPreviews(
+    characterId,
+    moveStatsDatabase,
     moveList,
-    moveStatsDatabase[characterId]?.[selectedNode.moveName],
+    root,
+    selectedNode.id,
+    selectedNode.branchStats?.finishingMoveOptions ?? [],
   );
   const odConstraint = calculateOdLevelConstraint(selectedNode, moveList);
   const usesOD = selectedNode.usesOD ?? false;
@@ -1251,6 +1265,8 @@ function NodeEditor({
           <BranchStatsEditor
             value={selectedNode.branchStats}
             onChange={(next) => setNodeBranchStats(characterId, treeId, selectedNode.id, next)}
+            characterId={characterId}
+            ownMoveName={selectedNode.moveName}
             requiredStartHitCondition={requiredStartHitCondition}
             damageBreakdown={damageBreakdown}
             priorComboSegments={priorComboSegments}
@@ -1266,7 +1282,7 @@ function NodeEditor({
             // （2026-08-27ユーザー指定）
             showFormulaExplanation={characterId === TUTORIAL_CHARACTER_ID}
             finishingSuperArtMove={finishingSuperArtMove}
-            finishingSuperArtOptions={finishingSuperArtOptions}
+            finishingMoveOptionPreviews={finishingMoveOptionPreviews}
             odUsagesOnPath={odNodesOnPath.map(({ node, constraint }) => ({
               nodeId: node.id,
               label: node.displayName ?? node.moveName,

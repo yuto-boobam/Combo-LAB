@@ -9,6 +9,7 @@ import type {
   Character,
   ComboBranchStats,
   ComboTree,
+  FinishingMoveOption,
   MoveCategory,
   MoveDefinition,
   MoveHitStats,
@@ -35,6 +36,7 @@ import { findNodeInComboTrees } from './utils/comboTreeSearch';
 import { collectChain, findMatchingChains } from './utils/chainMatch';
 import { RUSH_HIGHLIGHT_MOVE_NAMES } from './utils/nodeVisualStyle';
 import { markGuestTutorialSeen, clearGuestTutorialSeen } from './utils/guestTutorialSession';
+import { createDefaultFinishingMoveOption } from './utils/branchStatsDefaults';
 
 /**
  * 保存済みキャラデータを現行スキーマに合わせて補完する（読み込み時の移行措置）。
@@ -105,15 +107,33 @@ function migrateComboBranchStats(stats: ComboBranchStats): ComboBranchStats {
     isOpponentDGaugeChipAutoSynced?: boolean;
     isDGaugeChangeAutoSynced?: boolean;
     isSaGaugeGainAutoSynced?: boolean;
+    // 2026-10-03に単一のfinishingSuperArtName/finishingMoveSpecialVariant(文字列)から
+    // finishingMoveOptions(配列)へ変更した際の移行措置。旧フィールドのまま保存された
+    // データを読み込んでも、登録済みの技が消えて見えないようにする
+    finishingSuperArtName?: string | null;
+    finishingMoveSpecialVariant?: string | null;
+    finishingMoveOptions?: FinishingMoveOption[];
   };
   const startingMoveNames = Array.isArray(legacy.startingMoveNames)
     ? stats.startingMoveNames
     : legacy.startingMoveName
       ? [legacy.startingMoveName]
       : null;
+  const rawFinishingMoveOptions = Array.isArray(legacy.finishingMoveOptions)
+    ? legacy.finishingMoveOptions
+    : legacy.finishingSuperArtName
+      ? [{ name: legacy.finishingSuperArtName, specialVariant: legacy.finishingMoveSpecialVariant ?? null }]
+      : [];
+  // 2026-10-03に技ごとの評価・記録項目（damageRating等）を追加する前の形式（name/specialVariant
+  // だけを持つ）のまま保存されたデータも、各項目を未入力のデフォルト値で補ってから使う
+  const finishingMoveOptions = rawFinishingMoveOptions.map((option) => ({
+    ...createDefaultFinishingMoveOption(option.name, option.specialVariant ?? null),
+    ...option,
+  }));
   return {
     ...stats,
     startingMoveNames,
+    finishingMoveOptions,
     isDamageAutoSynced:
       typeof legacy.isDamageAutoSynced === 'boolean' ? legacy.isDamageAutoSynced : stats.damage === null,
     isOpponentDGaugeChipAutoSynced:

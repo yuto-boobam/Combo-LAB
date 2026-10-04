@@ -1074,6 +1074,7 @@ describe('一致箇所への一括反映機能', () => {
       okizemeRating: null,
       difficultyRating: null,
       overallRating: null,
+      isOverallRatingAutoSynced: true,
       plusFrame: null,
       isThrowRange: false,
       canOkizeme: false,
@@ -1083,7 +1084,7 @@ describe('一致箇所への一括反映機能', () => {
       isRushStart: false,
       usesCA: false,
       finishingSpecialVariant: null,
-      finishingSuperArtName: null,
+      finishingMoveOptions: [],
       startingMoveNames: null,
       startingMoveCancelHitIndex: null,
     });

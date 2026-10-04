@@ -7,6 +7,7 @@
 import type {
   BranchStartHitCondition,
   ComboBranchStats,
+  FinishingMoveOption,
   MoveDefinition,
   MoveHitStats,
   MoveNode,
@@ -15,6 +16,14 @@ import type {
 } from '../types';
 import { calculateDamageScalingPath, type DamageHitInput } from './damageModifierCalc';
 import { parseStarterMoveToken } from './starterMoveOptions';
+
+/**
+ * withFinishingMove・各calculateBranch*関数が「どの技を合成するか」の指定に使う最小限の形
+ * （技名＋特殊性能だけ）。FinishingMoveOption自体は技ごとの評価・記録項目も持つが、経路計算は
+ * 技データベースを引くための技名さえ分かればよいため、それらは不要（呼び出し側は
+ * FinishingMoveOptionをそのまま渡せる。構造的に部分型として扱える）
+ */
+type FinishingMoveSelection = Pick<FinishingMoveOption, 'name' | 'specialVariant'>;
 
 function findPathToNode(root: MoveNode, targetId: string): MoveNode[] | null {
   if (root.id === targetId) return [root];
@@ -80,8 +89,8 @@ export function calculateRequiredStartHitCondition(
   targetNodeId: string,
 ): BranchStartHitCondition | null {
   // 汎用コンボ（root.startingMoveOptions）の場合、末端で選んだ始動技（括弧の条件指定含む）を
-  // 反映した解決済みの経路で判定する必要がある。resolvePathはwithFinishingSuperArtも
-  // 適用するが、SAの合成ノードは属性を持たない（withFinishingSuperArt参照）ため、
+  // 反映した解決済みの経路で判定する必要がある。resolvePathはwithFinishingMoveも
+  // 適用するが、合成ノードは属性を持たない（withFinishingMove参照）ため、
   // 通常の木の判定結果には影響しない
   const rawPath = findPathToNode(root, targetNodeId);
   const path = resolvePath(rawPath);
@@ -107,34 +116,44 @@ function effectiveStartHitCondition(
 }
 
 /**
- * 末端ノードのbranchStats.finishingSuperArtNameが設定されている場合、経路の最後に
- * そのSAぶんの合成ノードを1つ追加した配列を返す（実データには一切手を入れない）。
- * SAの直前の技でコンボを終えることも多いが、その場合でも木にSAのノードを追加しなくて
- * 済むよう、末端ノードの「コンボの情報」欄からSAを選べるようにする機能で使う
- * （src/components/combo/BranchStatsEditor.tsx参照）。
+ * 末端ノードのbranchStats.finishingMoveOptionsに登録された技（あえて使わないことも多い
+ * 「この後に繋ぐこともある技」。木にノードを追加せず複数登録できる）のうち、呼び出し側が
+ * 指定した1件（finishingMove）を経路の最後に合成ノードとして1つ追加した配列を返す
+ * （実データには一切手を入れない）。finishingMoveがnull（何も追加しない＝このノード自身で
+ * 終わる）ならそのまま返す。この技の直前でコンボを終えることも多いが、その場合でも木に
+ * ノードを追加しなくて済むよう、末端ノードの「コンボの情報」欄から選べるようにする機能で使う
+ * （src/components/combo/BranchStatsEditor.tsx参照）。どの技を合成するかは呼び出し側
+ * （src/components/combo/SideDrawerPanel.tsx・src/utils/comboRanking.ts）が
+ * finishingMoveOptionsの中から明示的に選んで渡す（このノード自身の自動計算欄＝
+ * damage等は常にnullを渡し「何も追加しない」基準で計算する）。
  *
- * 合成ノードのbranchStatsは元の末端ノードのものをそのまま共有する。始動条件
- * (startHitCondition等)やincludesEarlyDGaugeRecoveryは「この枝全体」の設定であり、
- * SAを合成した後も末端ノードとして扱われる側（配列の最後）から読まれるため、これに
- * よって各calc関数側の特別な分岐が不要になる
+ * 合成ノードのbranchStatsは元の末端ノードのものをベースにするが、finishingSpecialVariant
+ * だけはfinishingMove.specialVariantに差し替える。素のfinishingSpecialVariantは
+ * 「末端ノード自身」の特殊性能を表すため、そのまま共有すると合成ノード（＝末端ノードとは
+ * 別の技）の特殊性能と混同してしまうため（例: 末端ノード自身もLv違いの技で、かつその後に
+ * 続ける技も別のLv違いの技、というケースを区別できるようにする）。
+ * 始動条件(startHitCondition等)やincludesEarlyDGaugeRecoveryは「この枝全体」の設定であり、
+ * 合成後も末端ノードとして扱われる側（配列の最後）から読まれるため、これによって各calc
+ * 関数側の特別な分岐が不要になる
  */
-function withFinishingSuperArt(path: MoveNode[]): MoveNode[] {
+function withFinishingMove(path: MoveNode[], finishingMove: FinishingMoveSelection | null): MoveNode[] {
+  if (!finishingMove) return path;
   const targetNode = path[path.length - 1];
-  const finishingSuperArtName = targetNode.branchStats?.finishingSuperArtName;
-  if (!finishingSuperArtName) return path;
 
-  const superArtNode: MoveNode = {
-    id: `${targetNode.id}__finishingSuperArt`,
-    moveName: finishingSuperArtName,
+  const finishingNode: MoveNode = {
+    id: `${targetNode.id}__finishingMove`,
+    moveName: finishingMove.name,
     attributes: [],
     specialNote: '',
-    branchStats: targetNode.branchStats,
+    branchStats: targetNode.branchStats
+      ? { ...targetNode.branchStats, finishingSpecialVariant: finishingMove.specialVariant }
+      : null,
     createdBy: targetNode.createdBy,
     createdAt: targetNode.createdAt,
     children: [],
   };
 
-  return [...path, superArtNode];
+  return [...path, finishingNode];
 }
 
 /**
@@ -190,16 +209,22 @@ function resolveStartingMove(path: MoveNode[]): MoveNode[] | null {
 }
 
 /**
- * findPathToNodeで得た経路に、withFinishingSuperArt・resolveStartingMoveの両方を適用する。
+ * findPathToNodeで得た経路に、resolveStartingMove・withFinishingMoveの両方を適用する。
  * ダメージ・Dゲージ・SAゲージの各計算関数で共通して使う前処理（詳細は各関数の呼び出し
  * 箇所参照）。resolveStartingMoveがnullを返した場合（汎用コンボの始動技が未選択）は
- * そのままnullを伝播し、計算全体を未入力扱いにする
+ * そのままnullを伝播し、計算全体を未入力扱いにする。
+ * finishingMove省略時（null）は「何も追加しない＝このノード自身で終わる」基準で計算する
+ * （末端ノードの自動計算欄=damage等はこの基準値。finishingMoveOptionsに登録した各技を
+ * 追加した場合の値は、呼び出し側がfinishingMoveを明示的に指定して個別に求める）
  */
-function resolvePath(rawPath: MoveNode[] | null): MoveNode[] | null {
+function resolvePath(
+  rawPath: MoveNode[] | null,
+  finishingMove: FinishingMoveSelection | null = null,
+): MoveNode[] | null {
   if (!rawPath) return null;
   const resolved = resolveStartingMove(rawPath);
   if (!resolved) return null;
-  return withFinishingSuperArt(resolved);
+  return withFinishingMove(resolved, finishingMove);
 }
 
 /**
@@ -419,9 +444,10 @@ export function calculateBranchSaGaugeChange(
   moveStatsDatabase: MoveStatsDatabase,
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): number | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
+  const path = resolvePath(rawPath, finishingMove);
   if (!path) return null;
 
   const steps = buildSaGaugeSteps(characterId, moveStatsDatabase, path);
@@ -439,9 +465,10 @@ export function calculateBranchSaGaugeBreakdown(
   moveStatsDatabase: MoveStatsDatabase,
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): { steps: GaugeStep[]; total: number } | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
+  const path = resolvePath(rawPath, finishingMove);
   if (!path) return null;
 
   const steps = buildSaGaugeSteps(characterId, moveStatsDatabase, path);
@@ -470,9 +497,10 @@ export function calculateBranchOpponentDGaugeChip(
   moveList: MoveDefinition[],
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): number | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
+  const path = resolvePath(rawPath, finishingMove);
   if (!path) return null;
 
   const characterStats = moveStatsDatabase[characterId];
@@ -635,9 +663,10 @@ export function calculateBranchDGaugeChange(
   moveList: MoveDefinition[],
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): number | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
+  const path = resolvePath(rawPath, finishingMove);
   if (!path) return null;
 
   const built = buildDGaugeContributions(characterId, moveStatsDatabase, moveList, path);
@@ -663,9 +692,10 @@ export function calculateBranchDGaugeBreakdown(
   moveList: MoveDefinition[],
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): { steps: GaugeStep[]; total: number; totalExcludingEarlyRecovery: number } | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
+  const path = resolvePath(rawPath, finishingMove);
   if (!path) return null;
 
   const built = buildDGaugeContributions(characterId, moveStatsDatabase, moveList, path);
@@ -704,9 +734,10 @@ export function calculateBranchDGaugeMinimumRequired(
   moveList: MoveDefinition[],
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): number | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
+  const path = resolvePath(rawPath, finishingMove);
   if (!path) return null;
 
   const built = buildDGaugeContributions(characterId, moveStatsDatabase, moveList, path);
@@ -951,9 +982,10 @@ export function calculateBranchDamageBreakdown(
   moveList: MoveDefinition[],
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): DamageBreakdown | null {
   const rawPath = findPathToNode(root, targetNodeId);
-  const path = resolvePath(rawPath);
+  const path = resolvePath(rawPath, finishingMove);
   if (!path) return null;
 
   const segments = splitPathIntoComboSegments(path);
@@ -972,9 +1004,10 @@ export function calculateBranchDamage(
   moveList: MoveDefinition[],
   root: MoveNode,
   targetNodeId: string,
+  finishingMove: FinishingMoveSelection | null = null,
 ): number | null {
   return (
-    calculateBranchDamageBreakdown(characterId, moveStatsDatabase, moveList, root, targetNodeId)
+    calculateBranchDamageBreakdown(characterId, moveStatsDatabase, moveList, root, targetNodeId, finishingMove)
       ?.total ?? null
   );
 }

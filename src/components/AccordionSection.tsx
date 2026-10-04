@@ -24,6 +24,12 @@ type AccordionSectionProps = {
   // top:0を奪い合って重なってしまうため、呼び出し側が「入れ子されない・単独の見出し」
   // だと分かっている時だけ明示的に指定する（既定はfalseで従来通り）
   sticky?: boolean;
+  // trueの間、枠線・背景・件数バッジをteal系の配色にする。同じ画面に並ぶ他のAccordionSection
+  // （選べる候補の一覧等）と見た目を区別したい時に使う（例: BranchStatsEditor.tsxの
+  // 「この後に繋ぐこともある技」で、既に登録済みの技を、追加用のMoveNamePickerが示す
+  // 技カテゴリの一覧と混同しないようにする。2026-10-04ユーザー指摘：両者が同じ見た目で
+  // 紛らわしかった）
+  accented?: boolean;
 };
 
 export default function AccordionSection({
@@ -35,9 +41,10 @@ export default function AccordionSection({
   children,
   highlight = false,
   sticky = false,
+  accented = false,
 }: AccordionSectionProps) {
   return (
-    <section style={styles.section}>
+    <section style={{ ...styles.section, ...(accented ? styles.sectionAccented : {}) }}>
       <button
         type="button"
         style={{
@@ -45,6 +52,7 @@ export default function AccordionSection({
           borderRadius: isOpen ? '13px 13px 0 0' : 13,
           ...(sticky ? { position: 'sticky', top: 0, zIndex: 1 } : {}),
           ...(highlight ? { animation: 'tutorialGuidePulse 1.6s ease-in-out infinite' } : {}),
+          ...(accented ? styles.sectionHeaderAccented : {}),
         }}
         onClick={onToggle}
       >
@@ -58,7 +66,7 @@ export default function AccordionSection({
         </span>
 
         <span style={styles.sectionRight}>
-          <span style={styles.countBadge}>{count}</span>
+          <span style={{ ...styles.countBadge, ...(accented ? styles.countBadgeAccented : {}) }}>{count}</span>
           <span
             style={{
               ...styles.chevron,
@@ -70,7 +78,7 @@ export default function AccordionSection({
         </span>
       </button>
 
-      {isOpen && <div style={styles.sectionBody}>{children}</div>}
+      {isOpen && <div style={{ ...styles.sectionBody, ...(accented ? styles.sectionBodyAccented : {}) }}>{children}</div>}
     </section>
   );
 }
@@ -84,6 +92,11 @@ const styles: Record<string, CSSProperties> = {
     // 高さの計算がずれて中身が押しつぶされる不具合が起きた（入れ子のAccordionSection、
     // 特にMoveNamePickerのような6重入れ子構成で顕著）。角丸のクリップはヘッダー側の
     // border-radiusを合わせることで実現し、overflow:hiddenそのものを排除する。
+  },
+
+  // accented時、中立な配色（var(--border)・var(--bg-elevated)）からteal系に差し替える
+  sectionAccented: {
+    border: '1px solid var(--accent-teal-border)',
   },
 
   sectionHeader: {
@@ -106,6 +119,10 @@ const styles: Record<string, CSSProperties> = {
     padding: '9px 11px',
     minHeight: 40,
     cursor: 'pointer',
+  },
+
+  sectionHeaderAccented: {
+    background: 'var(--accent-teal-bg)',
   },
 
   sectionTitle: {
@@ -139,6 +156,11 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 900,
   },
 
+  countBadgeAccented: {
+    background: 'var(--accent-teal-bg)',
+    color: 'var(--accent-teal-text)',
+  },
+
   // 開閉で別の文字（⌃/⌄）に差し替えると字形の重心が微妙にずれて位置が上下して見えるため、
   // 同じ文字を180度回転させるだけにする（BranchStatsEditor.tsxの「計算式」ボタンと同じ考え方）
   chevron: {
@@ -153,5 +175,9 @@ const styles: Record<string, CSSProperties> = {
 
   sectionBody: {
     padding: 10,
+  },
+
+  sectionBodyAccented: {
+    background: 'var(--accent-teal-bg)',
   },
 };
